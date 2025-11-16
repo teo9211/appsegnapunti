@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archery Tracker - Il Tuo Diario di Tiro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #fdb927;
+        }
+        .app-container {
+            min-height: 100vh;
+        }
+        .btn-primary {
+            background-color: #fdb927;
+            color: #1a1a1a;
+            font-weight: 800;
+            transition: transform 0.1s;
+        }
+        .btn-primary:hover {
+            background-color: #e5a400;
+            transform: scale(1.02);
+        }
+        .input-style {
+            background-color: #2c2c2c;
+            border: 1px solid #4a4a4a;
+            color: #fdb927;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            width: 100%;
+        }
+        .score-grid th, .score-grid td {
+            border: 1px solid #4a4a4a;
+            padding: 0.3rem 0.1rem;
+            text-align: center;
+            font-size: 0.8rem;
+            line-height: 1;
+        }
+        .score-grid th {
+            background-color: #2c2c2c;
+            color: #fdb927;
+            font-weight: 600;
+        }
+        .grid-wrapper {
+            overflow-x: auto;
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'background-dark': '#1a1a1a',
+                        'primary-orange': '#fdb927',
+                        'secondary-dark': '#2c2c2c',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background-dark text-primary-orange">
+
+    <div id="app" class="app-container p-4 max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold tracking-tight text-white">Archery Tracker</h1>
+            <p class="text-sm mt-1 text-primary-orange">Il tuo diario di allenamenti e gare</p>
+            <div id="user-info" class="mt-2 text-sm text-white"></div>
+        </header>
+
+        <div id="content-view"></div>
+
+        <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div id="modal-content" class="bg-secondary-dark p-6 rounded-xl shadow-2xl max-w-sm w-full border-2 border-primary-orange">
+                <h3 id="modal-title" class="text-2xl font-bold mb-4 text-white">Titolo</h3>
+                <p id="modal-body" class="mb-6 text-sm"></p>
+                <div id="modal-actions" class="flex justify-end space-x-3"></div>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+    // Nuovo App ID per la collezione artifacts
+    const appId = 'appsegnapunti'; 
+    
+    // La tua nuova configurazione Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyCeCB6X7RzwCPoUE7xZcH-vFQpfqYAIAsk",
+        authDomain: "appsegnapunti.firebaseapp.com",
+        projectId: "appsegnapunti",
+        storageBucket: "appsegnapunti.firebasestorage.app",
+        messagingSenderId: "44781964428",
+        appId: "1:44781964428:web:ff8fb6d9595e2224637fa9"
+    };
+    
+    let app, db, auth;
+    let userId = null;
+    let chartInstance = null;
+
+    setLogLevel('debug');
+
+    document.getElementById('content-view').innerHTML = `
+        <div class="text-center p-8">
+            <p class="text-2xl text-white">Caricamento in corso...</p>
+            <p class="text-sm text-primary-orange mt-2">Inizializzazione Firebase</p>
+        </div>
+    `;
+
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            try {
+                if (user) {
+                    userId = user.uid;
+                    console.log('Autenticazione Firebase riuscita. User ID:', userId);
+                } else {
+                    console.log('Accesso anonimo a Firebase.');
+                    const anonUser = await signInAnonymously(auth);
+                    userId = anonUser.user.uid;
+                }
+                window.initializeApp(db, userId);
+            } catch (error) {
+                console.error("Errore autenticazione:", error);
+                document.getElementById('content-view').innerHTML = `
+                    <div class="text-center p-8">
+                        <p class="text-2xl text-red-500">Errore di Autenticazione</p>
+                        <p class="text-sm text-white mt-2">${error.message}</p>
+                        <button class="btn-primary mt-4 px-6 py-2 rounded-lg" onclick="location.reload()">Riprova</button>
+                    </div>
+                `;
+            }
+        });
+
+    } catch (e) {
+        console.error("Errore inizializzazione Firebase:", e);
+        document.getElementById('content-view').innerHTML = `
+            <div class="text-center p-8">
+                <p class="text-2xl text-red-500">Errore di Inizializzazione</p>
+                <p class="text-sm text-white mt-2">${e.message}</p>
+                <button class="btn-primary mt-4 px-6 py-2 rounded-lg" onclick="location.reload()">Riprova</button>
+            </div>
+        `;
+    }
+
+    window.initializeApp = (db, firebaseUserId) => {
+        if (!firebaseUserId) return;
+
+        const appState = {
+            view: 'login',
+            loggedInArcher: null, // Oggetto arciere loggato {id, nome, password}
+            sessionType: null,
+            currentSession: null,
+            currentTurn: 1,
+            sessionData: [],
+            detailedSession: null,
+            scoringGrid: null,
+            firebaseUserId: firebaseUserId,
+        };
+
+        const scoringState = {
+            rows: 0,
+            cols: 3,
+            format: null,
+            activeCell: { row: 1, col: 1 },
+            startTime: null,
+        };
+
+        const TIPO_TARGA_OPTIONS = ['40', '60', '80', '120', 'Tripla', 'Tripla Vegas', 'Field', '3D', 'Altro'];
+        const DISTANZA_OPTIONS = ['18mt', '25mt', '40mt', '50mt', '60mt', '70mt'];
+        const TIPO_LUOGO_OPTIONS = ['Indoor', 'Outdoor'];
+        const FORMATO_GARA_OPTIONS = ['30 frecce (3x10)', '36 frecce (6x6)', '72 frecce (6x12)'];
+        const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', 'M', 'CANC'];
+
+        // Riferimenti collezioni Firebase
+        window.getArchersCollectionRef = () => {
+            return collection(db, `artifacts/${appId}/archers`);
+        };
+
+        window.getSessionsCollectionRef = () => {
+            if (!appState.loggedInArcher) return null;
+            return collection(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions`);
+        };
+
+        // ============= FUNZIONI UTILITY =============
+        
+        function pad(num) {
+            return num < 10 ? '0' + num : num;
+        }
+
+        function getFormattedTime(date) {
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        }
+
+        function durationToString(minutes) {
+            if (!minutes) return 'N/A';
+            const h = Math.floor(minutes / 60);
+            const m = Math.round(minutes % 60);
+            return `${h} ore e ${m} min`;
+        }
+
+        function getScoreValue(value) {
+            if (value === 'X') return 10;
+            if (value === 'M' || value === 'm') return 0;
+            return parseInt(value) || 0;
+        }
+
+        function calculateVolley(volleyScores, cumulativeTotal) {
+            let parziale = 0;
+            let xCount = 0;
+            let tenCount = 0;
+            let nineCount = 0;
+
+            for (const score of volleyScores) {
+                const val = getScoreValue(score);
+                parziale += val;
+
+                if (score === 'X') {
+                    xCount++;
+                } else if (val === 10 && score === '10') {
+                    tenCount++;
+                } else if (val === 9) {
+                    nineCount++;
+                }
+            }
+
+            return {
+                scores: volleyScores,
+                parziale: parziale,
+                totale: cumulativeTotal + parziale,
+                X10: `${xCount}-${tenCount}`,
+                nine: nineCount,
+                x: xCount,
+                ten: tenCount,
+            };
+        }
+
+        function calculateTurnScores(grid) {
+            let cumulativeTotal = 0;
+            let totalX = 0;
+            let totalTen = 0;
+            let totalNine = 0;
+            let totalShots = 0;
+
+            const results = [];
+
+            for (let i = 0; i < grid.length; i++) {
+                const volleyScores = grid[i].filter(s => s !== '' && s !== undefined);
+                
+                if (volleyScores.length > 0) {
+                    const volleyResult = calculateVolley(volleyScores, cumulativeTotal);
+                    
+                    cumulativeTotal = volleyResult.totale;
+                    totalX += volleyResult.x;
+                    totalTen += volleyResult.ten;
+                    totalNine += volleyResult.nine;
+                    totalShots += volleyScores.length;
+
+                    results.push({
+                        volley: i + 1,
+                        ...volleyResult
+                    });
+                }
+            }
+
+            const totalScore = cumulativeTotal;
+            const totalFrecce = scoringState.rows * scoringState.cols;
+            const maxScore = totalFrecce * 10;
+            const average = totalShots > 0 ? (totalScore / totalShots) : 0;
+            
+            return {
+                score: totalScore,
+                X: totalX,
+                Ten: totalTen,
+                Nine: totalNine,
+                average: average,
+                frecceTirate: totalShots,
+                maxScore: maxScore,
+                volleys: results,
+            };
+        }
+
+        function showModal(title, body, actions = []) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = body;
+            
+            const actionsContainer = document.getElementById('modal-actions');
+            actionsContainer.innerHTML = '';
+            actions.forEach(action => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary px-4 py-2 rounded-lg font-semibold';
+                btn.textContent = action.text;
+                btn.onclick = () => {
+                    action.handler();
+                    closeModal();
+                };
+                actionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function updateUserInfo() {
+            const userInfoDiv = document.getElementById('user-info');
+            if (appState.loggedInArcher) {
+                userInfoDiv.innerHTML = `
+                    Loggato come: <strong>${appState.loggedInArcher.nome}</strong> | 
+                    <button class="text-primary-orange underline" onclick="window.logout()">Logout</button>
+                `;
+            } else {
+                userInfoDiv.innerHTML = '';
+            }
+        }
+
+        window.logout = () => {
+            appState.loggedInArcher = null;
+            appState.currentSession = null;
+            appState.sessionData = [];
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+            window.setView('login');
+        };
+
+        // ============= GESTIONE VISTE =============
+
+        window.setView = (viewName, data = {}) => {
+            appState.view = viewName;
+            document.getElementById('content-view').innerHTML = '';
+            closeModal();
+
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+
+            updateUserInfo();
+
+            switch (viewName) {
+                case 'login':
+                    renderLogin();
+                    break;
+                case 'register':
+                    renderRegister();
+                    break;
+                case 'mainMenu':
+                    renderMainMenu();
+                    break;
+                case 'registrationForm':
+                    renderRegistrationForm(data.type);
+                    break;
+                case 'scoring':
+                    initializeScoringGrid();
+                    renderScoringView();
+                    break;
+                case 'dataSummary':
+                    fetchSessions();
+                    renderDataSummary();
+                    break;
+                case 'detailedSummary':
+                    const sessionToView = appState.sessionData.find(s => 
+                        String(s.id) === String(data.sessionId)
+                    );
+                    
+                    if (!sessionToView) {
+                        console.error("Sessione non trovata:", data.sessionId);
+                        window.setView('dataSummary');
+                        return; 
+                    }
+                    
+                    appState.detailedSession = sessionToView;
+                    renderDetailedSummary();
+                    break;
+                case 'charts':
+                    renderChartsView();
+                    break;
+            }
+        };
+
+        // ============= LOGIN E REGISTRAZIONE =============
+
+        function renderLogin() {
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Login</h2>
+                    <form id="loginForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
+                            <input type="text" id="login-nome" class="input-style" required placeholder="Inserisci il tuo nome">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" id="login-password" class="input-style" required placeholder="Inserisci la password">
+                        </div>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
+                        <div class="text-center mt-4">
+                            <p class="text-sm text-white">Non hai un account?</p>
+                            <button type="button" class="text-primary-orange underline mt-2" onclick="window.setView('register')">Registrati qui</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const nome = document.getElementById('login-nome').value.trim();
+                const password = document.getElementById('login-password').value;
+
+                try {
+                    const archersRef = window.getArchersCollectionRef();
+                    const q = query(archersRef, where('nome', '==', nome));
+                    const querySnapshot = await getDocs(q);
+
+                    if (querySnapshot.empty) {
+                        showModal("Errore", "Arciere non trovato. Verifica il nome o registrati.", [
+                            { text: "Ok", handler: () => {} }
+                        ]);
+                        return;
+                    }
+
+                    let archerFound = null;
+                    querySnapshot.forEach((doc) => {
+                        const archerData = doc.data();
+                        if (archerData.password === password) {
+                            archerFound = { id: doc.id, ...archerData };
+                        }
+                    });
+
+                    if (archerFound) {
+                        appState.loggedInArcher = archerFound;
+                        console.log('Login effettuato:', archerFound);
+                        window.setView('mainMenu');
+                    } else {
+                        showModal("Errore", "Password errata.", [
+                            { text: "Ok", handler: () => {} }
+                        ]);
+                    }
+
+                } catch (error) {
+                    console.error("Errore durante il login:", error);
+                    showModal("Errore", "Si è verificato un errore. Riprova.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        }
+
+        function renderRegister() {
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione</h2>
+                    <form id="registerForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
+                            <input type="text" id="register-nome" class="input-style" required placeholder="Scegli un nome">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Conferma Password</label>
+                            <input type="password" id="register-password-confirm" class="input-style" required placeholder="Conferma la password">
+                        </div>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Registrati</button>
+                        <div class="text-center mt-4">
+                            <button type="button" class="text-primary-orange underline" onclick="window.setView('login')">Torna al Login</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+
+            document.getElementById('registerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const nome = document.getElementById('register-nome').value.trim();
+                const password = document.getElementById('register-password').value;
+                const passwordConfirm = document.getElementById('register-password-confirm').value;
+
+                if (password !== passwordConfirm) {
+                    showModal("Errore", "Le password non coincidono.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+
+                if (nome.length < 3) {
+                    showModal("Errore", "Il nome deve essere di almeno 3 caratteri.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+
+                if (password.length < 4) {
+                    showModal("Errore", "La password deve essere di almeno 4 caratteri.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+
+                try {
+                    const archersRef = window.getArchersCollectionRef();
+                    const q = query(archersRef, where('nome', '==', nome));
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        showModal("Errore", "Questo nome arciere è già in uso. Scegline un altro.", [
+                            { text: "Ok", handler: () => {} }
+                        ]);
+                        return;
+                    }
+
+                    const newArcher = {
+                        nome: nome,
+                        password: password,
+                        createdAt: serverTimestamp()
+                    };
+
+                    const docRef = await addDoc(archersRef, newArcher);
+                    console.log("Arciere registrato con ID:", docRef.id);
+
+                    showModal("Successo", "Registrazione completata! Ora puoi effettuare il login.", [
+                        { text: "Ok", handler: () => window.setView('login') }
+                    ]);
+
+                } catch (error) {
+                    console.error("Errore durante la registrazione:", error);
+                    showModal("Errore", "Si è verificato un errore. Riprova.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        }
+
+        // ============= MENU PRINCIPALE =============
+
+        function renderMainMenu() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            const html = `
+                <div class="text-center space-y-4">
+                    <h2 class="text-2xl font-bold mb-6 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">Allenamento</button>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Gara' })">Gara</button>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">Riepilogo Dati</button>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('charts')">Grafici Andamento</button>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+        }
+
+        // ============= FORM REGISTRAZIONE SESSIONE =============
+
+        function renderRegistrationForm(type) {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            appState.sessionType = type;
+            scoringState.startTime = getFormattedTime(new Date());
+
+            const session = appState.currentSession || {};
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+            const formFields = [
+                { id: 'data', label: 'Data', type: 'date', required: true, value: session.data || today },
+                { id: 'ora', label: 'Ora', type: 'time', required: true, value: session.startTime || defaultTime },
+                { id: 'luogo', label: 'Luogo', type: 'text', required: true, value: session.luogo || '', placeholder: 'Nome Luogo' },
+                { id: 'tipoLuogo', label: 'Tipo Luogo', type: 'select', options: TIPO_LUOGO_OPTIONS, required: true, value: session.tipoLuogo || '' },
+                { id: 'distanza', label: 'Distanza', type: 'select', options: DISTANZA_OPTIONS, required: true, value: session.distanza || '' },
+                { id: 'tipoTarga', label: 'Tipo Targa', type: 'select', options: TIPO_TARGA_OPTIONS, required: true, value: session.tipoTarga || '' },
+                { id: 'formatoGara', label: 'Formato Freccia', type: 'select', options: FORMATO_GARA_OPTIONS, required: true, value: session.formatoGara || '' },
+                { id: 'note', label: 'Note', type: 'textarea', required: false, value: session.notes || '', placeholder: 'Dettagli aggiuntivi...' },
+            ];
+
+            const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">${type}</h2>
+                <form id="registrationForm" class="space-y-4">
+                    ${formFields.map(field => `
+                        <div>
+                            <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
+                            ${field.type === 'select' ? `
+                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required ? 'required' : ''}>
+                                    <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
+                                    ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                                </select>
+                            ` : field.type === 'textarea' ? `
+                                <textarea id="${field.id}" name="${field.id}" class="input-style h-20" placeholder="${field.placeholder}" ${field.required ? 'required' : ''}>${field.value}</textarea>
+                            ` : `
+                                <input type="${field.type}" id="${field.id}" name="${field.id}" class="input-style" value="${field.value}" placeholder="${field.placeholder || ''}" ${field.required ? 'required' : ''}>
+                            `}
+                        </div>
+                    `).join('')}
+
+                    <div class="mt-8 flex flex-col space-y-3">
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Inizia Primo Turno</button>
+                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">Torna Indietro</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+
+            document.getElementById('registrationForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const session = Object.fromEntries(formData.entries());
+                session.type = appState.sessionType;
+                session.arciere = appState.loggedInArcher.nome;
+                session.archerId = appState.loggedInArcher.id;
+                session.startTime = scoringState.startTime;
+                session.id = Date.now();
+                appState.currentSession = session;
+
+                window.setView('scoring');
+            });
+        }
+
+        // ============= GRIGLIA PUNTEGGIO =============
+
+        function initializeScoringGrid() {
+            const format = appState.currentSession.formatoGara;
+
+            if (format.includes('3x10')) {
+                scoringState.rows = 10;
+                scoringState.cols = 3;
+                scoringState.format = '3x10';
+            } else if (format.includes('6x6')) {
+                scoringState.rows = 6;
+                scoringState.cols = 6;
+                scoringState.format = '6x6';
+            } else if (format.includes('6x12')) {
+                scoringState.rows = 12;
+                scoringState.cols = 6;
+                scoringState.format = '6x12';
+            }
+
+            const turnKey = `turn${appState.currentTurn}`;
+            if (!appState.currentSession[turnKey] || !appState.currentSession[turnKey].grid) {
+                const grid = Array(scoringState.rows).fill(null).map(() => Array(scoringState.cols).fill(''));
+                appState.currentSession[turnKey] = { grid: grid, summary: null };
+            }
+            
+            appState.scoringGrid = appState.currentSession[turnKey].grid;
+            scoringState.activeCell = { row: 1, col: 1 };
+        }
+
+        window.handleCellClick = (row, col) => {
+            scoringState.activeCell = { row, col };
+            renderScoringView();
+        };
+
+        window.handleKeypadInput = (value) => {
+            const { row, col } = scoringState.activeCell;
+            const rowIndex = row - 1;
+            const colIndex = col - 1;
+
+            if (rowIndex < 0 || rowIndex >= scoringState.rows) return;
+            
+            if (value === 'CANC') {
+                if (appState.scoringGrid[rowIndex][colIndex] !== '') {
+                    appState.scoringGrid[rowIndex][colIndex] = '';
+                } else {
+                    let newCol = colIndex - 1;
+                    let newRow = rowIndex;
+                    if (newCol < 0) {
+                        newRow = rowIndex - 1;
+                        newCol = scoringState.cols - 1;
+                    }
+                    if (newRow >= 0) {
+                        scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
+                    }
+                    appState.scoringGrid[rowIndex][colIndex] = '';
+                }
+            } else {
+                const scoreValue = (value === '10' ? '10' : value).toUpperCase();
+                appState.scoringGrid[rowIndex][colIndex] = scoreValue;
+
+                let newCol = colIndex + 1;
+                let newRow = rowIndex;
+
+                if (newCol >= scoringState.cols) {
+                    newCol = 0;
+                    newRow = rowIndex + 1;
+                }
+
+                if (newRow < scoringState.rows) {
+                    scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
+                } else {
+                    scoringState.activeCell = { row: scoringState.rows, col: scoringState.cols };
+                }
+            }
+            renderScoringView();
+        };
+
+        function renderScoringView() {
+            const session = appState.currentSession;
+            const format = scoringState.format;
+            
+            let cumulativeTotalForView = 0;
+
+            const gridData = appState.scoringGrid.map((row) => {
+                const volleyResult = calculateVolley(row, cumulativeTotalForView);
+                cumulativeTotalForView = volleyResult.totale; 
+                return volleyResult;
+            });
+
+            const tableHtml = `
+                <div class="grid-wrapper">
+                    <table id="scoreTable" class="score-grid w-full table-fixed min-w-[500px] border-collapse">
+                        <thead>
+                            <tr class="text-xs sm:text-sm">
+                                <th class="w-[10%]">Volèe</th>
+                                ${Array(scoringState.cols).fill(0).map((_, i) => `<th class="w-[8%]">${i + 1}</th>`).join('')}
+                                <th class="w-[10%]">Parz.</th>
+                                <th class="w-[10%]">Tot.</th>
+                                <th class="w-[12%]">X-10</th>
+                                <th class="w-[8%]">9</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${Array(scoringState.rows).fill(0).map((_, i) => {
+                                const row = gridData[i];
+                                const volleyNum = i + 1;
+                                const isComplete = appState.scoringGrid[i].every(s => s !== '' && s !== undefined);
+                                
+                                return `
+                                    <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} text-xs sm:text-base ${isComplete ? 'text-white' : 'text-primary-orange'}">
+                                        <td class="font-bold">${volleyNum}</td>
+                                        ${Array(scoringState.cols).fill(0).map((_, colIndex) => {
+                                            const isActive = scoringState.activeCell.row === volleyNum && scoringState.activeCell.col === colIndex + 1;
+                                            const score = appState.scoringGrid[i][colIndex];
+                                            return `
+                                                <td class="score-cell ${isActive ? 'bg-primary-orange text-black font-extrabold shadow-inner' : ''}" 
+                                                    onclick="window.handleCellClick(${volleyNum}, ${colIndex + 1})">
+                                                    ${score || ''}
+                                                </td>
+                                            `;
+                                        }).join('')}
+                                        <td class="font-bold text-white">${row.parziale || ''}</td>
+                                        <td class="font-bold text-white">${row.totale || ''}</td>
+                                        <td>${row.X10 || ''}</td>
+                                        <td>${row.nine || ''}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                            ${(() => {
+                                const totalResults = calculateTurnScores(appState.scoringGrid);
+                                return `
+                                    <tr class="bg-primary-orange text-black font-extrabold text-xs sm:text-base">
+                                        <td colspan="${1 + scoringState.cols + 1}" class="text-right pr-4">Totale Turno</td>
+                                        <td class="font-extrabold">${totalResults.score}</td>
+                                        <td>${totalResults.X}-${totalResults.Ten}</td> 
+                                        <td>${totalResults.Nine}</td>
+                                    </tr>
+                                `;
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            const keypadHtml = `
+                <div class="mt-6">
+                    <h3 class="text-xl font-bold mb-3 text-white">Tastierino Punteggi</h3>
+                    <div class="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-7">
+                        ${KEYPAD_VALUES.map(val => `
+                            <button class="bg-secondary-dark border-2 border-primary-orange text-white p-3 rounded-xl text-xl font-bold hover:bg-primary-orange hover:text-black"
+                                    onclick="window.handleKeypadInput('${val}')">
+                                ${val}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            const sessionType = appState.sessionType;
+            const actionsHtml = `
+                <div class="mt-8 flex flex-col space-y-3">
+                    ${(appState.currentTurn === 2 && format !== '6x12') || (format === '6x12' && appState.currentTurn === 1) ? `
+                        <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.saveTurn(true)">
+                            Fine ${sessionType} (Salva Risultati)
+                        </button>
+                    ` : `
+                        <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.saveTurn(false)">
+                            Salva Turno
+                        </button>
+                    `}
+                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('registrationForm', { type: '${sessionType}' })">
+                        Torna Indietro
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-4 text-white">${session.type} - Turno ${appState.currentTurn}</h2>
+                <p class="text-sm mb-4">Distanza: ${session.distanza} | Formato: ${session.formatoGara}</p>
+                ${tableHtml}
+                ${keypadHtml}
+                ${actionsHtml}
+            `;
+        }
+
+        window.saveTurn = (isFinal) => {
+            const turnKey = `turn${appState.currentTurn}`;
+            const turnResults = calculateTurnScores(appState.scoringGrid);
+
+            if (turnResults.frecceTirate !== (scoringState.rows * scoringState.cols)) {
+                showModal("Turno Incompleto", "Non tutte le volèe hanno frecce. Salvare comunque?", [
+                    { text: "Annulla", handler: () => {} },
+                    { text: "Salva", handler: () => confirmSave(isFinal, turnKey, turnResults) }
+                ]);
+            } else {
+                confirmSave(isFinal, turnKey, turnResults);
+            }
+        };
+        
+        function confirmSave(isFinal, turnKey, turnResults) {
+            appState.currentSession[turnKey].summary = turnResults;
+            
+            let modalBody = `
+                <p class="text-lg font-bold mb-3 text-white">Riepilogo Turno ${appState.currentTurn}</p>
+                <ul class="space-y-1 text-sm">
+                    <li><strong>Punteggio:</strong> <span class="text-primary-orange font-bold">${turnResults.score}</span> / ${turnResults.maxScore}</li>
+                    <li><strong>Media:</strong> <span class="text-primary-orange font-bold">${turnResults.average.toFixed(2)}</span></li>
+                    <li><strong>X:</strong> ${turnResults.X} | <strong>10:</strong> ${turnResults.Ten} | <strong>9:</strong> ${turnResults.Nine}</li>
+                </ul>
+            `;
+
+            let actions = [];
+            const format = appState.currentSession.formatoGara;
+
+            if (isFinal) {
+                const endTime = new Date();
+                appState.currentSession.endTime = getFormattedTime(endTime);
+                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                
+                saveSessionToFirestore();
+                
+                modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                actions.push({ text: "Torna al Menu", handler: () => window.setView('mainMenu') });
+            } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
+                actions.push({ text: "Secondo Turno", handler: () => startNextTurn() });
+                actions.push({ text: "Fine (Salva)", handler: () => window.saveTurn(true) });
+            } else {
+                const endTime = new Date();
+                appState.currentSession.endTime = getFormattedTime(endTime);
+                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                saveSessionToFirestore();
+                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                actions.push({ text: "Menu", handler: () => window.setView('mainMenu') });
+            }
+            
+            showModal("Turno Salvato!", modalBody, actions);
+        }
+
+        function startNextTurn() {
+            if (appState.currentTurn === 1) {
+                appState.currentTurn = 2;
+            }
+            window.setView('scoring');
+        }
+
+        function calculateDuration(startTimeStr, endTimeStr) {
+            const date = new Date().toISOString().split('T')[0];
+            const start = new Date(`${date}T${startTimeStr}`);
+            const end = new Date(`${date}T${endTimeStr}`);
+            
+            if (end < start) {
+                end.setDate(end.getDate() + 1);
+            }
+            
+            const diffMs = end - start;
+            return Math.round(diffMs / (1000 * 60));
+        }
+
+        function prepareTurnData(turn) {
+            if (!turn || !turn.grid) return null;
+            const serializedGrid = turn.grid.map(row => JSON.stringify(row));
+            return {
+                summary: turn.summary,
+                grid: serializedGrid
+            };
+        }
+
+        async function saveSessionToFirestore() {
+            try {
+                const session = appState.currentSession;
+                const results = calculateTotalSessionResults(session);
+
+                const turn1Data = prepareTurnData(session.turn1);
+                const turn2Data = session.turn2 ? prepareTurnData(session.turn2) : null;
+                
+                const finalSessionData = {
+                    ...session,
+                    ...results,
+                    timestamp: serverTimestamp(),
+                    archerId: appState.loggedInArcher.id,
+                    arciere: appState.loggedInArcher.nome,
+                    turn1: turn1Data,
+                    turn2: turn2Data,
+                };
+
+                const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
+                console.log("Sessione salvata con ID:", docRef.id);
+                
+                appState.currentSession = null;
+                appState.currentTurn = 1;
+
+            } catch (e) {
+                console.error("Errore salvataggio:", e);
+                showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
+            }
+        }
+
+        function calculateTotalSessionResults(session) {
+            const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+            const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+            
+            const totalScore = turn1Summary.score + turn2Summary.score;
+            const totalShots = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
+
+            return {
+                totalScore: totalScore,
+                totalX: turn1Summary.X + turn2Summary.X,
+                totalTen: turn1Summary.Ten + turn2Summary.Ten,
+                totalNine: turn1Summary.Nine + turn2Summary.Nine,
+                totalAverage: totalShots > 0 ? (totalScore / totalShots) : 0,
+                turn1Score: turn1Summary.score,
+                turn1Average: turn1Summary.average,
+                turn2Score: turn2Summary.score,
+                turn2Average: turn2Summary.average, 
+            };
+        }
+
+        // ============= RIEPILOGO DATI =============
+
+        let unsubscribeSnapshot = null;
+        let filterState = {
+            distanza: '',
+            tipoTarga: '',
+            type: '',
+        };
+
+        function fetchSessions() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+            
+            const sessionsColRef = window.getSessionsCollectionRef();
+            if (!sessionsColRef) {
+                console.error("Riferimento collezione non disponibile.");
+                return;
+            }
+
+            let q = query(sessionsColRef);
+            
+            if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
+            if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
+            if (filterState.type) q = query(q, where('type', '==', filterState.type));
+
+            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+                const sessions = [];
+                querySnapshot.forEach((doc) => {
+                    sessions.push({ id: doc.id, ...doc.data() });
+                });
+                
+                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+                appState.sessionData = sessions;
+                renderDataSummaryTable();
+            }, (error) => {
+                console.error("Errore onSnapshot:", error);
+            });
+        }
+
+        window.handleFilterChange = (field, value) => {
+            filterState[field] = value;
+            fetchSessions();
+        };
+
+        function renderDataSummary() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            const filtersHtml = `
+                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
+                        <option value="">Tutti i Tipi</option>
+                        <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
+                        <option value="Gara" ${filterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
+                        <option value="">Tutte le Distanze</option>
+                        ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
+                        <option value="">Tutte le Targhe</option>
+                        ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', '');">Reset</button>
+                </div>
+            `;
+
+            const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
+
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
+                ${filtersHtml}
+                ${tableContainer}
+                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu
+                </button>
+            `;
+
+            renderDataSummaryTable();
+        }
+
+        function renderDataSummaryTable() {
+            const tableContainer = document.getElementById('dataSummaryTable');
+            if (!tableContainer) return;
+
+            const tableHtml = `
+                <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
+                    <thead>
+                        <tr class="text-xs sm:text-sm">
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Tot.</th>
+                            <th>T1</th>
+                            <th>T2</th>
+                            <th>X</th>
+                            <th>10</th>
+                            <th>9</th>
+                            <th>Luogo</th>
+                            <th>Distanza</th>
+                            <th>Targa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${appState.sessionData.length === 0 ? `
+                            <tr><td colspan="11" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
+                        ` : appState.sessionData.map(session => `
+                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                <td class="font-bold text-primary-orange">${session.data || 'N/D'}</td>
+                                <td>${session.type}</td>
+                                <td class="font-extrabold text-white">${session.totalScore || 0}</td>
+                                <td>${session.turn1Score || 0}</td>
+                                <td>${session.turn2Score || 0}</td>
+                                <td>${session.totalX || 0}</td>
+                                <td>${session.totalTen || 0}</td>
+                                <td>${session.totalNine || 0}</td>
+                                <td>${session.luogo}</td>
+                                <td>${session.distanza}</td>
+                                <td>${session.tipoTarga}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableContainer.innerHTML = tableHtml;
+        }
+
+        // ============= RIEPILOGO DETTAGLIATO =============
+
+        function renderDetailedSummary() {
+            const session = appState.detailedSession;
+            if (!session) {
+                window.setView('dataSummary');
+                return;
+            }
+            
+            const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
+
+            const html = `
+                <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${session.data || 'N/D'}</h2>
+                <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
+
+                <div class="space-y-6">
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                        <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
+                            <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo})</div>
+                            <div><strong>Punteggio:</strong> <span class="text-white font-extrabold">${session.totalScore}</span></div>
+                            <div><strong>Media:</strong> <span class="text-white font-extrabold">${session.totalAverage.toFixed(2)}</span></div>
+                        </div>
+                        <div class="mt-3 p-2 bg-gray-800 rounded-lg">
+                            <strong>X-10/9:</strong> 
+                            <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${renderTurnSummaryCard(session.turn1, 'Primo Turno')}
+                        ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
+                    </div>
+
+                    <h3 class="text-2xl font-bold mb-3 mt-8 text-white">Segnapunti Dettagliato</h3>
+                    ${renderDetailedScoreGrid(session.turn1, 'Primo Turno')}
+                    ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
+                </div>
+
+                <button class="btn-primary w-full p-3 rounded-lg mt-8" onclick="window.setView('dataSummary')">
+                    Torna al Riepilogo
+                </button>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+        }
+
+        function renderTurnSummaryCard(turn, title) {
+            const summary = turn.summary;
+            if (!summary) return '';
+            return `
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                    <h4 class="text-xl font-bold mb-2 text-white">${title}</h4>
+                    <ul class="space-y-1 text-sm">
+                        <li><strong>Punteggio:</strong> <span class="text-white font-extrabold">${summary.score}</span> / ${summary.maxScore}</li>
+                        <li><strong>Media:</strong> ${summary.average.toFixed(2)}</li>
+                        <li><strong>X-10/9:</strong> <span class="text-white font-extrabold">${summary.X}-${summary.Ten}</span>, 9: ${summary.Nine}</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function deserializeGrid(turn) {
+            if (!turn || !turn.grid || turn.grid.length === 0) return [];
+            return turn.grid.map(rowStr => JSON.parse(rowStr));
+        }
+
+        function renderDetailedScoreGrid(turn, title) {
+            const grid2D = deserializeGrid(turn); 
+            
+            let cumulativeTotalForView = 0;
+            const volleys = grid2D.map(row => {
+                const volleyResult = calculateVolley(row, cumulativeTotalForView);
+                cumulativeTotalForView = volleyResult.totale; 
+                return volleyResult;
+            });
+
+            if (!volleys || volleys.length === 0) return '';
+            
+            const numCols = volleys[0].scores.length;
+
+            const tableHtml = `
+                <div class="mt-4">
+                    <h4 class="text-lg font-bold mb-2 text-primary-orange">${title}</h4>
+                    <div class="grid-wrapper">
+                        <table class="score-grid w-full table-auto min-w-[500px] border-collapse">
+                            <thead>
+                                <tr class="text-xs sm:text-sm">
+                                    <th class="w-[10%]">Volèe</th>
+                                    ${Array(numCols).fill(0).map((_, i) => `<th class="w-[8%]">${i + 1}</th>`).join('')}
+                                    <th class="w-[10%]">Parz.</th>
+                                    <th class="w-[10%]">Tot.</th>
+                                    <th class="w-[12%]">X-10</th>
+                                    <th class="w-[8%]">9</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${volleys.map((row, i) => `
+                                    <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} hover:bg-gray-700 text-xs sm:text-sm">
+                                        <td class="font-bold">${i + 1}</td>
+                                        ${row.scores.map(score => `<td>${score || ''}</td>`).join('')}
+                                        <td class="font-bold text-white">${row.parziale}</td>
+                                        <td class="font-bold text-white">${row.totale}</td>
+                                        <td>${row.X10}</td>
+                                        <td>${row.nine}</td>
+                                    </tr>
+                                `).join('')}
+                                <tr class="bg-primary-orange text-black font-extrabold text-xs sm:text-sm">
+                                    <td colspan="${1 + numCols + 1}" class="text-right pr-4">Totale</td>
+                                    <td>${turn.summary.score}</td>
+                                    <td>${turn.summary.X}-${turn.summary.Ten}</td>
+                                    <td>${turn.summary.Nine}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            return tableHtml;
+        }
+
+        // ============= GRAFICI =============
+
+        function renderChartsView() {
+            const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        <select id="chart-filter-type" class="input-style text-sm">
+                            <option value="all">Tutti i Tipi</option>
+                            <option value="allenamento">Allenamento</option>
+                            <option value="gara">Gara</option>
+                        </select>
+                        <select id="chart-filter-distance" class="input-style text-sm">
+                            <option value="all">Tutte le Distanze</option>
+                            ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-target" class="input-style text-sm">
+                            <option value="all">Tutte le Targhe</option>
+                            ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-archer" class="input-style text-sm">
+                            <option value="all">Tutti gli Arcieri</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
+                    <canvas id="sessionsChart"></canvas>
+                </div>
+                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu Principale
+                </button>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            // Carica le sessioni e inizializza i grafici
+            loadChartsData();
+        }
+
+        function loadChartsData() {
+            const sessionsColRef = window.getSessionsCollectionRef();
+            if (!sessionsColRef) {
+                console.error("Riferimento collezione non disponibile.");
+                return;
+            }
+
+            const q = query(sessionsColRef);
+            
+            getDocs(q).then((querySnapshot) => {
+                const sessions = [];
+                querySnapshot.forEach((doc) => {
+                    sessions.push({ id: doc.id, ...doc.data() });
+                });
+                
+                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+                appState.sessionData = sessions;
+                
+                setupChartFilters();
+                drawSessionsChart();
+            }).catch((error) => {
+                console.error("Errore nel caricamento dei dati:", error);
+            });
+        }
+
+        function setupChartFilters() {
+            const archerSelect = document.getElementById('chart-filter-archer');
+            
+            if (!appState.sessionData || appState.sessionData.length === 0) {
+                archerSelect.innerHTML = '<option value="all">Nessun Arciere (Nessun Dato)</option>';
+                return;
+            }
+
+            const archers = [...new Set(appState.sessionData.map(s => s.arciere))].sort();
+            
+            archerSelect.innerHTML = '<option value="all">Tutti gli Arcieri</option>' + 
+                                     archers.map(name => `<option value="${name}">${name}</option>`).join('');
+                                     
+            ['chart-filter-archer', 'chart-filter-type', 'chart-filter-target', 'chart-filter-distance'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', drawSessionsChart);
+                }
+            });
+        }
+
+        function drawSessionsChart() {
+            const ctx = document.getElementById('sessionsChart');
+            if (!ctx) return;
+            
+            const context = ctx.getContext('2d');
+            
+            const archerFilter = document.getElementById('chart-filter-archer').value;
+            const typeFilter = document.getElementById('chart-filter-type').value;
+            const targetFilter = document.getElementById('chart-filter-target').value;
+            const distanceFilter = document.getElementById('chart-filter-distance').value;
+
+            let filteredData = appState.sessionData.filter(session => {
+                const sType = (session.type || '').toLowerCase();
+                const sTargetType = (session.tipoTarga || '');
+                const sDistance = (session.distanza || '');
+                
+                const matchesArcher = archerFilter === 'all' || session.arciere === archerFilter;
+                const matchesType = typeFilter === 'all' || sType === typeFilter;
+                const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
+                const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
+                
+                return matchesArcher && matchesType && matchesTarget && matchesDistance;
+            });
+
+            filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            const labels = filteredData.map(s => {
+                const dateParts = s.data.split('-');
+                const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0].substring(2)}`;
+                const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
+                return `${formattedDate}${sessionType}`;
+            });
+            
+            const dataPoints = filteredData.map(s => s.totalScore); 
+
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: 'Punteggio Totale Sessione',
+                    data: dataPoints,
+                    backgroundColor: 'rgba(253, 185, 39, 0.5)', 
+                    borderColor: 'rgb(253, 185, 39)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: 'rgb(253, 185, 39)'
+                }]
+            };
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            if (dataPoints.length === 0) {
+                context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+                context.font = '20px Inter, sans-serif';
+                context.fillStyle = '#fdb927';
+                context.textAlign = 'center';
+                context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
+                return;
+            }
+
+            chartInstance = new Chart(context, {
+                type: 'line', 
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Punteggio Totale',
+                                color: '#fdb927'
+                            },
+                            grid: {
+                                color: 'rgba(74, 74, 74, 0.5)'
+                            },
+                            ticks: {
+                                color: '#fdb927'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(74, 74, 74, 0.5)'
+                            },
+                            ticks: {
+                                color: '#fdb927',
+                                autoSkip: true, 
+                                maxRotation: 45,
+                                minRotation: 45 
+                            },
+                            title: {
+                                display: true,
+                                text: 'Sessioni (in ordine cronologico)',
+                                color: '#fdb927'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fdb927'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    return `Sessione: ${tooltipItems[0].label}`;
+                                },
+                                label: function(context) {
+                                    return `Punteggio: ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Inizializza l'applicazione al caricamento dell'autenticazione
+        window.setView('login');
+    };
+</script>
+</body>
+</html>
