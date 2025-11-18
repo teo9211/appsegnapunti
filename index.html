@@ -90,10 +90,13 @@
 <script type="module">
     // Import the functions you need from the SDKs you need
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
     import { setLogLevel } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
+    // Password Master
+    const MASTER_PASSWORD = "mecca";
+    
     // Nuovo App ID per la collezione artifacts
     const appId = 'appsegnapunti'; 
     
@@ -130,12 +133,13 @@
                 if (user) {
                     userId = user.uid;
                     console.log('Autenticazione Firebase riuscita. User ID:', userId);
+                    window.initializeApp(db, userId, auth);
                 } else {
-                    console.log('Accesso anonimo a Firebase.');
+                    console.log('Accesso anonimo a Firebase per visualizzare lista utenti.');
                     const anonUser = await signInAnonymously(auth);
                     userId = anonUser.user.uid;
+                    window.initializeApp(db, userId, auth);
                 }
-                window.initializeApp(db, userId);
             } catch (error) {
                 console.error("Errore autenticazione:", error);
                 document.getElementById('content-view').innerHTML = `
@@ -159,9 +163,7 @@
         `;
     }
 
-    window.initializeApp = (db, firebaseUserId) => {
-        if (!firebaseUserId) return;
-
+    window.initializeApp = (db, firebaseUserId, authInstance) => {
         const appState = {
             view: 'login',
             loggedInArcher: null, // Oggetto arciere loggato {id, nome, password}
@@ -172,6 +174,8 @@
             detailedSession: null,
             scoringGrid: null,
             firebaseUserId: firebaseUserId,
+            auth: authInstance,
+            allArchers: [], // Lista di tutti gli arcieri registrati
         };
 
         const scoringState = {
@@ -332,14 +336,21 @@
             }
         }
 
-        window.logout = () => {
-            appState.loggedInArcher = null;
-            appState.currentSession = null;
-            appState.sessionData = [];
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot();
+        window.logout = async () => {
+            try {
+                appState.loggedInArcher = null;
+                appState.currentSession = null;
+                appState.sessionData = [];
+                if (unsubscribeSnapshot) {
+                    unsubscribeSnapshot();
+                }
+                window.setView('login');
+            } catch (error) {
+                console.error("Errore durante il logout:", error);
+                showModal("Errore", "Impossibile effettuare il logout.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
             }
-            window.setView('login');
         };
 
         // ============= GESTIONE VISTE =============
@@ -398,77 +409,113 @@
 
         // ============= LOGIN E REGISTRAZIONE =============
 
+        async function loadAllArchers() {
+            try {
+                const archersRef = window.getArchersCollectionRef();
+                const querySnapshot = await getDocs(archersRef);
+                
+                appState.allArchers = [];
+                querySnapshot.forEach((doc) => {
+                    appState.allArchers.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Ordina alfabeticamente per nome
+                appState.allArchers.sort((a, b) => a.nome.localeCompare(b.nome));
+                
+                console.log('Caricati', appState.allArchers.length, 'arcieri');
+            } catch (error) {
+                console.error("Errore caricamento arcieri:", error);
+            }
+        }
+
         function renderLogin() {
+            // Carica tutti gli arcieri
+            loadAllArchers().then(() => {
+                const html = `
+                    <div class="max-w-2xl mx-auto">
+                        <h2 class="text-3xl font-bold mb-6 text-white text-center">Seleziona il tuo Profilo</h2>
+                        
+                        ${appState.allArchers.length > 0 ? `
+                            <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                                <h3 class="text-xl font-bold mb-4 text-primary-orange">Arcieri Registrati</h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                                    ${appState.allArchers.map(archer => `
+                                        <button class="bg-gray-800 hover:bg-gray-700 p-4 rounded-lg text-left border-2 border-transparent hover:border-primary-orange transition-all"
+                                                onclick="window.selectArcher('${archer.id}')">
+                                            <div class="font-bold text-white text-lg">${archer.nome}</div>
+                                            <div class="text-sm text-primary-orange mt-1">Clicca per accedere</div>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6 text-center">
+                                <p class="text-white">Nessun arciere registrato ancora.</p>
+                            </div>
+                        `}
+                        
+                        <div class="bg-secondary-dark p-6 rounded-xl shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-primary-orange">Nuovo Arciere?</h3>
+                            <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.setView('register')">
+                                Registra Nuovo Arciere
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('content-view').innerHTML = html;
+            });
+        }
+
+        window.selectArcher = (archerId) => {
+            const archer = appState.allArchers.find(a => a.id === archerId);
+            if (!archer) return;
+            
             const html = `
                 <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Login</h2>
-                    <form id="loginForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
-                            <input type="text" id="login-nome" class="input-style" required placeholder="Inserisci il tuo nome">
-                        </div>
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
+                        ← Torna alla lista
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
+                    <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
+                    
+                    <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
                         <div>
                             <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" id="login-password" class="input-style" required placeholder="Inserisci la password">
+                            <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
                         </div>
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
-                        <div class="text-center mt-4">
-                            <p class="text-sm text-white">Non hai un account?</p>
-                            <button type="button" class="text-primary-orange underline mt-2" onclick="window.setView('register')">Registrati qui</button>
-                        </div>
                     </form>
                 </div>
             `;
             document.getElementById('content-view').innerHTML = html;
-
-            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            
+            document.getElementById('passwordForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                const nome = document.getElementById('login-nome').value.trim();
-                const password = document.getElementById('login-password').value;
-
-                try {
-                    const archersRef = window.getArchersCollectionRef();
-                    const q = query(archersRef, where('nome', '==', nome));
-                    const querySnapshot = await getDocs(q);
-
-                    if (querySnapshot.empty) {
-                        showModal("Errore", "Arciere non trovato. Verifica il nome o registrati.", [
-                            { text: "Ok", handler: () => {} }
-                        ]);
-                        return;
-                    }
-
-                    let archerFound = null;
-                    querySnapshot.forEach((doc) => {
-                        const archerData = doc.data();
-                        if (archerData.password === password) {
-                            archerFound = { id: doc.id, ...archerData };
-                        }
-                    });
-
-                    if (archerFound) {
-                        appState.loggedInArcher = archerFound;
-                        console.log('Login effettuato:', archerFound);
-                        window.setView('mainMenu');
-                    } else {
-                        showModal("Errore", "Password errata.", [
-                            { text: "Ok", handler: () => {} }
-                        ]);
-                    }
-
-                } catch (error) {
-                    console.error("Errore durante il login:", error);
-                    showModal("Errore", "Si è verificato un errore. Riprova.", [
+                const password = document.getElementById('archer-password').value;
+                
+                // Verifica password master o password utente
+                if (password === MASTER_PASSWORD || password === archer.password) {
+                    appState.loggedInArcher = archer;
+                    appState.firebaseUserId = archer.id;
+                    console.log('Login effettuato:', archer.nome);
+                    window.setView('mainMenu');
+                } else {
+                    showModal("Errore", "Password errata.", [
                         { text: "Ok", handler: () => {} }
                     ]);
                 }
             });
-        }
+        };
 
         function renderRegister() {
             const html = `
                 <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione</h2>
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
+                        ← Torna alla lista
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione Nuovo Arciere</h2>
                     <form id="registerForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
                         <div>
                             <label class="block text-sm font-medium mb-1">Nome Arciere</label>
@@ -476,16 +523,13 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password">
+                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password (min 4 caratteri)">
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Conferma Password</label>
                             <input type="password" id="register-password-confirm" class="input-style" required placeholder="Conferma la password">
                         </div>
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Registrati</button>
-                        <div class="text-center mt-4">
-                            <button type="button" class="text-primary-orange underline" onclick="window.setView('login')">Torna al Login</button>
-                        </div>
                     </form>
                 </div>
             `;
@@ -519,6 +563,7 @@
                 }
 
                 try {
+                    // Verifica se il nome è già in uso
                     const archersRef = window.getArchersCollectionRef();
                     const q = query(archersRef, where('nome', '==', nome));
                     const querySnapshot = await getDocs(q);
@@ -530,6 +575,7 @@
                         return;
                     }
 
+                    // Crea il nuovo arciere
                     const newArcher = {
                         nome: nome,
                         password: password,
@@ -539,8 +585,13 @@
                     const docRef = await addDoc(archersRef, newArcher);
                     console.log("Arciere registrato con ID:", docRef.id);
 
-                    showModal("Successo", "Registrazione completata! Ora puoi effettuare il login.", [
-                        { text: "Ok", handler: () => window.setView('login') }
+                    showModal("Successo", `Benvenuto ${nome}! Registrazione completata.`, [
+                        { text: "Accedi", handler: () => {
+                            // Login automatico dopo registrazione
+                            appState.loggedInArcher = { id: docRef.id, ...newArcher };
+                            appState.firebaseUserId = docRef.id;
+                            window.setView('mainMenu');
+                        }}
                     ]);
 
                 } catch (error) {
@@ -735,7 +786,7 @@
                     <table id="scoreTable" class="score-grid w-full table-fixed min-w-[500px] border-collapse">
                         <thead>
                             <tr class="text-xs sm:text-sm">
-                                <th class="w-[10%]">Volèe</th>
+                                <th class="w-[10%]">Volée</th>
                                 ${Array(scoringState.cols).fill(0).map((_, i) => `<th class="w-[8%]">${i + 1}</th>`).join('')}
                                 <th class="w-[10%]">Parz.</th>
                                 <th class="w-[10%]">Tot.</th>
@@ -831,7 +882,7 @@
             const turnResults = calculateTurnScores(appState.scoringGrid);
 
             if (turnResults.frecceTirate !== (scoringState.rows * scoringState.cols)) {
-                showModal("Turno Incompleto", "Non tutte le volèe hanno frecce. Salvare comunque?", [
+                showModal("Turno Incompleto", "Non tutte le volée hanno frecce. Salvare comunque?", [
                     { text: "Annulla", handler: () => {} },
                     { text: "Salva", handler: () => confirmSave(isFinal, turnKey, turnResults) }
                 ]);
@@ -1181,7 +1232,7 @@
                         <table class="score-grid w-full table-auto min-w-[500px] border-collapse">
                             <thead>
                                 <tr class="text-xs sm:text-sm">
-                                    <th class="w-[10%]">Volèe</th>
+                                    <th class="w-[10%]">Volée</th>
                                     ${Array(numCols).fill(0).map((_, i) => `<th class="w-[8%]">${i + 1}</th>`).join('')}
                                     <th class="w-[10%]">Parz.</th>
                                     <th class="w-[10%]">Tot.</th>
@@ -1235,9 +1286,7 @@
                             <option value="all">Tutte le Targhe</option>
                             ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
-                        <select id="chart-filter-archer" class="input-style text-sm">
-                            <option value="all">Tutti gli Arcieri</option>
-                        </select>
+                        <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
                     </div>
                 </div>
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
@@ -1249,9 +1298,15 @@
             `;
             document.getElementById('content-view').innerHTML = html;
             
-            // Carica le sessioni e inizializza i grafici
             loadChartsData();
         }
+
+        window.resetChartFilters = () => {
+            document.getElementById('chart-filter-type').value = 'all';
+            document.getElementById('chart-filter-distance').value = 'all';
+            document.getElementById('chart-filter-target').value = 'all';
+            drawSessionsChart();
+        };
 
         function loadChartsData() {
             const sessionsColRef = window.getSessionsCollectionRef();
@@ -1279,19 +1334,7 @@
         }
 
         function setupChartFilters() {
-            const archerSelect = document.getElementById('chart-filter-archer');
-            
-            if (!appState.sessionData || appState.sessionData.length === 0) {
-                archerSelect.innerHTML = '<option value="all">Nessun Arciere (Nessun Dato)</option>';
-                return;
-            }
-
-            const archers = [...new Set(appState.sessionData.map(s => s.arciere))].sort();
-            
-            archerSelect.innerHTML = '<option value="all">Tutti gli Arcieri</option>' + 
-                                     archers.map(name => `<option value="${name}">${name}</option>`).join('');
-                                     
-            ['chart-filter-archer', 'chart-filter-type', 'chart-filter-target', 'chart-filter-distance'].forEach(id => {
+            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance'].forEach(id => {
                 const element = document.getElementById(id);
                 if (element) {
                     element.addEventListener('change', drawSessionsChart);
@@ -1305,7 +1348,6 @@
             
             const context = ctx.getContext('2d');
             
-            const archerFilter = document.getElementById('chart-filter-archer').value;
             const typeFilter = document.getElementById('chart-filter-type').value;
             const targetFilter = document.getElementById('chart-filter-target').value;
             const distanceFilter = document.getElementById('chart-filter-distance').value;
@@ -1315,12 +1357,11 @@
                 const sTargetType = (session.tipoTarga || '');
                 const sDistance = (session.distanza || '');
                 
-                const matchesArcher = archerFilter === 'all' || session.arciere === archerFilter;
                 const matchesType = typeFilter === 'all' || sType === typeFilter;
                 const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
                 const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
                 
-                return matchesArcher && matchesType && matchesTarget && matchesDistance;
+                return matchesType && matchesTarget && matchesDistance;
             });
 
             filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
