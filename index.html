@@ -1150,10 +1150,13 @@
             if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
 
-            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 const sessions = [];
                 querySnapshot.forEach((doc) => {
-                    sessions.push({ id: doc.id, ...doc.data() });
+                    // La tua riga originale: sessions.push({ id: doc.id, ...doc.data() });
+                    
+                    // La riga corretta per evitare conflitti e mantenere l'ID del documento:
+                    sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
                 
                 sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
@@ -1303,9 +1306,9 @@
                         Torna al Riepilogo
                     </button>
                     
-                    <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.id}', '${formatDate(session.data)}')">
-                        🗑️ Elimina Questa Sessione
-                    </button>
+<button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
+    🗑️ Elimina Questa Sessione
+</button>
                 </div>
             `;
             document.getElementById('content-view').innerHTML = html;
@@ -1358,7 +1361,7 @@
                     return;
                 }
                 
-                // Verifica password master o password utente
+// Verifica password master o password utente
                 if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
                     showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [
                         { text: "Ok", handler: () => {} }
@@ -1367,15 +1370,20 @@
                 }
                 
                 try {
-                    const sessionDocRef = doc(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions/${sessionId}`);
+                    const archerId = appState.loggedInArcher.id;
                     
-                    console.log("Tentativo eliminazione sessione:", sessionId);
-                    console.log("Path:", `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions/${sessionId}`);
+                    // L'ID del documento corretto (alfanumerico) è il parametro 'sessionId' passato alla funzione showDeleteSessionSection
+                    const sessionIdToDelete = sessionId; // 'sessionId' è già l'ID corretto (docId) grazie alla modifica nel pulsante.
+
+                    console.log("Tentativo eliminazione sessione:", sessionIdToDelete);
+                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
                     
                     await deleteDoc(sessionDocRef);
                     
-                    console.log("Sessione eliminata con successo:", sessionId);
+                    console.log("Sessione eliminata con successo:", sessionIdToDelete);
                     
+                    // Pulisci lo stato e mostra il modale di successo
+                    appState.detailedSession = null;
                     showModal("Successo", "La sessione è stata eliminata con successo.", [
                         { text: "Ok", handler: () => {
                             window.setView('dataSummary');
@@ -1383,11 +1391,9 @@
                     ]);
                     
                 } catch (error) {
-                    console.error("Errore eliminazione sessione:", error);
-                    console.error("Codice errore:", error.code);
-                    console.error("Messaggio:", error.message);
-                    showModal("Errore", `Si è verificato un errore: ${error.message}`, [
-                        { text: "Ok", handler: () => {} }
+                    console.error("ERRORE CRITICO DI ELIMINAZIONE:", error);
+                    showModal("Errore", `Impossibile eliminare la sessione: ${error.message}`, [
+                        { text: "Chiudi", handler: () => {} }
                     ]);
                 }
             });
