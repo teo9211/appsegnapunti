@@ -1476,27 +1476,53 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
         // ============= GRAFICI =============
 
         function renderChartsView() {
-            const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
-                    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <select id="chart-filter-type" class="input-style text-sm">
-                            <option value="all">Tutti i Tipi</option>
-                            <option value="allenamento">Allenamento</option>
-                            <option value="gara">Gara</option>
-                        </select>
-                        <select id="chart-filter-distance" class="input-style text-sm">
-                            <option value="all">Tutte le Distanze</option>
-                            ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-target" class="input-style text-sm">
-                            <option value="all">Tutte le Targhe</option>
-                            ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
-                    </div>
-                </div>
+const html = `
+    <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
+    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+        <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+            
+            <select id="chart-filter-type" class="input-style text-sm">
+                <option value="all">Tutti i Tipi (A/G)</option>
+                <option value="allenamento">Allenamento</option>
+                <option value="gara">Gara</option>
+            </select>
+            <select id="chart-filter-distance" class="input-style text-sm">
+                <option value="all">Tutte le Distanze</option>
+                ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+            </select>
+            <select id="chart-filter-target" class="input-style text-sm">
+                <option value="all">Tutte le Targhe</option>
+                ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+            </select>
+            
+            <select id="chart-filter-month" class="input-style text-sm">
+                <option value="all">Tutti i Mesi</option>
+                <option value="1">Gennaio</option>
+                <option value="2">Febbraio</option>
+                <option value="3">Marzo</option>
+                <option value="4">Aprile</option>
+                <option value="5">Maggio</option>
+                <option value="6">Giugno</option>
+                <option value="7">Luglio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Settembre</option>
+                <option value="10">Ottobre</option>
+                <option value="11">Novembre</option>
+                <option value="12">Dicembre</option>
+            </select>
+            <select id="chart-filter-year" class="input-style text-sm">
+                <option value="all">Tutti gli Anni</option>
+                </select>
+            <select id="chart-filter-turns" class="input-style text-sm">
+                <option value="all">Tutti i Turni</option>
+                <option value="single">Solo 1 Turno</option>
+                <option value="double">Solo 2 Turni</option>
+            </select>
+            
+            <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
+        </div>
+    </div>
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
                     <canvas id="sessionsChart"></canvas>
                 </div>
@@ -1509,12 +1535,15 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
             loadChartsData();
         }
 
-        window.resetChartFilters = () => {
-            document.getElementById('chart-filter-type').value = 'all';
-            document.getElementById('chart-filter-distance').value = 'all';
-            document.getElementById('chart-filter-target').value = 'all';
-            drawSessionsChart();
-        };
+window.resetChartFilters = () => {
+    document.getElementById('chart-filter-type').value = 'all';
+    document.getElementById('chart-filter-distance').value = 'all';
+    document.getElementById('chart-filter-target').value = 'all';
+    document.getElementById('chart-filter-month').value = 'all'; // Nuovo
+    document.getElementById('chart-filter-year').value = 'all'; // Nuovo
+    document.getElementById('chart-filter-turns').value = 'all'; // Nuovo
+    drawSessionsChart();
+};
 
         function loadChartsData() {
             const sessionsColRef = window.getSessionsCollectionRef();
@@ -1541,14 +1570,39 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
             });
         }
 
-        function setupChartFilters() {
-            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance'].forEach(id => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.addEventListener('change', drawSessionsChart);
-                }
-            });
+function setupChartFilters() {
+    // Array esteso per includere i nuovi filtri
+    ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', drawSessionsChart);
         }
+    });
+
+    // Popola dinamicamente gli anni
+    const yearFilter = document.getElementById('chart-filter-year');
+    if (yearFilter) {
+        const years = new Set();
+        appState.sessionData.forEach(session => {
+            if (session.data) {
+                years.add(new Date(session.data).getFullYear());
+            }
+        });
+
+        // Rimuove opzioni esistenti (solo 'all' è mantenuta)
+        Array.from(yearFilter.options).forEach((option, index) => {
+            if (index > 0) yearFilter.removeChild(option);
+        });
+
+        // Aggiunge i nuovi anni
+        Array.from(years).sort((a, b) => b - a).forEach(year => { // Ordine decrescente
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            yearFilter.appendChild(option);
+        });
+    }
+}
 
         function drawSessionsChart() {
             const ctx = document.getElementById('sessionsChart');
@@ -1556,21 +1610,43 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
             
             const context = ctx.getContext('2d');
             
-            const typeFilter = document.getElementById('chart-filter-type').value;
-            const targetFilter = document.getElementById('chart-filter-target').value;
-            const distanceFilter = document.getElementById('chart-filter-distance').value;
+// Recupero dei nuovi valori dei filtri
+    const typeFilter = document.getElementById('chart-filter-type').value;
+    const targetFilter = document.getElementById('chart-filter-target').value;
+    const distanceFilter = document.getElementById('chart-filter-distance').value;
+    const monthFilter = document.getElementById('chart-filter-month').value; // Nuovo
+    const yearFilter = document.getElementById('chart-filter-year').value;   // Nuovo
+    const turnsFilter = document.getElementById('chart-filter-turns').value; // Nuovo
 
-            let filteredData = appState.sessionData.filter(session => {
-                const sType = (session.type || '').toLowerCase();
-                const sTargetType = (session.tipoTarga || '');
-                const sDistance = (session.distanza || '');
-                
-                const matchesType = typeFilter === 'all' || sType === typeFilter;
-                const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
-                const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
-                
-                return matchesType && matchesTarget && matchesDistance;
-            });
+    let filteredData = appState.sessionData.filter(session => {
+        const sType = (session.type || '').toLowerCase();
+        const sTargetType = (session.tipoTarga || '');
+        const sDistance = (session.distanza || '');
+        
+        // Calcolo per Mese e Anno
+        const sessionDate = session.data ? new Date(session.data) : null;
+        const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null; // Mese 1-12
+        const sYear = sessionDate ? sessionDate.getFullYear() : null;
+
+        // Calcolo per i Turni
+        // Una sessione ha 2 turni se esiste session.turn2 e ha un punteggio > 0
+        const hasTwoTurns = session.turn2Score > 0; 
+        
+        // Logica di filtraggio esistente
+        const matchesType = typeFilter === 'all' || sType === typeFilter;
+        const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
+        const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
+
+        // Nuova logica di filtraggio
+        const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
+        const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
+        
+        const matchesTurns = turnsFilter === 'all' || 
+                             (turnsFilter === 'single' && !hasTwoTurns) || 
+                             (turnsFilter === 'double' && hasTwoTurns);
+
+        return matchesType && matchesTarget && matchesDistance && matchesMonth && matchesYear && matchesTurns;
+    });
 
             filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
 
