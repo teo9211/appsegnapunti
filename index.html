@@ -212,6 +212,14 @@
             return num < 10 ? '0' + num : num;
         }
 
+        function formatDate(dateString) {
+            // Converte da YYYY-MM-DD a DD/MM/YYYY
+            if (!dateString) return 'N/D';
+            const parts = dateString.split('-');
+            if (parts.length !== 3) return dateString;
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
         function getFormattedTime(date) {
             return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
         }
@@ -444,11 +452,16 @@
                                 <h3 class="text-xl font-bold mb-4 text-primary-orange">Arcieri Registrati</h3>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
                                     ${appState.allArchers.map(archer => `
-                                        <button class="bg-gray-800 hover:bg-gray-700 p-4 rounded-lg text-left border-2 border-transparent hover:border-primary-orange transition-all"
-                                                onclick="window.selectArcher('${archer.id}')">
-                                            <div class="font-bold text-white text-lg">${archer.nome}</div>
-                                            <div class="text-sm text-primary-orange mt-1">Clicca per accedere</div>
-                                        </button>
+                                        <div class="relative bg-gray-800 hover:bg-gray-700 p-4 rounded-lg border-2 border-transparent hover:border-primary-orange transition-all">
+                                            <button class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white w-8 h-8 rounded-full font-bold text-sm"
+                                                    onclick="window.deleteArcher('${archer.id}', '${archer.nome}')">
+                                                ✕
+                                            </button>
+                                            <button class="text-left w-full pr-10" onclick="window.selectArcher('${archer.id}')">
+                                                <div class="font-bold text-white text-lg">${archer.nome}</div>
+                                                <div class="text-sm text-primary-orange mt-1">Clicca per accedere</div>
+                                            </button>
+                                        </div>
                                     `).join('')}
                                 </div>
                             </div>
@@ -469,6 +482,77 @@
                 document.getElementById('content-view').innerHTML = html;
             });
         }
+
+        window.deleteArcher = (archerId, archerName) => {
+            const archer = appState.allArchers.find(a => a.id === archerId);
+            if (!archer) return;
+            
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <h2 class="text-2xl font-bold mb-4 text-white text-center">Elimina Profilo</h2>
+                    <p class="text-center mb-4 text-white">Stai per eliminare il profilo di <strong class="text-primary-orange">${archerName}</strong></p>
+                    <p class="text-center mb-6 text-red-500 text-sm">⚠️ Questa azione eliminerà anche tutte le sessioni associate!</p>
+                    
+                    <form id="deleteForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Conferma con Password</label>
+                            <input type="password" id="delete-password" class="input-style" required placeholder="Password utente o master" autofocus>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('login')">
+                                Annulla
+                            </button>
+                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
+                                Elimina
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('delete-password').value;
+                
+                // Verifica password master o password utente
+                if (password !== MASTER_PASSWORD && password !== archer.password) {
+                    showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                try {
+                    // Elimina tutte le sessioni dell'arciere
+                    const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
+                    const sessionsSnapshot = await getDocs(sessionsRef);
+                    
+                    const deletePromises = [];
+                    sessionsSnapshot.forEach((sessionDoc) => {
+                        deletePromises.push(deleteDoc(sessionDoc.ref));
+                    });
+                    
+                    await Promise.all(deletePromises);
+                    
+                    // Elimina il profilo arciere
+                    const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
+                    await deleteDoc(archerDocRef);
+                    
+                    console.log("Profilo eliminato:", archerName);
+                    
+                    showModal("Successo", `Il profilo di ${archerName} è stato eliminato con successo.`, [
+                        { text: "Ok", handler: () => window.setView('login') }
+                    ]);
+                    
+                } catch (error) {
+                    console.error("Errore eliminazione profilo:", error);
+                    showModal("Errore", "Si è verificato un errore durante l'eliminazione.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        };
 
         window.selectArcher = (archerId) => {
             const archer = appState.allArchers.find(a => a.id === archerId);
@@ -1110,6 +1194,7 @@
                 <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
                     <thead>
                         <tr class="text-xs sm:text-sm">
+                            <th class="w-[30px]"></th>
                             <th>Data</th>
                             <th>Tipo</th>
                             <th>Tot.</th>
@@ -1125,21 +1210,26 @@
                     </thead>
                     <tbody>
                         ${appState.sessionData.length === 0 ? `
-                            <tr><td colspan="11" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
+                            <tr><td colspan="12" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
                         ` : appState.sessionData.map(session => `
-                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
-                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
-                                <td class="font-bold text-primary-orange">${session.data || 'N/D'}</td>
-                                <td>${session.type}</td>
-                                <td class="font-extrabold text-white">${session.totalScore || 0}</td>
-                                <td>${session.turn1Score || 0}</td>
-                                <td>${session.turn2Score || 0}</td>
-                                <td>${session.totalX || 0}</td>
-                                <td>${session.totalTen || 0}</td>
-                                <td>${session.totalNine || 0}</td>
-                                <td>${session.luogo}</td>
-                                <td>${session.distanza}</td>
-                                <td>${session.tipoTarga}</td>
+                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark text-xs sm:text-sm">
+                                <td class="text-center">
+                                    <button class="bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded text-xs font-bold"
+                                            onclick="window.deleteSession('${session.id}', '${formatDate(session.data)}')">
+                                        ✕
+                                    </button>
+                                </td>
+                                <td class="font-bold text-primary-orange cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${formatDate(session.data)}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.type}</td>
+                                <td class="font-extrabold text-white cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.totalScore || 0}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.turn1Score || 0}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.turn2Score || 0}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.totalX || 0}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.totalTen || 0}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.totalNine || 0}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.luogo}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.distanza}</td>
+                                <td class="cursor-pointer" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">${session.tipoTarga}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1147,6 +1237,63 @@
             `;
             tableContainer.innerHTML = tableHtml;
         }
+
+        window.deleteSession = (sessionId, sessionDate) => {
+            if (!appState.loggedInArcher) {
+                showModal("Errore", "Devi essere loggato per eliminare sessioni.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+            
+            const modalContent = `
+                <p class="text-center mb-4 text-white">Stai per eliminare la sessione del <strong class="text-primary-orange">${sessionDate}</strong></p>
+                <p class="text-center mb-6 text-red-500 text-sm">⚠️ Questa azione è irreversibile!</p>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1 text-white">Conferma con Password</label>
+                    <input type="password" id="delete-session-password" class="input-style" placeholder="Password utente o master">
+                </div>
+            `;
+            
+            showModal("Elimina Sessione", modalContent, [
+                { text: "Annulla", handler: () => {} },
+                { 
+                    text: "Elimina", 
+                    handler: async () => {
+                        const password = document.getElementById('delete-session-password').value;
+                        
+                        // Verifica password master o password utente
+                        if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
+                            showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [
+                                { text: "Ok", handler: () => {} }
+                            ]);
+                            return;
+                        }
+                        
+                        try {
+                            const sessionDocRef = doc(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions/${sessionId}`);
+                            await deleteDoc(sessionDocRef);
+                            
+                            console.log("Sessione eliminata:", sessionId);
+                            
+                            showModal("Successo", "La sessione è stata eliminata con successo.", [
+                                { text: "Ok", handler: () => {} }
+                            ]);
+                            
+                            // Ricarica i dati
+                            fetchSessions();
+                            
+                        } catch (error) {
+                            console.error("Errore eliminazione sessione:", error);
+                            showModal("Errore", "Si è verificato un errore durante l'eliminazione.", [
+                                { text: "Ok", handler: () => {} }
+                            ]);
+                        }
+                    }
+                }
+            ]);
+        };
 
         // ============= RIEPILOGO DETTAGLIATO =============
 
@@ -1160,7 +1307,7 @@
             const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
 
             const html = `
-                <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${session.data || 'N/D'}</h2>
+                <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
                 <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
 
                 <div class="space-y-6">
@@ -1371,8 +1518,7 @@
             filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             const labels = filteredData.map(s => {
-                const dateParts = s.data.split('-');
-                const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0].substring(2)}`;
+                const formattedDate = formatDate(s.data);
                 const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
                 return `${formattedDate}${sessionType}`;
             });
