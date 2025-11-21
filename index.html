@@ -2,10 +2,11 @@
 <html lang="it">
 <head>
    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archery Tracker - Il Tuo Diario di Tiro</title>
     
     <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -39,10 +40,10 @@
         }
         .score-grid th, .score-grid td {
             border: 1px solid #4a4a4a;
-            padding: 0.3rem 0.1rem;
+            padding: 0.5rem 0.2rem;
             text-align: center;
-            font-size: 0.8rem;
-            line-height: 1;
+            font-size: 0.9rem;
+            line-height: 1.2;
         }
         .score-grid th {
             background-color: #2c2c2c;
@@ -51,6 +52,25 @@
         }
         .grid-wrapper {
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Ottimizzazione mobile */
+        @media (max-width: 640px) {
+            .score-grid th, .score-grid td {
+                padding: 0.4rem 0.1rem;
+                font-size: 0.75rem;
+            }
+            body {
+                font-size: 14px;
+            }
+        }
+        
+        /* Previene zoom su input mobile */
+        @media screen and (max-width: 767px) {
+            input, select, textarea {
+                font-size: 16px;
+            }
         }
     </style>
     <script>
@@ -238,6 +258,16 @@
             if (value === 'X') return 10;
             if (value === 'M' || value === 'm') return 0;
             return parseInt(value) || 0;
+        }
+        
+        function sortVolleyScores(scores) {
+            // Ordina i punteggi da più alto a più basso secondo la scala: X, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, M
+            const scoreOrder = { 'X': 0, '10': 1, '9': 2, '8': 3, '7': 4, '6': 5, '5': 6, '4': 7, '3': 8, '2': 9, '1': 10, 'M': 11, 'm': 11, '': 12 };
+            return scores.sort((a, b) => {
+                const aOrder = scoreOrder[a] !== undefined ? scoreOrder[a] : 12;
+                const bOrder = scoreOrder[b] !== undefined ? scoreOrder[b] : 12;
+                return aOrder - bOrder;
+            });
         }
 
         function calculateVolley(volleyScores, cumulativeTotal) {
@@ -871,6 +901,13 @@
                 if (newCol >= scoringState.cols) {
                     newCol = 0;
                     newRow = rowIndex + 1;
+                    
+                    // Ordina la riga completata
+                    const currentRow = appState.scoringGrid[rowIndex];
+                    const nonEmptyScores = currentRow.filter(s => s !== '' && s !== undefined);
+                    if (nonEmptyScores.length === scoringState.cols) {
+                        appState.scoringGrid[rowIndex] = sortVolleyScores([...currentRow]);
+                    }
                 }
 
                 if (newRow < scoringState.rows) {
@@ -1027,7 +1064,12 @@
                 saveSessionToFirestore();
                 
                 modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                actions.push({ text: "Torna al Menu", handler: () => window.setView('mainMenu') });
+                actions.push({ text: "Vedi Riepilogo", handler: () => {
+                    const sessionId = appState.currentSession.id;
+                    setTimeout(() => {
+                        window.setView('detailedSummary', { sessionId: sessionId });
+                    }, 100);
+                }});
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
                 actions.push({ text: "Secondo Turno", handler: () => startNextTurn() });
                 actions.push({ text: "Fine (Salva)", handler: () => window.saveTurn(true) });
@@ -1037,7 +1079,12 @@
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
                 saveSessionToFirestore();
                 modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                actions.push({ text: "Menu", handler: () => window.setView('mainMenu') });
+                actions.push({ text: "Vedi Riepilogo", handler: () => {
+                    const sessionId = appState.currentSession.id;
+                    setTimeout(() => {
+                        window.setView('detailedSummary', { sessionId: sessionId });
+                    }, 100);
+                }});
             }
             
             showModal("Turno Salvato!", modalBody, actions);
@@ -1129,6 +1176,7 @@
             distanza: '',
             tipoTarga: '',
             type: '',
+            tipoLuogo: '',
         };
 
         function fetchSessions() {
@@ -1152,13 +1200,11 @@
             if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
             if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
+            if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
 
-unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 const sessions = [];
                 querySnapshot.forEach((doc) => {
-                    // La tua riga originale: sessions.push({ id: doc.id, ...doc.data() });
-                    
-                    // La riga corretta per evitare conflitti e mantenere l'ID del documento:
                     sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
                 
@@ -1182,7 +1228,7 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
             }
 
             const filtersHtml = `
-                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-5">
                     <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
                         <option value="">Tutti i Tipi</option>
                         <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
@@ -1196,7 +1242,11 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                         <option value="">Tutte le Targhe</option>
                         ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
-                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', '');">Reset</button>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
+                        <option value="">Tutti i Luoghi</option>
+                        ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', '');">Reset</button>
                 </div>
             `;
 
@@ -1260,10 +1310,6 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
             tableContainer.innerHTML = tableHtml;
         }
 
-        window.deleteSession = (sessionId, sessionDate) => {
-            // Funzione rimossa - ora si usa showDeleteSessionSection
-        };
-
         // ============= RIEPILOGO DETTAGLIATO =============
 
         function renderDetailedSummary() {
@@ -1309,9 +1355,9 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                         Torna al Riepilogo
                     </button>
                     
-<button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
-    🗑️ Elimina Questa Sessione
-</button>
+                    <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
+                        🗑️ Elimina Questa Sessione
+                    </button>
                 </div>
             `;
             document.getElementById('content-view').innerHTML = html;
@@ -1364,7 +1410,6 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                     return;
                 }
                 
-// Verifica password master o password utente
                 if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
                     showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [
                         { text: "Ok", handler: () => {} }
@@ -1374,9 +1419,7 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 
                 try {
                     const archerId = appState.loggedInArcher.id;
-                    
-                    // L'ID del documento corretto (alfanumerico) è il parametro 'sessionId' passato alla funzione showDeleteSessionSection
-                    const sessionIdToDelete = sessionId; // 'sessionId' è già l'ID corretto (docId) grazie alla modifica nel pulsante.
+                    const sessionIdToDelete = sessionId;
 
                     console.log("Tentativo eliminazione sessione:", sessionIdToDelete);
                     const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
@@ -1385,7 +1428,6 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                     
                     console.log("Sessione eliminata con successo:", sessionIdToDelete);
                     
-                    // Pulisci lo stato e mostra il modale di successo
                     appState.detailedSession = null;
                     showModal("Successo", "La sessione è stata eliminata con successo.", [
                         { text: "Ok", handler: () => {
@@ -1479,53 +1521,57 @@ unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
         // ============= GRAFICI =============
 
         function renderChartsView() {
-const html = `
-    <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
-    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-        <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-            
-            <select id="chart-filter-type" class="input-style text-sm">
-                <option value="all">Tutti i Tipi (A/G)</option>
-                <option value="allenamento">Allenamento</option>
-                <option value="gara">Gara</option>
-            </select>
-            <select id="chart-filter-distance" class="input-style text-sm">
-                <option value="all">Tutte le Distanze</option>
-                ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-            </select>
-            <select id="chart-filter-target" class="input-style text-sm">
-                <option value="all">Tutte le Targhe</option>
-                ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-            </select>
-            
-            <select id="chart-filter-month" class="input-style text-sm">
-                <option value="all">Tutti i Mesi</option>
-                <option value="1">Gennaio</option>
-                <option value="2">Febbraio</option>
-                <option value="3">Marzo</option>
-                <option value="4">Aprile</option>
-                <option value="5">Maggio</option>
-                <option value="6">Giugno</option>
-                <option value="7">Luglio</option>
-                <option value="8">Agosto</option>
-                <option value="9">Settembre</option>
-                <option value="10">Ottobre</option>
-                <option value="11">Novembre</option>
-                <option value="12">Dicembre</option>
-            </select>
-            <select id="chart-filter-year" class="input-style text-sm">
-                <option value="all">Tutti gli Anni</option>
-                </select>
-            <select id="chart-filter-turns" class="input-style text-sm">
-                <option value="all">Tutti i Turni</option>
-                <option value="single">Solo 1 Turno</option>
-                <option value="double">Solo 2 Turni</option>
-            </select>
-            
-            <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
-        </div>
-    </div>
+            const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        
+                        <select id="chart-filter-type" class="input-style text-sm">
+                            <option value="all">Tutti i Tipi (A/G)</option>
+                            <option value="allenamento">Allenamento</option>
+                            <option value="gara">Gara</option>
+                        </select>
+                        <select id="chart-filter-distance" class="input-style text-sm">
+                            <option value="all">Tutte le Distanze</option>
+                            ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-target" class="input-style text-sm">
+                            <option value="all">Tutte le Targhe</option>
+                            ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-location" class="input-style text-sm">
+                            <option value="all">Tutti i Luoghi</option>
+                            ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        
+                        <select id="chart-filter-month" class="input-style text-sm">
+                            <option value="all">Tutti i Mesi</option>
+                            <option value="1">Gennaio</option>
+                            <option value="2">Febbraio</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Aprile</option>
+                            <option value="5">Maggio</option>
+                            <option value="6">Giugno</option>
+                            <option value="7">Luglio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Settembre</option>
+                            <option value="10">Ottobre</option>
+                            <option value="11">Novembre</option>
+                            <option value="12">Dicembre</option>
+                        </select>
+                        <select id="chart-filter-year" class="input-style text-sm">
+                            <option value="all">Tutti gli Anni</option>
+                        </select>
+                        <select id="chart-filter-turns" class="input-style text-sm">
+                            <option value="all">Tutti i Turni</option>
+                            <option value="single">Solo 1 Turno</option>
+                            <option value="double">Solo 2 Turni</option>
+                        </select>
+                        
+                        <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
+                    </div>
+                </div>
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
                     <canvas id="sessionsChart"></canvas>
                 </div>
@@ -1538,15 +1584,16 @@ const html = `
             loadChartsData();
         }
 
-window.resetChartFilters = () => {
-    document.getElementById('chart-filter-type').value = 'all';
-    document.getElementById('chart-filter-distance').value = 'all';
-    document.getElementById('chart-filter-target').value = 'all';
-    document.getElementById('chart-filter-month').value = 'all'; // Nuovo
-    document.getElementById('chart-filter-year').value = 'all'; // Nuovo
-    document.getElementById('chart-filter-turns').value = 'all'; // Nuovo
-    drawSessionsChart();
-};
+        window.resetChartFilters = () => {
+            document.getElementById('chart-filter-type').value = 'all';
+            document.getElementById('chart-filter-distance').value = 'all';
+            document.getElementById('chart-filter-target').value = 'all';
+            document.getElementById('chart-filter-location').value = 'all';
+            document.getElementById('chart-filter-month').value = 'all';
+            document.getElementById('chart-filter-year').value = 'all';
+            document.getElementById('chart-filter-turns').value = 'all';
+            drawSessionsChart();
+        };
 
         function loadChartsData() {
             const sessionsColRef = window.getSessionsCollectionRef();
@@ -1573,39 +1620,35 @@ window.resetChartFilters = () => {
             });
         }
 
-function setupChartFilters() {
-    // Array esteso per includere i nuovi filtri
-    ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.addEventListener('change', drawSessionsChart);
-        }
-    });
+        function setupChartFilters() {
+            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', drawSessionsChart);
+                }
+            });
 
-    // Popola dinamicamente gli anni
-    const yearFilter = document.getElementById('chart-filter-year');
-    if (yearFilter) {
-        const years = new Set();
-        appState.sessionData.forEach(session => {
-            if (session.data) {
-                years.add(new Date(session.data).getFullYear());
+            const yearFilter = document.getElementById('chart-filter-year');
+            if (yearFilter) {
+                const years = new Set();
+                appState.sessionData.forEach(session => {
+                    if (session.data) {
+                        years.add(new Date(session.data).getFullYear());
+                    }
+                });
+
+                Array.from(yearFilter.options).forEach((option, index) => {
+                    if (index > 0) yearFilter.removeChild(option);
+                });
+
+                Array.from(years).sort((a, b) => b - a).forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearFilter.appendChild(option);
+                });
             }
-        });
-
-        // Rimuove opzioni esistenti (solo 'all' è mantenuta)
-        Array.from(yearFilter.options).forEach((option, index) => {
-            if (index > 0) yearFilter.removeChild(option);
-        });
-
-        // Aggiunge i nuovi anni
-        Array.from(years).sort((a, b) => b - a).forEach(year => { // Ordine decrescente
-            const option = document.createElement('option');
-            option.value = year;
-            option.textContent = year;
-            yearFilter.appendChild(option);
-        });
-    }
-}
+        }
 
         function drawSessionsChart() {
             const ctx = document.getElementById('sessionsChart');
@@ -1613,43 +1656,40 @@ function setupChartFilters() {
             
             const context = ctx.getContext('2d');
             
-// Recupero dei nuovi valori dei filtri
-    const typeFilter = document.getElementById('chart-filter-type').value;
-    const targetFilter = document.getElementById('chart-filter-target').value;
-    const distanceFilter = document.getElementById('chart-filter-distance').value;
-    const monthFilter = document.getElementById('chart-filter-month').value; // Nuovo
-    const yearFilter = document.getElementById('chart-filter-year').value;   // Nuovo
-    const turnsFilter = document.getElementById('chart-filter-turns').value; // Nuovo
+            const typeFilter = document.getElementById('chart-filter-type').value;
+            const targetFilter = document.getElementById('chart-filter-target').value;
+            const distanceFilter = document.getElementById('chart-filter-distance').value;
+            const locationFilter = document.getElementById('chart-filter-location').value;
+            const monthFilter = document.getElementById('chart-filter-month').value;
+            const yearFilter = document.getElementById('chart-filter-year').value;
+            const turnsFilter = document.getElementById('chart-filter-turns').value;
 
-    let filteredData = appState.sessionData.filter(session => {
-        const sType = (session.type || '').toLowerCase();
-        const sTargetType = (session.tipoTarga || '');
-        const sDistance = (session.distanza || '');
-        
-        // Calcolo per Mese e Anno
-        const sessionDate = session.data ? new Date(session.data) : null;
-        const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null; // Mese 1-12
-        const sYear = sessionDate ? sessionDate.getFullYear() : null;
+            let filteredData = appState.sessionData.filter(session => {
+                const sType = (session.type || '').toLowerCase();
+                const sTargetType = (session.tipoTarga || '');
+                const sDistance = (session.distanza || '');
+                const sLocation = (session.tipoLuogo || '');
+                
+                const sessionDate = session.data ? new Date(session.data) : null;
+                const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
+                const sYear = sessionDate ? sessionDate.getFullYear() : null;
 
-        // Calcolo per i Turni
-        // Una sessione ha 2 turni se esiste session.turn2 e ha un punteggio > 0
-        const hasTwoTurns = session.turn2Score > 0; 
-        
-        // Logica di filtraggio esistente
-        const matchesType = typeFilter === 'all' || sType === typeFilter;
-        const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
-        const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
+                const hasTwoTurns = session.turn2Score > 0; 
+                
+                const matchesType = typeFilter === 'all' || sType === typeFilter;
+                const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
+                const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
+                const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
 
-        // Nuova logica di filtraggio
-        const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
-        const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
-        
-        const matchesTurns = turnsFilter === 'all' || 
-                             (turnsFilter === 'single' && !hasTwoTurns) || 
-                             (turnsFilter === 'double' && hasTwoTurns);
+                const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
+                const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
+                
+                const matchesTurns = turnsFilter === 'all' || 
+                                     (turnsFilter === 'single' && !hasTwoTurns) || 
+                                     (turnsFilter === 'double' && hasTwoTurns);
 
-        return matchesType && matchesTarget && matchesDistance && matchesMonth && matchesYear && matchesTurns;
-    });
+                return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesMonth && matchesYear && matchesTurns;
+            });
 
             filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
 
