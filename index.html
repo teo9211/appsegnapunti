@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archery Tracker - Il Tuo Diario di Tiro</title>
     
+    <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
     <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
-    <link rel="shortcut icon" type="image/x-icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
     <meta name="msapplication-TileImage" content="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -368,7 +369,11 @@
             };
         }
 
+        
+        // Improved modal functions with animations and safe handlers
         function showModal(title, body, actions = []) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-body').innerHTML = body;
             
@@ -379,14 +384,78 @@
                 btn.className = 'btn-primary px-4 py-2 rounded-lg font-semibold';
                 btn.textContent = action.text;
                 btn.onclick = () => {
-                    action.handler();
+                    try {
+                        if (typeof action.handler === 'function') action.handler();
+                    } catch (e) {
+                        console.error('Error in modal action handler:', e);
+                    }
                     closeModal();
                 };
                 actionsContainer.appendChild(btn);
             });
 
-            document.getElementById('modal').classList.remove('hidden');
+            modal.classList.remove('hidden');
+            modalContent.classList.add('modal-fade-enter');
+            // trigger reflow
+            void modalContent.offsetWidth;
+            modalContent.classList.add('modal-fade-enter-active');
+            // cleanup classes after animation
+            setTimeout(() => {
+                modalContent.classList.remove('modal-fade-enter', 'modal-fade-enter-active');
+            }, 260);
         }
+
+        
+        // Improved modal functions with animations and safe handlers
+        function showModal(title, body, actions = []) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = body;
+            
+            const actionsContainer = document.getElementById('modal-actions');
+            actionsContainer.innerHTML = '';
+            actions.forEach(action => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary px-4 py-2 rounded-lg font-semibold';
+                btn.textContent = action.text;
+                btn.onclick = () => {
+                    try {
+                        if (typeof action.handler === 'function') action.handler();
+                    } catch (e) {
+                        console.error('Error in modal action handler:', e);
+                    }
+                    closeModal();
+                };
+                actionsContainer.appendChild(btn);
+            });
+
+            modal.classList.remove('hidden');
+            modalContent.classList.add('modal-fade-enter');
+            // trigger reflow
+            void modalContent.offsetWidth;
+            modalContent.classList.add('modal-fade-enter-active');
+            // cleanup classes after animation
+            setTimeout(() => {
+                modalContent.classList.remove('modal-fade-enter', 'modal-fade-enter-active');
+            }, 260);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            modalContent.classList.add('modal-fade-exit');
+            // trigger reflow
+            void modalContent.offsetWidth;
+            modalContent.classList.add('modal-fade-exit-active');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modalContent.classList.remove('modal-fade-exit', 'modal-fade-exit-active');
+            }, 200);
+        }
+
+
 
         function closeModal() {
             document.getElementById('modal').classList.add('hidden');
@@ -1067,9 +1136,17 @@
             }
         };
         
-        function confirmSave(isFinal, turnKey, turnResults) {
+        
+        // Centralized, simplified confirmSave that avoids double-saving and supports all formats
+        async function confirmSave(isFinal, turnKey, turnResults) {
+            // assign the calculated summary
+            if (!appState.currentSession) {
+                console.error('No current session available to save.');
+                showModal('Errore', 'Nessuna sessione attiva.', [{ text: 'Ok', handler: () => {} }]);
+                return;
+            }
             appState.currentSession[turnKey].summary = turnResults;
-            
+
             let modalBody = `
                 <p class="text-lg font-bold mb-3 text-white">Riepilogo Turno ${appState.currentTurn}</p>
                 <ul class="space-y-1 text-sm">
@@ -1079,83 +1156,77 @@
                 </ul>
             `;
 
-            const format = appState.currentSession.formatoGara;
-
+            const format = appState.currentSession.formatoGara || '';
+            
+            // If final -> save and show summary
             if (isFinal) {
-                // Caso: Fine sessione (sia dopo primo turno che dopo secondo)
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                
-                const sessionIdBeforeSave = appState.currentSession.id;
-                saveSessionToFirestore();
-                
+
                 modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                
-                showModal("Turno Salvato!", modalBody, [
+
+                const sessionIdBeforeSave = await saveSessionToFirestore();
+                if (!sessionIdBeforeSave) return;
+
+                showModal("Sessione Salvata!", modalBody, [
                     { text: "Vedi Riepilogo", handler: () => {
+                        fetchSessions();
                         setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
+                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                        }, 450);
                     }}
                 ]);
-            } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
-                // Caso: Primo turno - offri scelta tra secondo turno o fine
+
+                return;
+            }
+
+            // First turn but not 6x12 -> offer second turn or finish
+            if (appState.currentTurn === 1 && !format.includes('6x12')) {
                 showModal("Turno Salvato!", modalBody, [
                     { text: "Secondo Turno", handler: () => startNextTurn() },
-                    { text: "Fine (Salva)", handler: () => {
-                        // Chiudi modale e salva definitivamente
-                        closeModal();
-                        
-                        // Ora salva e vai al riepilogo
+                    { text: "Fine (Salva)", handler: async () => {
                         const endTime = new Date();
                         appState.currentSession.endTime = getFormattedTime(endTime);
                         appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                        
-                        const sessionIdBeforeSave = appState.currentSession.id;
-                        saveSessionToFirestore();
-                        
-                        // Mostra nuovo modale con conferma
-                        setTimeout(() => {
-                            showModal("Sessione Salvata!", `<p class="text-white">Durata: ${durationToString(appState.currentSession.duration)}</p>`, [
-                                { text: "Vedi Riepilogo", handler: () => {
-                                    setTimeout(() => {
-                                        fetchSessions();
-                                        setTimeout(() => {
-                                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                                        }, 500);
-                                    }, 300);
-                                }}
-                            ]);
-                        }, 200);
+
+                        const sessionIdBeforeSave = await saveSessionToFirestore();
+                        if (!sessionIdBeforeSave) return;
+
+                        showModal("Sessione Salvata!", `<p class=\"text-white\">Durata: ${durationToString(appState.currentSession.duration)}</p>`, [
+                            { text: "Vedi Riepilogo", handler: () => {
+                                fetchSessions();
+                                setTimeout(() => {
+                                    window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                                }, 450);
+                            }}
+                        ]);
                     }}
                 ]);
-            } else {
-                // Questo caso non dovrebbe mai verificarsi con la logica attuale
-                const endTime = new Date();
-                appState.currentSession.endTime = getFormattedTime(endTime);
-                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                
-                const sessionIdBeforeSave = appState.currentSession.id;
-                saveSessionToFirestore();
-                
-                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                
-                showModal("Turno Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
-                        setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
-                    }}
-                ]);
+
+                return;
             }
+
+            // Other cases (second turn or special cases) -> save and show summary
+            const endTime = new Date();
+            appState.currentSession.endTime = getFormattedTime(endTime);
+            appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+
+            const sessionIdBeforeSave = await saveSessionToFirestore();
+            if (!sessionIdBeforeSave) return;
+
+            modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+
+            showModal("Turno Salvato!", modalBody, [
+                { text: "Vedi Riepilogo", handler: () => {
+                    fetchSessions();
+                    setTimeout(() => {
+                        window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                    }, 450);
+                }}
+            ]);
         }
+
 
         function startNextTurn() {
             if (appState.currentTurn === 1) {
@@ -1186,6 +1257,8 @@
             };
         }
 
+        async 
+        // Refactored saveSessionToFirestore: returns the saved document ID to avoid double saves
         async function saveSessionToFirestore() {
             try {
                 const session = appState.currentSession;
@@ -1205,16 +1278,20 @@
                 };
 
                 const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
-                console.log("Sessione salvata con ID:", docRef.id);
+                console.log(\"Sessione salvata con ID:\", docRef.id);
                 
+                // reset dello stato locale dopo salvataggio
                 appState.currentSession = null;
                 appState.currentTurn = 1;
+                return docRef.id;
 
             } catch (e) {
-                console.error("Errore salvataggio:", e);
-                showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
+                console.error(\"Errore salvataggio:\", e);
+                showModal(\"Errore\", \"Impossibile salvare la sessione.\", [{ text: \"Ok\", handler: () => {} }]);
+                return null;
             }
         }
+
 
         function calculateTotalSessionResults(session) {
             const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
