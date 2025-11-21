@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archery Tracker - Il Tuo Diario di Tiro</title>
     
-    <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
-    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
+    <link rel="shortcut icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -25,10 +26,15 @@
             color: #1a1a1a;
             font-weight: 800;
             transition: transform 0.1s;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         .btn-primary:hover {
             background-color: #e5a400;
             transform: scale(1.02);
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
         }
         .input-style {
             background-color: #2c2c2c;
@@ -44,11 +50,16 @@
             text-align: center;
             font-size: 0.9rem;
             line-height: 1.2;
+            touch-action: manipulation;
         }
         .score-grid th {
             background-color: #2c2c2c;
             color: #fdb927;
             font-weight: 600;
+        }
+        .score-cell {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
         .grid-wrapper {
             overflow-x: auto;
@@ -58,11 +69,14 @@
         /* Ottimizzazione mobile */
         @media (max-width: 640px) {
             .score-grid th, .score-grid td {
-                padding: 0.4rem 0.1rem;
-                font-size: 0.75rem;
+                padding: 0.6rem 0.2rem;
+                font-size: 0.85rem;
             }
             body {
                 font-size: 14px;
+            }
+            .btn-primary {
+                min-height: 48px;
             }
         }
         
@@ -71,6 +85,14 @@
             input, select, textarea {
                 font-size: 16px;
             }
+        }
+        
+        /* Migliora la visualizzazione del tastierino */
+        .keypad-button {
+            min-height: 48px;
+            font-size: 1.25rem;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
     </style>
     <script>
@@ -910,9 +932,11 @@
                     }
                 }
 
+                // FIX: Non andare oltre l'ultima cella
                 if (newRow < scoringState.rows) {
                     scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
                 } else {
+                    // Rimani sull'ultima cella invece di andare oltre
                     scoringState.activeCell = { row: scoringState.rows, col: scoringState.cols };
                 }
             }
@@ -991,7 +1015,7 @@
                     <h3 class="text-xl font-bold mb-3 text-white">Tastierino Punteggi</h3>
                     <div class="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-7">
                         ${KEYPAD_VALUES.map(val => `
-                            <button class="bg-secondary-dark border-2 border-primary-orange text-white p-3 rounded-xl text-xl font-bold hover:bg-primary-orange hover:text-black"
+                            <button class="keypad-button bg-secondary-dark border-2 border-primary-orange text-white p-4 rounded-xl text-xl font-bold hover:bg-primary-orange hover:text-black active:scale-95"
                                     onclick="window.handleKeypadInput('${val}')">
                                 ${val}
                             </button>
@@ -1061,14 +1085,18 @@
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
                 
+                const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
                 
                 modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
                 actions.push({ text: "Vedi Riepilogo", handler: () => {
-                    const sessionId = appState.currentSession.id;
+                    // Aspetta che la sessione sia salvata prima di navigare
                     setTimeout(() => {
-                        window.setView('detailedSummary', { sessionId: sessionId });
-                    }, 100);
+                        fetchSessions();
+                        setTimeout(() => {
+                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                        }, 500);
+                    }, 300);
                 }});
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
                 actions.push({ text: "Secondo Turno", handler: () => startNextTurn() });
@@ -1077,13 +1105,18 @@
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                
+                const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
+                
                 modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
                 actions.push({ text: "Vedi Riepilogo", handler: () => {
-                    const sessionId = appState.currentSession.id;
                     setTimeout(() => {
-                        window.setView('detailedSummary', { sessionId: sessionId });
-                    }, 100);
+                        fetchSessions();
+                        setTimeout(() => {
+                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                        }, 500);
+                    }, 300);
                 }});
             }
             
