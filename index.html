@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Archery Tracker - Il Tuo Diario di Tiro</title>
     
-    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
-    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
-    <link rel="shortcut icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg">
+    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
+    <link rel="shortcut icon" type="image/x-icon" href="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
+    <meta name="msapplication-TileImage" content="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -896,7 +897,10 @@
             const rowIndex = row - 1;
             const colIndex = col - 1;
 
-            if (rowIndex < 0 || rowIndex >= scoringState.rows) return;
+            // Se siamo fuori dai limiti della griglia, non fare nulla
+            if (rowIndex < 0 || rowIndex >= scoringState.rows || colIndex < 0 || colIndex >= scoringState.cols) {
+                return;
+            }
             
             if (value === 'CANC') {
                 if (appState.scoringGrid[rowIndex][colIndex] !== '') {
@@ -911,7 +915,6 @@
                     if (newRow >= 0) {
                         scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
                     }
-                    appState.scoringGrid[rowIndex][colIndex] = '';
                 }
             } else {
                 const scoreValue = (value === '10' ? '10' : value).toUpperCase();
@@ -932,13 +935,12 @@
                     }
                 }
 
-                // FIX: Non andare oltre l'ultima cella
+                // IMPORTANTE: Muovi il cursore solo se non siamo all'ultima cella
                 if (newRow < scoringState.rows) {
                     scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
-                } else {
-                    // Rimani sull'ultima cella invece di andare oltre
-                    scoringState.activeCell = { row: scoringState.rows, col: scoringState.cols };
                 }
+                // Se siamo all'ultima cella (ultima riga, ultima colonna), non cambiare activeCell
+                // in questo modo non si può più inserire e sovrascrivere
             }
             renderScoringView();
         };
@@ -1077,10 +1079,10 @@
                 </ul>
             `;
 
-            let actions = [];
             const format = appState.currentSession.formatoGara;
 
             if (isFinal) {
+                // Caso: Fine sessione (sia dopo primo turno che dopo secondo)
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
@@ -1089,19 +1091,50 @@
                 saveSessionToFirestore();
                 
                 modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                actions.push({ text: "Vedi Riepilogo", handler: () => {
-                    // Aspetta che la sessione sia salvata prima di navigare
-                    setTimeout(() => {
-                        fetchSessions();
+                
+                showModal("Turno Salvato!", modalBody, [
+                    { text: "Vedi Riepilogo", handler: () => {
                         setTimeout(() => {
-                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                        }, 500);
-                    }, 300);
-                }});
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
+                ]);
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
-                actions.push({ text: "Secondo Turno", handler: () => startNextTurn() });
-                actions.push({ text: "Fine (Salva)", handler: () => window.saveTurn(true) });
+                // Caso: Primo turno - offri scelta tra secondo turno o fine
+                showModal("Turno Salvato!", modalBody, [
+                    { text: "Secondo Turno", handler: () => startNextTurn() },
+                    { text: "Fine (Salva)", handler: () => {
+                        // Chiudi modale e salva definitivamente
+                        closeModal();
+                        
+                        // Ora salva e vai al riepilogo
+                        const endTime = new Date();
+                        appState.currentSession.endTime = getFormattedTime(endTime);
+                        appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                        
+                        const sessionIdBeforeSave = appState.currentSession.id;
+                        saveSessionToFirestore();
+                        
+                        // Mostra nuovo modale con conferma
+                        setTimeout(() => {
+                            showModal("Sessione Salvata!", `<p class="text-white">Durata: ${durationToString(appState.currentSession.duration)}</p>`, [
+                                { text: "Vedi Riepilogo", handler: () => {
+                                    setTimeout(() => {
+                                        fetchSessions();
+                                        setTimeout(() => {
+                                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                                        }, 500);
+                                    }, 300);
+                                }}
+                            ]);
+                        }, 200);
+                    }}
+                ]);
             } else {
+                // Questo caso non dovrebbe mai verificarsi con la logica attuale
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
@@ -1110,17 +1143,18 @@
                 saveSessionToFirestore();
                 
                 modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                actions.push({ text: "Vedi Riepilogo", handler: () => {
-                    setTimeout(() => {
-                        fetchSessions();
+                
+                showModal("Turno Salvato!", modalBody, [
+                    { text: "Vedi Riepilogo", handler: () => {
                         setTimeout(() => {
-                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                        }, 500);
-                    }, 300);
-                }});
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
+                ]);
             }
-            
-            showModal("Turno Salvato!", modalBody, actions);
         }
 
         function startNextTurn() {
