@@ -117,6 +117,7 @@
 
     <div id="app" class="app-container p-4 max-w-4xl mx-auto">
         <header class="text-center mb-8">
+            <!-- Logo/Immagine intestazione -->
             <div class="flex justify-center mb-4">
                 <img src="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg" alt="Logo Archery" class="h-24 w-auto rounded-lg shadow-lg">
             </div>
@@ -213,15 +214,6 @@
     }
 
     window.initializeApp = (db, firebaseUserId, authInstance) => {
-        let unsubscribeSnapshot = null; 
-
-        const filterState = { 
-            type: '',
-            distanza: '',
-            tipoTarga: '',
-            tipoLuogo: '',
-        };
-
         const appState = {
             view: 'login',
             loggedInArcher: null, // Oggetto arciere loggato {id, nome, password}
@@ -376,11 +368,7 @@
             };
         }
 
-        
-        // Improved modal functions with animations and safe handlers
         function showModal(title, body, actions = []) {
-            const modal = document.getElementById('modal');
-            const modalContent = document.getElementById('modal-content');
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-body').innerHTML = body;
             
@@ -391,88 +379,18 @@
                 btn.className = 'btn-primary px-4 py-2 rounded-lg font-semibold';
                 btn.textContent = action.text;
                 btn.onclick = () => {
-                    try {
-                        if (typeof action.handler === 'function') action.handler();
-                    } catch (e) {
-                        console.error('Error in modal action handler:', e);
-                    }
+                    action.handler();
                     closeModal();
                 };
                 actionsContainer.appendChild(btn);
             });
 
-            modal.classList.remove('hidden');
-            modalContent.classList.add('modal-fade-enter');
-            // trigger reflow
-            void modalContent.offsetWidth;
-            modalContent.classList.add('modal-fade-enter-active');
-            // cleanup classes after animation
-            setTimeout(() => {
-                modalContent.classList.remove('modal-fade-enter', 'modal-fade-enter-active');
-            }, 260);
+            document.getElementById('modal').classList.remove('hidden');
         }
 
-        
-        // ERRORE: Funzione showModal duplicata e ridondante. Viene commentata per risolvere i problemi di dichiarazione.
-        /*
-        // Improved modal functions with animations and safe handlers
-        function showModal(title, body, actions = []) {
-            const modal = document.getElementById('modal');
-            const modalContent = document.getElementById('modal-content');
-            document.getElementById('modal-title').textContent = title;
-            document.getElementById('modal-body').innerHTML = body;
-            
-            const actionsContainer = document.getElementById('modal-actions');
-            actionsContainer.innerHTML = '';
-            actions.forEach(action => {
-                const btn = document.createElement('button');
-                btn.className = 'btn-primary px-4 py-2 rounded-lg font-semibold';
-                btn.textContent = action.text;
-                btn.onclick = () => {
-                    try {
-                        if (typeof action.handler === 'function') action.handler();
-                    } catch (e) {
-                        console.error('Error in modal action handler:', e);
-                    }
-                    closeModal();
-                };
-                actionsContainer.appendChild(btn);
-            });
-
-            modal.classList.remove('hidden');
-            modalContent.classList.add('modal-fade-enter');
-            // trigger reflow
-            void modalContent.offsetWidth;
-            modalContent.classList.add('modal-fade-enter-active');
-            // cleanup classes after animation
-            setTimeout(() => {
-                modalContent.classList.remove('modal-fade-enter', 'modal-fade-enter-active');
-            }, 260);
-        }
-        */
-
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            const modalContent = document.getElementById('modal-content');
-            modalContent.classList.add('modal-fade-exit');
-            // trigger reflow
-            void modalContent.offsetWidth;
-            modalContent.classList.add('modal-fade-exit-active');
-
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modalContent.classList.remove('modal-fade-exit', 'modal-fade-exit-active');
-            }, 200);
-        }
-
-
-        // ERRORE: Funzione closeModal semplice e senza animazioni, dichiarata per ultima, 
-        // che sovrascrive la versione animata. Viene commentata per mantenere l'animazione di chiusura.
-        /*
         function closeModal() {
             document.getElementById('modal').classList.add('hidden');
         }
-        */
 
         function updateUserInfo() {
             const userInfoDiv = document.getElementById('user-info');
@@ -957,17 +875,17 @@
                 scoringState.rows = 12;
                 scoringState.cols = 6;
                 scoringState.format = '6x12';
-            } 
-            
+            }
+
             const turnKey = `turn${appState.currentTurn}`;
             if (!appState.currentSession[turnKey] || !appState.currentSession[turnKey].grid) {
                 const grid = Array(scoringState.rows).fill(null).map(() => Array(scoringState.cols).fill(''));
                 appState.currentSession[turnKey] = { grid: grid, summary: null };
             }
+            
             appState.scoringGrid = appState.currentSession[turnKey].grid;
             scoringState.activeCell = { row: 1, col: 1 };
         }
-        
 
         window.handleCellClick = (row, col) => {
             scoringState.activeCell = { row, col };
@@ -979,37 +897,49 @@
             const rowIndex = row - 1;
             const colIndex = col - 1;
 
+            // Se siamo fuori dai limiti della griglia, non fare nulla
             if (rowIndex < 0 || rowIndex >= scoringState.rows || colIndex < 0 || colIndex >= scoringState.cols) {
-                return; // Fuori dalla griglia
+                return;
             }
-
+            
             if (value === 'CANC') {
-                appState.scoringGrid[rowIndex][colIndex] = '';
-                // Sposta l'attivo sulla cella precedente
-                let newRow = row;
-                let newCol = col - 1;
-                if (newCol < 1) {
-                    newRow = row - 1;
-                    newCol = scoringState.cols;
-                }
-                if (newRow >= 1) {
-                    scoringState.activeCell = { row: newRow, col: newCol };
+                if (appState.scoringGrid[rowIndex][colIndex] !== '') {
+                    appState.scoringGrid[rowIndex][colIndex] = '';
+                } else {
+                    let newCol = colIndex - 1;
+                    let newRow = rowIndex;
+                    if (newCol < 0) {
+                        newRow = rowIndex - 1;
+                        newCol = scoringState.cols - 1;
+                    }
+                    if (newRow >= 0) {
+                        scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
+                    }
                 }
             } else {
-                appState.scoringGrid[rowIndex][colIndex] = value;
-                // Sposta l'attivo sulla cella successiva
-                let newRow = row;
-                let newCol = col + 1;
-                if (newCol > scoringState.cols) {
-                    newRow = row + 1;
-                    newCol = 1;
+                const scoreValue = (value === '10' ? '10' : value).toUpperCase();
+                appState.scoringGrid[rowIndex][colIndex] = scoreValue;
+
+                let newCol = colIndex + 1;
+                let newRow = rowIndex;
+
+                if (newCol >= scoringState.cols) {
+                    newCol = 0;
+                    newRow = rowIndex + 1;
+                    
+                    // Ordina la riga completata
+                    const currentRow = appState.scoringGrid[rowIndex];
+                    const nonEmptyScores = currentRow.filter(s => s !== '' && s !== undefined);
+                    if (nonEmptyScores.length === scoringState.cols) {
+                        appState.scoringGrid[rowIndex] = sortVolleyScores([...currentRow]);
+                    }
                 }
-                
-                // Se non siamo all'ultima cella
-                if (newRow <= scoringState.rows) {
-                    scoringState.activeCell = { row: newRow, col: newCol };
+
+                // IMPORTANTE: Muovi il cursore solo se non siamo all'ultima cella
+                if (newRow < scoringState.rows) {
+                    scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
                 }
-                // Se siamo all'ultima cella (ultima riga, ultima colonna), non cambiare activeCell 
+                // Se siamo all'ultima cella (ultima riga, ultima colonna), non cambiare activeCell
                 // in questo modo non si può più inserire e sovrascrivere
             }
             renderScoringView();
@@ -1018,23 +948,17 @@
         function renderScoringView() {
             const session = appState.currentSession;
             const format = scoringState.format;
+            
             let cumulativeTotalForView = 0;
+
             const gridData = appState.scoringGrid.map((row) => {
-                // Ordina per la visualizzazione solo se non sono vuote
-                const scores = sortVolleyScores(row.filter(s => s !== '' && s !== undefined));
-                const volleyResult = calculateVolley(scores, cumulativeTotalForView);
-                cumulativeTotalForView = volleyResult.totale;
+                const volleyResult = calculateVolley(row, cumulativeTotalForView);
+                cumulativeTotalForView = volleyResult.totale; 
                 return volleyResult;
             });
 
-            // Calcola il punteggio totale per la vista
-            const currentTotalSummary = calculateTurnScores(appState.scoringGrid);
-            const currentTotalScore = currentTotalSummary.score;
-            const maxScore = currentTotalSummary.maxScore;
-
-            // HTML della griglia
             const tableHtml = `
-                <div class="grid-wrapper mb-4">
+                <div class="grid-wrapper">
                     <table id="scoreTable" class="score-grid w-full table-fixed min-w-[500px] border-collapse">
                         <thead>
                             <tr class="text-xs sm:text-sm">
@@ -1051,6 +975,7 @@
                                 const row = gridData[i];
                                 const volleyNum = i + 1;
                                 const isComplete = appState.scoringGrid[i].every(s => s !== '' && s !== undefined);
+                                
                                 return `
                                     <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} text-xs sm:text-base ${isComplete ? 'text-white' : 'text-primary-orange'}">
                                         <td class="font-bold">${volleyNum}</td>
@@ -1058,64 +983,64 @@
                                             const isActive = scoringState.activeCell.row === volleyNum && scoringState.activeCell.col === colIndex + 1;
                                             const score = appState.scoringGrid[i][colIndex];
                                             return `
-                                                <td class="score-cell ${isActive ? 'bg-primary-orange text-black font-extrabold shadow-inner' : ''}" onclick="window.handleCellClick(${volleyNum}, ${colIndex + 1})">
+                                                <td class="score-cell ${isActive ? 'bg-primary-orange text-black font-extrabold shadow-inner' : ''}" 
+                                                    onclick="window.handleCellClick(${volleyNum}, ${colIndex + 1})">
                                                     ${score || ''}
                                                 </td>
                                             `;
                                         }).join('')}
                                         <td class="font-bold text-white">${row.parziale || ''}</td>
                                         <td class="font-bold text-white">${row.totale || ''}</td>
-                                        <td class="text-sm">${row.X10}</td>
-                                        <td class="text-sm">${row.nine}</td>
+                                        <td>${row.X10 || ''}</td>
+                                        <td>${row.nine || ''}</td>
                                     </tr>
                                 `;
                             }).join('')}
+                            ${(() => {
+                                const totalResults = calculateTurnScores(appState.scoringGrid);
+                                return `
+                                    <tr class="bg-primary-orange text-black font-extrabold text-xs sm:text-base">
+                                        <td colspan="${1 + scoringState.cols + 1}" class="text-right pr-4">Totale Turno</td>
+                                        <td class="font-extrabold">${totalResults.score}</td>
+                                        <td>${totalResults.X}-${totalResults.Ten}</td> 
+                                        <td>${totalResults.Nine}</td>
+                                    </tr>
+                                `;
+                            })()}
                         </tbody>
                     </table>
                 </div>
             `;
 
-            // HTML del tastierino
             const keypadHtml = `
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                    <div class="grid grid-cols-4 gap-2">
-                        ${KEYPAD_VALUES.map(value => `
-                            <button class="keypad-button btn-primary p-3 rounded-lg font-bold text-xl ${value === 'CANC' ? 'col-span-2 bg-red-600 hover:bg-red-700' : ''}" 
-                                    onclick="window.handleKeypadInput('${value}')">
-                                ${value}
+                <div class="mt-6">
+                    <h3 class="text-xl font-bold mb-3 text-white">Tastierino Punteggi</h3>
+                    <div class="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-7">
+                        ${KEYPAD_VALUES.map(val => `
+                            <button class="keypad-button bg-secondary-dark border-2 border-primary-orange text-white p-4 rounded-xl text-xl font-bold hover:bg-primary-orange hover:text-black active:scale-95"
+                                    onclick="window.handleKeypadInput('${val}')">
+                                ${val}
                             </button>
                         `).join('')}
                     </div>
                 </div>
             `;
 
-            const sessionType = session.type;
-            const isSecondTurn = appState.currentTurn === 2;
-            const showStartNextTurn = !isSecondTurn && format.includes('72 frecce');
-
-            // HTML delle azioni
+            const sessionType = appState.sessionType;
             const actionsHtml = `
-                <div class="mt-4 p-4 bg-gray-800 rounded-xl shadow-lg text-white">
-                    <div class="flex justify-between items-center mb-4">
-                        <span class="text-lg font-bold">Totale Attuale:</span>
-                        <span class="text-2xl font-extrabold text-primary-orange">${currentTotalScore} / ${maxScore}</span>
-                    </div>
-                    
-                    <div class="flex flex-col space-y-3">
-                        ${showStartNextTurn ? `
-                            <button class="btn-primary w-full p-3 rounded-lg" onclick="window.saveTurn(false)">
-                                Salva Turno ${appState.currentTurn} e Inizia Turno 2
-                            </button>
-                        ` : ''}
-                        
-                        <button class="btn-primary w-full p-3 rounded-lg ${showStartNextTurn ? 'bg-green-600 hover:bg-green-700' : ''}" onclick="window.saveTurn(true)">
-                            ${showStartNextTurn ? `Completa Sessione` : `Salva e Completa Sessione`}
+                <div class="mt-8 flex flex-col space-y-3">
+                    ${(appState.currentTurn === 2 && format !== '6x12') || (format === '6x12' && appState.currentTurn === 1) ? `
+                        <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.saveTurn(true)">
+                            Fine ${sessionType} (Salva Risultati)
                         </button>
-                        
-                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('registrationForm', { type: '${sessionType}' })">
-                            Torna Indietro
+                    ` : `
+                        <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.saveTurn(false)">
+                            Salva Turno
                         </button>
-                    </div>
+                    `}
+                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('registrationForm', { type: '${sessionType}' })">
+                        Torna Indietro
+                    </button>
                 </div>
             `;
 
@@ -1127,14 +1052,11 @@
                 ${actionsHtml}
             `;
         }
-        
-        // Aggiunta delle funzioni mancanti per salvare la sessione e passare al turno successivo.
 
         window.saveTurn = (isFinal) => {
             const turnKey = `turn${appState.currentTurn}`;
             const turnResults = calculateTurnScores(appState.scoringGrid);
-            
-            // Logica di controllo per frecce incomplete (già presente nell'originale)
+
             if (turnResults.frecceTirate !== (scoringState.rows * scoringState.cols)) {
                 showModal("Turno Incompleto", "Non tutte le volée hanno frecce. Salvare comunque?", [
                     { text: "Annulla", handler: () => {} },
@@ -1144,18 +1066,9 @@
                 confirmSave(isFinal, turnKey, turnResults);
             }
         };
-
-        async function confirmSave(isFinal, turnKey, turnResults) {
-            if (!appState.currentSession) {
-                console.error('No current session available to save.');
-                showModal('Errore', 'Nessuna sessione attiva.', [{ text: 'Ok', handler: () => {} }]);
-                return;
-            }
-            
-            appState.currentSession[turnKey] = {
-                grid: appState.scoringGrid, // Salva la griglia non serializzata qui temporaneamente
-                summary: turnResults
-            };
+        
+        function confirmSave(isFinal, turnKey, turnResults) {
+            appState.currentSession[turnKey].summary = turnResults;
             
             let modalBody = `
                 <p class="text-lg font-bold mb-3 text-white">Riepilogo Turno ${appState.currentTurn}</p>
@@ -1165,30 +1078,81 @@
                     <li><strong>X:</strong> ${turnResults.X} | <strong>10:</strong> ${turnResults.Ten} | <strong>9:</strong> ${turnResults.Nine}</li>
                 </ul>
             `;
-            
+
+            const format = appState.currentSession.formatoGara;
+
             if (isFinal) {
+                // Caso: Fine sessione (sia dopo primo turno che dopo secondo)
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
                 
-                const sessionIdBeforeSave = await saveSessionToFirestore();
-
-                if (!sessionIdBeforeSave) return; 
-
-                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                showModal("Sessione Salvata!", modalBody, [
+                const sessionIdBeforeSave = appState.currentSession.id;
+                saveSessionToFirestore();
+                
+                modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                
+                showModal("Turno Salvato!", modalBody, [
                     { text: "Vedi Riepilogo", handler: () => {
-                        fetchSessions(); 
-                        setTimeout(() => { 
-                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); 
-                        }, 450); 
+                        setTimeout(() => {
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
+                ]);
+            } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
+                // Caso: Primo turno - offri scelta tra secondo turno o fine
+                showModal("Turno Salvato!", modalBody, [
+                    { text: "Secondo Turno", handler: () => startNextTurn() },
+                    { text: "Fine (Salva)", handler: () => {
+                        // Chiudi modale e salva definitivamente
+                        closeModal();
+                        
+                        // Ora salva e vai al riepilogo
+                        const endTime = new Date();
+                        appState.currentSession.endTime = getFormattedTime(endTime);
+                        appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                        
+                        const sessionIdBeforeSave = appState.currentSession.id;
+                        saveSessionToFirestore();
+                        
+                        // Mostra nuovo modale con conferma
+                        setTimeout(() => {
+                            showModal("Sessione Salvata!", `<p class="text-white">Durata: ${durationToString(appState.currentSession.duration)}</p>`, [
+                                { text: "Vedi Riepilogo", handler: () => {
+                                    setTimeout(() => {
+                                        fetchSessions();
+                                        setTimeout(() => {
+                                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                                        }, 500);
+                                    }, 300);
+                                }}
+                            ]);
+                        }, 200);
                     }}
                 ]);
             } else {
-                // Non è finale, ma un turno intermedio (Turno 1 completato)
-                modalBody += `<p class="mt-4 text-white">Turno ${appState.currentTurn} salvato con successo.</p>`;
+                // Questo caso non dovrebbe mai verificarsi con la logica attuale
+                const endTime = new Date();
+                appState.currentSession.endTime = getFormattedTime(endTime);
+                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                
+                const sessionIdBeforeSave = appState.currentSession.id;
+                saveSessionToFirestore();
+                
+                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                
                 showModal("Turno Salvato!", modalBody, [
-                    { text: "Inizia Turno 2", handler: () => startNextTurn() }
+                    { text: "Vedi Riepilogo", handler: () => {
+                        setTimeout(() => {
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
                 ]);
             }
         }
@@ -1198,30 +1162,35 @@
                 appState.currentTurn = 2;
             }
             window.setView('scoring');
-        } 
+        }
 
         function calculateDuration(startTimeStr, endTimeStr) {
             const date = new Date().toISOString().split('T')[0];
             const start = new Date(`${date}T${startTimeStr}`);
             const end = new Date(`${date}T${endTimeStr}`);
+            
             if (end < start) {
                 end.setDate(end.getDate() + 1);
             }
+            
             const diffMs = end - start;
-            return Math.round(diffMs / (1000 * 60)); // Ritorna la durata in minuti
+            return Math.round(diffMs / (1000 * 60));
         }
 
         function prepareTurnData(turn) {
             if (!turn || !turn.grid) return null;
-            // Serializza la griglia in JSON string per salvarla in Firestore
             const serializedGrid = turn.grid.map(row => JSON.stringify(row));
-            return { summary: turn.summary, grid: serializedGrid };
-        } 
+            return {
+                summary: turn.summary,
+                grid: serializedGrid
+            };
+        }
 
         async function saveSessionToFirestore() {
             try {
                 const session = appState.currentSession;
                 const results = calculateTotalSessionResults(session);
+
                 const turn1Data = prepareTurnData(session.turn1);
                 const turn2Data = session.turn2 ? prepareTurnData(session.turn2) : null;
                 
@@ -1233,94 +1202,87 @@
                     arciere: appState.loggedInArcher.nome,
                     turn1: turn1Data,
                     turn2: turn2Data,
-                    // Rimuovi gli oggetti non serializzabili/temporanei
-                    id: undefined, 
-                    currentTurn: undefined, 
-                    scoringGrid: undefined 
                 };
-                
+
                 const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
                 console.log("Sessione salvata con ID:", docRef.id);
-
-                // reset dello stato locale dopo salvataggio
+                
                 appState.currentSession = null;
                 appState.currentTurn = 1;
-                return docRef.id;
 
             } catch (e) {
                 console.error("Errore salvataggio:", e);
                 showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
-                return null;
             }
         }
 
         function calculateTotalSessionResults(session) {
-            const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, maxScore: 0 };
-            const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, maxScore: 0 };
-
+            const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+            const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+            
             const totalScore = turn1Summary.score + turn2Summary.score;
-            const totalX = turn1Summary.X + turn2Summary.X;
-            const totalTen = turn1Summary.Ten + turn2Summary.Ten;
-            const totalNine = turn1Summary.Nine + turn2Summary.Nine;
-            const totalFrecceTirate = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
-            const totalMaxScore = turn1Summary.maxScore + turn2Summary.maxScore;
-            const totalAverage = totalFrecceTirate > 0 ? (totalScore / totalFrecceTirate) : 0;
+            const totalShots = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
 
             return {
                 totalScore: totalScore,
-                totalX: totalX,
-                totalTen: totalTen,
-                totalNine: totalNine,
-                totalFrecceTirate: totalFrecceTirate,
-                totalMaxScore: totalMaxScore,
-                totalAverage: totalAverage,
+                totalX: turn1Summary.X + turn2Summary.X,
+                totalTen: turn1Summary.Ten + turn2Summary.Ten,
+                totalNine: turn1Summary.Nine + turn2Summary.Nine,
+                totalAverage: totalShots > 0 ? (totalScore / totalShots) : 0,
                 turn1Score: turn1Summary.score,
+                turn1Average: turn1Summary.average,
                 turn2Score: turn2Summary.score,
+                turn2Average: turn2Summary.average, 
             };
         }
-        
-        // ============= RIEPILOGO DATI E FILTRI =============
-        
+
+        // ============= RIEPILOGO DATI =============
+
+        let unsubscribeSnapshot = null;
+        let filterState = {
+            distanza: '',
+            tipoTarga: '',
+            type: '',
+            tipoLuogo: '',
+        };
+
         function fetchSessions() {
-            if (!appState.loggedInArcher) return;
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+            
             const sessionsColRef = window.getSessionsCollectionRef();
             if (!sessionsColRef) {
                 console.error("Riferimento collezione non disponibile.");
                 return;
             }
 
-            let q = query(sessionsColRef, orderBy('data', 'desc')); // Ordina per data decrescente
+            let q = query(sessionsColRef);
+            
             if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
             if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
             if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
-            
-            // Abilita l'ascolto in tempo reale solo in caso di necessità
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot();
-            }
 
             unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 const sessions = [];
                 querySnapshot.forEach((doc) => {
-                    sessions.push({ docId: doc.id, ...doc.data() });
+                    sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
                 
-                // Ordina per data (stringa YYYY-MM-DD)
-                sessions.sort((a, b) => {
-                    if (a.data < b.data) return 1;
-                    if (a.data > b.data) return -1;
-                    return 0;
-                });
-                
+                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
                 appState.sessionData = sessions;
                 renderDataSummaryTable();
             }, (error) => {
                 console.error("Errore onSnapshot:", error);
-                // Non mostrare la modale per l'errore onSnapshot per non bloccare l'interfaccia
             });
         }
-        
+
         window.handleFilterChange = (field, value) => {
             filterState[field] = value;
             fetchSessions();
@@ -1351,147 +1313,71 @@
                         <option value="">Tutti i Luoghi</option>
                         ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
-                    <button class="btn-primary p-2 text-sm" onclick="window.resetFilters()">Reset Filtri</button>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', '');">Reset</button>
                 </div>
             `;
-            
-            const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white text-center">Riepilogo Sessioni</h2>
+
+            const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
+
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
                 ${filtersHtml}
-                
-                <div id="summary-table-container">
-                    <p class="text-center text-white">Caricamento sessioni...</p>
-                </div>
-                
-                <button class="btn-primary w-full p-3 rounded-lg mt-8 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu Principale
+                ${tableContainer}
+                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu
                 </button>
             `;
-            
-            document.getElementById('content-view').innerHTML = html;
+
+            renderDataSummaryTable();
         }
 
-        window.resetFilters = () => {
-            filterState.type = '';
-            filterState.distanza = '';
-            filterState.tipoTarga = '';
-            filterState.tipoLuogo = '';
-            const selects = document.querySelectorAll('#content-view select');
-            selects.forEach(select => select.value = '');
-            fetchSessions();
-        };
-
         function renderDataSummaryTable() {
-            const tableContainer = document.getElementById('summary-table-container');
+            const tableContainer = document.getElementById('dataSummaryTable');
             if (!tableContainer) return;
-            
-            if (appState.sessionData.length === 0) {
-                tableContainer.innerHTML = `<p class="text-center text-primary-orange">Nessuna sessione trovata con i filtri attuali.</p>`;
-                return;
-            }
 
             const tableHtml = `
-                <div class="grid-wrapper mb-4">
-                    <table class="score-grid w-full table-fixed border-collapse min-w-[600px]">
-                        <thead>
-                            <tr class="text-sm">
-                                <th class="w-[15%]">Data</th>
-                                <th class="w-[10%]">Tipo</th>
-                                <th class="w-[15%]">Punt. Totale</th>
-                                <th class="w-[15%]">Media</th>
-                                <th class="w-[10%]">Distanza</th>
-                                <th class="w-[10%]">Targa</th>
-                                <th class="w-[10%]"></th>
+                <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
+                    <thead>
+                        <tr class="text-xs sm:text-sm">
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Tot.</th>
+                            <th>T1</th>
+                            <th>T2</th>
+                            <th>X</th>
+                            <th>10</th>
+                            <th>9</th>
+                            <th>Luogo</th>
+                            <th>Distanza</th>
+                            <th>Targa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${appState.sessionData.length === 0 ? `
+                            <tr><td colspan="11" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
+                        ` : appState.sessionData.map(session => `
+                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
+                                <td>${session.type}</td>
+                                <td class="font-extrabold text-white">${session.totalScore || 0}</td>
+                                <td>${session.turn1Score || 0}</td>
+                                <td>${session.turn2Score || 0}</td>
+                                <td>${session.totalX || 0}</td>
+                                <td>${session.totalTen || 0}</td>
+                                <td>${session.totalNine || 0}</td>
+                                <td>${session.luogo}</td>
+                                <td>${session.distanza}</td>
+                                <td>${session.tipoTarga}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            ${appState.sessionData.map(session => `
-                                <tr class="${session.type === 'Gara' ? 'bg-yellow-900/50' : (session.totalScore < session.totalMaxScore / 2 ? 'bg-red-900/50' : 'bg-secondary-dark')}"
-                                    onclick="window.setView('detailedSummary', { sessionId: '${session.docId}' })">
-                                    <td class="text-sm font-bold">${formatDate(session.data)}</td>
-                                    <td class="text-xs">${session.type}</td>
-                                    <td class="font-extrabold text-primary-orange">${session.totalScore} / ${session.totalMaxScore}</td>
-                                    <td>${session.totalAverage.toFixed(2)}</td>
-                                    <td>${session.distanza}</td>
-                                    <td>${session.tipoTarga}</td>
-                                    <td><button class="text-primary-orange underline text-xs">Dettagli</button></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
+                        `).join('')}
+                    </tbody>
+                </table>
             `;
             tableContainer.innerHTML = tableHtml;
         }
 
         // ============= RIEPILOGO DETTAGLIATO =============
-
-        function deserializeGrid(turn) {
-            if (!turn || !turn.grid || turn.grid.length === 0) return [];
-            // Deserializza le stringhe JSON della griglia
-            return turn.grid.map(rowStr => JSON.parse(rowStr));
-        }
-
-        function renderTurnSummaryCard(turn, title) {
-            const summary = turn.summary;
-            if (!summary) return '';
-            return `
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                    <h4 class="text-xl font-bold mb-2 text-white">${title}</h4>
-                    <ul class="space-y-1 text-sm">
-                        <li><strong>Punteggio:</strong> <span class="text-white font-extrabold">${summary.score}</span> / ${summary.maxScore}</li>
-                        <li><strong>Media:</strong> ${summary.average.toFixed(2)}</li>
-                        <li><strong>X-10/9:</strong> <span class="text-white font-extrabold">${summary.X}-${summary.Ten}</span>, 9: ${summary.Nine}</li>
-                    </ul>
-                </div>
-            `;
-        }
-
-        function renderDetailedScoreGrid(turn, title) {
-            const grid2D = deserializeGrid(turn);
-            let cumulativeTotalForView = 0;
-            
-            const volleys = grid2D.map(row => {
-                const scores = row.filter(s => s !== '' && s !== undefined);
-                const volleyResult = calculateVolley(scores, cumulativeTotalForView);
-                cumulativeTotalForView = volleyResult.totale;
-                return volleyResult;
-            });
-            
-            if (!volleys || volleys.length === 0) return '';
-            const numCols = volleys[0].scores.length;
-
-            const tableHtml = `
-                <div class="mt-4">
-                    <h4 class="text-lg font-bold mb-2 text-primary-orange">${title}</h4>
-                    <div class="grid-wrapper">
-                        <table class="score-grid w-full table-auto min-w-[500px] border-collapse">
-                            <thead>
-                                <tr class="text-xs sm:text-sm">
-                                    <th class="w-[10%]">Volée</th>
-                                    ${Array(numCols).fill(0).map((_, i) => `<th class="w-[8%]">${i + 1}</th>`).join('')}
-                                    <th class="w-[10%]">Parz.</th>
-                                    <th class="w-[10%]">Tot.</th>
-                                    <th class="w-[12%]">X-10</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${volleys.map((row, i) => `
-                                    <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} text-xs sm:text-base">
-                                        <td class="font-bold">${i + 1}</td>
-                                        ${row.scores.map(score => `<td>${score || ''}</td>`).join('')}
-                                        <td class="font-bold text-white">${row.parziale}</td>
-                                        <td class="font-bold text-white">${row.totale}</td>
-                                        <td class="text-sm">${row.X10}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-            return tableHtml;
-        }
 
         function renderDetailedSummary() {
             const session = appState.detailedSession;
@@ -1499,11 +1385,13 @@
                 window.setView('dataSummary');
                 return;
             }
-
+            
             const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
+
             const html = `
                 <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
                 <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
+
                 <div class="space-y-6">
                     <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                         <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
@@ -1514,9 +1402,9 @@
                             <div><strong>Media:</strong> <span class="text-white font-extrabold">${session.totalAverage.toFixed(2)}</span></div>
                         </div>
                         <div class="mt-3 p-2 bg-gray-800 rounded-lg">
-                            <strong>X-10/9:</strong> <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
+                            <strong>X-10/9:</strong> 
+                            <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
                         </div>
-                        ${session.note ? `<p class="mt-3 text-sm italic">Note: ${session.note}</p>` : ''}
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1533,6 +1421,7 @@
                     <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
                         Torna al Riepilogo
                     </button>
+                    
                     <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                         🗑️ Elimina Questa Sessione
                     </button>
@@ -1543,270 +1432,393 @@
 
         window.showDeleteSessionSection = (sessionId, sessionDate) => {
             if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
-
-            showModal("Conferma Eliminazione", 
-                `<p class="text-red-500 font-bold mb-3">Sei sicuro di voler eliminare la sessione del ${sessionDate}? Questa azione è irreversibile.</p>
-                 <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
-                 <input type="password" id="delete-session-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>`, 
-                [
-                    { text: "Annulla", handler: () => {} },
-                    { text: "Elimina", handler: () => window.confirmDeleteSession(sessionId) }
-                ]
-            );
-        };
-        
-        window.confirmDeleteSession = async (sessionId) => {
-            const password = document.getElementById('delete-session-password').value;
-            
-            if (!password) {
-                showModal("Errore", "Inserisci la password per confermare.", [{ text: "Ok", handler: () => {} }]);
-                return;
-            }
-
-            if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
-                showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [{ text: "Ok", handler: () => {} }]);
-                return;
-            }
-
-            try {
-                const archerId = appState.loggedInArcher.id;
-                const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionId);
-                await deleteDoc(sessionDocRef);
-
-                console.log("Sessione eliminata con successo:", sessionId);
-                appState.detailedSession = null;
-                showModal("Successo", "La sessione è stata eliminata con successo.", [
-                    { text: "Ok", handler: () => { window.setView('dataSummary'); }}
+                showModal("Errore", "Devi essere loggato per eliminare sessioni.", [
+                    { text: "Ok", handler: () => {} }
                 ]);
-
-            } catch (error) {
-                console.error("ERRORE CRITICO DI ELIMINAZIONE:", error);
-                showModal("Errore", `Impossibile eliminare la sessione: ${error.message}`, [{ text: "Chiudi", handler: () => {} }]);
+                return;
             }
+            
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('detailedSummary', { sessionId: '${sessionId}' })">
+                        ← Torna alla Sessione
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Sessione</h2>
+                    <p class="text-center mb-4 text-white">Stai per eliminare la sessione del <strong class="text-primary-orange">${sessionDate}</strong></p>
+                    <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione è irreversibile!</p>
+                    
+                    <form id="deleteSessionForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
+                            <input type="password" id="delete-session-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('detailedSummary', { sessionId: '${sessionId}' })">
+                                Annulla
+                            </button>
+                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
+                                Elimina Definitivamente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('deleteSessionForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('delete-session-password').value;
+                
+                if (!password) {
+                    showModal("Errore", "Inserisci la password per confermare.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
+                    showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                try {
+                    const archerId = appState.loggedInArcher.id;
+                    const sessionIdToDelete = sessionId;
+
+                    console.log("Tentativo eliminazione sessione:", sessionIdToDelete);
+                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
+                    
+                    await deleteDoc(sessionDocRef);
+                    
+                    console.log("Sessione eliminata con successo:", sessionIdToDelete);
+                    
+                    appState.detailedSession = null;
+                    showModal("Successo", "La sessione è stata eliminata con successo.", [
+                        { text: "Ok", handler: () => {
+                            window.setView('dataSummary');
+                        }}
+                    ]);
+                    
+                } catch (error) {
+                    console.error("ERRORE CRITICO DI ELIMINAZIONE:", error);
+                    showModal("Errore", `Impossibile eliminare la sessione: ${error.message}`, [
+                        { text: "Chiudi", handler: () => {} }
+                    ]);
+                }
+            });
         };
+
+        function renderTurnSummaryCard(turn, title) {
+            const summary = turn.summary;
+            if (!summary) return '';
+            return `
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                    <h4 class="text-xl font-bold mb-2 text-white">${title}</h4>
+                    <ul class="space-y-1 text-sm">
+                        <li><strong>Punteggio:</strong> <span class="text-white font-extrabold">${summary.score}</span> / ${summary.maxScore}</li>
+                        <li><strong>Media:</strong> ${summary.average.toFixed(2)}</li>
+                        <li><strong>X-10/9:</strong> <span class="text-white font-extrabold">${summary.X}-${summary.Ten}</span>, 9: ${summary.Nine}</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        function deserializeGrid(turn) {
+            if (!turn || !turn.grid || turn.grid.length === 0) return [];
+            return turn.grid.map(rowStr => JSON.parse(rowStr));
+        }
+
+        function renderDetailedScoreGrid(turn, title) {
+            const grid2D = deserializeGrid(turn); 
+            
+            let cumulativeTotalForView = 0;
+            const volleys = grid2D.map(row => {
+                const volleyResult = calculateVolley(row, cumulativeTotalForView);
+                cumulativeTotalForView = volleyResult.totale; 
+                return volleyResult;
+            });
+
+            if (!volleys || volleys.length === 0) return '';
+            
+            const numCols = volleys[0].scores.length;
+
+            const tableHtml = `
+                <div class="mt-4">
+                    <h4 class="text-lg font-bold mb-2 text-primary-orange">${title}</h4>
+                    <div class="grid-wrapper">
+                        <table class="score-grid w-full table-auto min-w-[500px] border-collapse">
+                            <thead>
+                                <tr class="text-xs sm:text-sm">
+                                    <th class="w-[10%]">Volée</th>
+                                    ${Array(numCols).fill(0).map((_, i) => `<th class="w-[8%]">${i + 1}</th>`).join('')}
+                                    <th class="w-[10%]">Parz.</th>
+                                    <th class="w-[10%]">Tot.</th>
+                                    <th class="w-[12%]">X-10</th>
+                                    <th class="w-[8%]">9</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${volleys.map((row, i) => `
+                                    <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} hover:bg-gray-700 text-xs sm:text-sm">
+                                        <td class="font-bold">${i + 1}</td>
+                                        ${row.scores.map(score => `<td>${score || ''}</td>`).join('')}
+                                        <td class="font-bold text-white">${row.parziale}</td>
+                                        <td class="font-bold text-white">${row.totale}</td>
+                                        <td>${row.X10}</td>
+                                        <td>${row.nine}</td>
+                                    </tr>
+                                `).join('')}
+                                <tr class="bg-primary-orange text-black font-extrabold text-xs sm:text-sm">
+                                    <td colspan="${1 + numCols + 1}" class="text-right pr-4">Totale</td>
+                                    <td>${turn.summary.score}</td>
+                                    <td>${turn.summary.X}-${turn.summary.Ten}</td>
+                                    <td>${turn.summary.Nine}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            return tableHtml;
+        }
 
         // ============= GRAFICI =============
-        
-        const chartFilterState = {
-            type: 'all',
-            distanza: 'all',
-            tipoTarga: 'all',
-            tipoLuogo: 'all',
-            month: 'all',
-            year: 'all',
-            turns: 'all',
-        };
-
-        window.handleChartFilterChange = (field, value) => {
-            chartFilterState[field] = value;
-            loadChartsData();
-        };
-
-        window.resetChartFilters = () => {
-            chartFilterState.type = 'all';
-            chartFilterState.distanza = 'all';
-            chartFilterState.tipoTarga = 'all';
-            chartFilterState.tipoLuogo = 'all';
-            chartFilterState.month = 'all';
-            chartFilterState.year = 'all';
-            chartFilterState.turns = 'all';
-            const selects = document.querySelectorAll('#content-view select');
-            selects.forEach(select => select.value = 'all');
-            loadChartsData();
-        };
 
         function renderChartsView() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
-
-            // Popola gli anni disponibili
-            const availableYears = [...new Set(appState.sessionData.map(s => {
-                const date = s.data ? new Date(s.data) : null;
-                return date ? date.getFullYear() : null;
-            }).filter(Boolean))].sort((a, b) => b - a);
-            
-            const yearOptions = availableYears.map(year => 
-                `<option value="${year}" ${chartFilterState.year === String(year) ? 'selected' : ''}>${year}</option>`
-            ).join('');
-
-
             const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white text-center">📈 Andamento Punteggi</h2>
-
-                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg">
-                    <h3 class="text-lg font-bold mb-3 text-primary-orange">Filtri Grafico</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <select id="chart-filter-type" class="input-style text-sm" onchange="window.handleChartFilterChange('type', this.value)">
-                            <option value="all">Tutti i Tipi</option>
-                            <option value="Allenamento" ${chartFilterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
-                            <option value="Gara" ${chartFilterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
+                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        
+                        <select id="chart-filter-type" class="input-style text-sm">
+                            <option value="all">Tutti i Tipi (A/G)</option>
+                            <option value="allenamento">Allenamento</option>
+                            <option value="gara">Gara</option>
                         </select>
-                        <select id="chart-filter-distance" class="input-style text-sm" onchange="window.handleChartFilterChange('distanza', this.value)">
+                        <select id="chart-filter-distance" class="input-style text-sm">
                             <option value="all">Tutte le Distanze</option>
-                            ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${chartFilterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                            ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
-                        <select id="chart-filter-target" class="input-style text-sm" onchange="window.handleChartFilterChange('tipoTarga', this.value)">
+                        <select id="chart-filter-target" class="input-style text-sm">
                             <option value="all">Tutte le Targhe</option>
-                            ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${chartFilterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                            ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
-                        <select id="chart-filter-location" class="input-style text-sm" onchange="window.handleChartFilterChange('tipoLuogo', this.value)">
+                        <select id="chart-filter-location" class="input-style text-sm">
                             <option value="all">Tutti i Luoghi</option>
-                            ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${chartFilterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                            ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
-                        <select id="chart-filter-month" class="input-style text-sm" onchange="window.handleChartFilterChange('month', this.value)">
+                        
+                        <select id="chart-filter-month" class="input-style text-sm">
                             <option value="all">Tutti i Mesi</option>
-                            <option value="1" ${chartFilterState.month === '1' ? 'selected' : ''}>Gennaio</option>
-                            <option value="2" ${chartFilterState.month === '2' ? 'selected' : ''}>Febbraio</option>
-                            <option value="3" ${chartFilterState.month === '3' ? 'selected' : ''}>Marzo</option>
-                            <option value="4" ${chartFilterState.month === '4' ? 'selected' : ''}>Aprile</option>
-                            <option value="5" ${chartFilterState.month === '5' ? 'selected' : ''}>Maggio</option>
-                            <option value="6" ${chartFilterState.month === '6' ? 'selected' : ''}>Giugno</option>
-                            <option value="7" ${chartFilterState.month === '7' ? 'selected' : ''}>Luglio</option>
-                            <option value="8" ${chartFilterState.month === '8' ? 'selected' : ''}>Agosto</option>
-                            <option value="9" ${chartFilterState.month === '9' ? 'selected' : ''}>Settembre</option>
-                            <option value="10" ${chartFilterState.month === '10' ? 'selected' : ''}>Ottobre</option>
-                            <option value="11" ${chartFilterState.month === '11' ? 'selected' : ''}>Novembre</option>
-                            <option value="12" ${chartFilterState.month === '12' ? 'selected' : ''}>Dicembre</option>
+                            <option value="1">Gennaio</option>
+                            <option value="2">Febbraio</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Aprile</option>
+                            <option value="5">Maggio</option>
+                            <option value="6">Giugno</option>
+                            <option value="7">Luglio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Settembre</option>
+                            <option value="10">Ottobre</option>
+                            <option value="11">Novembre</option>
+                            <option value="12">Dicembre</option>
                         </select>
-                        <select id="chart-filter-year" class="input-style text-sm" onchange="window.handleChartFilterChange('year', this.value)">
+                        <select id="chart-filter-year" class="input-style text-sm">
                             <option value="all">Tutti gli Anni</option>
-                            ${yearOptions}
                         </select>
-                        <select id="chart-filter-turns" class="input-style text-sm" onchange="window.handleChartFilterChange('turns', this.value)">
+                        <select id="chart-filter-turns" class="input-style text-sm">
                             <option value="all">Tutti i Turni</option>
-                            <option value="single" ${chartFilterState.turns === 'single' ? 'selected' : ''}>Solo 1 Turno</option>
-                            <option value="double" ${chartFilterState.turns === 'double' ? 'selected' : ''}>Solo 2 Turni</option>
+                            <option value="single">Solo 1 Turno</option>
+                            <option value="double">Solo 2 Turni</option>
                         </select>
+                        
                         <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
                     </div>
                 </div>
-
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
                     <canvas id="sessionsChart"></canvas>
                 </div>
-
                 <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
                     Torna al Menu Principale
                 </button>
             `;
             document.getElementById('content-view').innerHTML = html;
             
-            // Assicurati che i dati siano caricati prima di disegnare il grafico
-            if (appState.sessionData.length > 0) {
-                loadChartsData();
-            } else {
-                 // Faccio un fetchSessions() fittizio se i dati non sono già presenti
-                 fetchSessions();
-                 // Dato che fetchSessions è asincrona, chiamo loadChartsData() con un ritardo per attendere l'aggiornamento di appState.sessionData
-                 setTimeout(loadChartsData, 1500);
+            loadChartsData();
+        }
+
+        window.resetChartFilters = () => {
+            document.getElementById('chart-filter-type').value = 'all';
+            document.getElementById('chart-filter-distance').value = 'all';
+            document.getElementById('chart-filter-target').value = 'all';
+            document.getElementById('chart-filter-location').value = 'all';
+            document.getElementById('chart-filter-month').value = 'all';
+            document.getElementById('chart-filter-year').value = 'all';
+            document.getElementById('chart-filter-turns').value = 'all';
+            drawSessionsChart();
+        };
+
+        function loadChartsData() {
+            const sessionsColRef = window.getSessionsCollectionRef();
+            if (!sessionsColRef) {
+                console.error("Riferimento collezione non disponibile.");
+                return;
+            }
+
+            const q = query(sessionsColRef);
+            
+            getDocs(q).then((querySnapshot) => {
+                const sessions = [];
+                querySnapshot.forEach((doc) => {
+                    sessions.push({ id: doc.id, ...doc.data() });
+                });
+                
+                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+                appState.sessionData = sessions;
+                
+                setupChartFilters();
+                drawSessionsChart();
+            }).catch((error) => {
+                console.error("Errore nel caricamento dei dati:", error);
+            });
+        }
+
+        function setupChartFilters() {
+            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('change', drawSessionsChart);
+                }
+            });
+
+            const yearFilter = document.getElementById('chart-filter-year');
+            if (yearFilter) {
+                const years = new Set();
+                appState.sessionData.forEach(session => {
+                    if (session.data) {
+                        years.add(new Date(session.data).getFullYear());
+                    }
+                });
+
+                Array.from(yearFilter.options).forEach((option, index) => {
+                    if (index > 0) yearFilter.removeChild(option);
+                });
+
+                Array.from(years).sort((a, b) => b - a).forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearFilter.appendChild(option);
+                });
             }
         }
 
-        function loadChartsData() {
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
+        function drawSessionsChart() {
+            const ctx = document.getElementById('sessionsChart');
+            if (!ctx) return;
+            
+            const context = ctx.getContext('2d');
+            
+            const typeFilter = document.getElementById('chart-filter-type').value;
+            const targetFilter = document.getElementById('chart-filter-target').value;
+            const distanceFilter = document.getElementById('chart-filter-distance').value;
+            const locationFilter = document.getElementById('chart-filter-location').value;
+            const monthFilter = document.getElementById('chart-filter-month').value;
+            const yearFilter = document.getElementById('chart-filter-year').value;
+            const turnsFilter = document.getElementById('chart-filter-turns').value;
 
-            const filteredSessions = appState.sessionData.filter(session => {
-                const typeFilter = chartFilterState.type;
-                const targetFilter = chartFilterState.tipoTarga;
-                const distanceFilter = chartFilterState.distanza;
-                const locationFilter = chartFilterState.tipoLuogo;
-                const monthFilter = chartFilterState.month;
-                const yearFilter = chartFilterState.year;
-                const turnsFilter = chartFilterState.turns;
-
-                const sType = (session.type || '');
+            let filteredData = appState.sessionData.filter(session => {
+                const sType = (session.type || '').toLowerCase();
                 const sTargetType = (session.tipoTarga || '');
                 const sDistance = (session.distanza || '');
                 const sLocation = (session.tipoLuogo || '');
+                
                 const sessionDate = session.data ? new Date(session.data) : null;
                 const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
                 const sYear = sessionDate ? sessionDate.getFullYear() : null;
-                const hasTwoTurns = session.turn2Score > 0;
 
+                const hasTwoTurns = session.turn2Score > 0; 
+                
                 const matchesType = typeFilter === 'all' || sType === typeFilter;
                 const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
                 const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
                 const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
+
                 const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
                 const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
-                const matchesTurns = turnsFilter === 'all' || (turnsFilter === 'single' && !hasTwoTurns) || (turnsFilter === 'double' && hasTwoTurns);
                 
+                const matchesTurns = turnsFilter === 'all' || 
+                                     (turnsFilter === 'single' && !hasTwoTurns) || 
+                                     (turnsFilter === 'double' && hasTwoTurns);
+
                 return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesMonth && matchesYear && matchesTurns;
             });
+
+            filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            const labels = filteredData.map(s => {
+                const formattedDate = formatDate(s.data);
+                const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
+                return `${formattedDate}${sessionType}`;
+            });
             
-            if (filteredSessions.length === 0) {
-                const chartContainer = document.getElementById('sessionsChart').parentElement;
-                chartContainer.innerHTML = '<p class="text-center text-primary-orange p-8">Nessuna sessione trovata per i filtri selezionati.</p>';
+            const dataPoints = filteredData.map(s => s.totalScore); 
+
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: 'Punteggio Totale Sessione',
+                    data: dataPoints,
+                    backgroundColor: 'rgba(253, 185, 39, 0.5)', 
+                    borderColor: 'rgb(253, 185, 39)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: 'rgb(253, 185, 39)'
+                }]
+            };
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            if (dataPoints.length === 0) {
+                context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+                context.font = '20px Inter, sans-serif';
+                context.fillStyle = '#fdb927';
+                context.textAlign = 'center';
+                context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
                 return;
-            } else {
-                // Ripristina l'elemento canvas se era stato rimosso
-                const chartContainer = document.getElementById('sessionsChart').parentElement;
-                if (!document.getElementById('sessionsChart')) {
-                    chartContainer.innerHTML = '<canvas id="sessionsChart"></canvas>';
-                }
             }
 
-
-            // I dati devono essere ordinati cronologicamente per il grafico
-            filteredSessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-
-            const labels = filteredSessions.map(s => formatDate(s.data) + (s.type === 'Gara' ? ' (Gara)' : ''));
-            const dataScores = filteredSessions.map(s => s.totalScore);
-            const dataMaxScores = filteredSessions.map(s => s.totalMaxScore);
-
-            const ctx = document.getElementById('sessionsChart').getContext('2d');
-            
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Punteggio Ottenuto',
-                        data: dataScores,
-                        borderColor: '#fdb927', // primary-orange
-                        backgroundColor: 'rgba(253, 185, 39, 0.2)',
-                        tension: 0.3,
-                        fill: true
-                    },
-                    {
-                        label: 'Punteggio Massimo',
-                        data: dataMaxScores,
-                        borderColor: '#FFFFFF', // White
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderDash: [5, 5],
-                        pointRadius: 0,
-                        tension: 0.3,
-                        fill: false
-                    }]
-                },
+            chartInstance = new Chart(context, {
+                type: 'line', 
+                data: chartData,
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: {
-                                color: '#4a4a4a'
-                            },
-                            ticks: {
-                                color: '#fdb927'
-                            },
                             title: {
                                 display: true,
-                                text: 'Punteggio',
+                                text: 'Punteggio Totale',
+                                color: '#fdb927'
+                            },
+                            grid: {
+                                color: 'rgba(74, 74, 74, 0.5)'
+                            },
+                            ticks: {
                                 color: '#fdb927'
                             }
                         },
                         x: {
                             grid: {
-                                display: false
+                                color: 'rgba(74, 74, 74, 0.5)'
                             },
                             ticks: {
                                 color: '#fdb927',
