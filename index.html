@@ -1247,9 +1247,7 @@ let filterState = {
             anno: '',
         };
 
-        // Genera gli ultimi 5 anni
-        const currentYear = new Date().getFullYear();
-        const ANNO_OPTIONS = Array.from({length: 5}, (_, i) => currentYear - i);
+        let ANNO_OPTIONS = []; // Array dinamico che verrà popolato
 
         function fetchSessions() {
             if (!appState.loggedInArcher) {
@@ -1274,20 +1272,54 @@ let filterState = {
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
             if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
             
-            if (filterState.anno) {
-                const startDate = `${filterState.anno}-01-01`;
-                const endDate = `${filterState.anno}-12-31`;
-                q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
-            }
+            // Il filtro per anno verrà applicato lato client dopo aver ricevuto i dati
 
             unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 const sessions = [];
+                const yearsSet = new Set();
+                
                 querySnapshot.forEach((doc) => {
-                    sessions.push({ docId: doc.id, ...doc.data() }); 
+                    const sessionData = { docId: doc.id, ...doc.data() };
+                    sessions.push(sessionData);
+                    
+                    // Estrai l'anno dalla data in formato DD/MM/YYYY
+                    if (sessionData.data) {
+                        const dateParts = sessionData.data.split('/');
+                        if (dateParts.length === 3) {
+                            const year = parseInt(dateParts[2]);
+                            if (!isNaN(year)) {
+                                yearsSet.add(year);
+                            }
+                        }
+                    }
                 });
                 
-                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-                appState.sessionData = sessions;
+                // Filtra lato client per anno se selezionato
+                let filteredSessions = sessions;
+                if (filterState.anno) {
+                    filteredSessions = sessions.filter(session => {
+                        if (session.data) {
+                            const dateParts = session.data.split('/');
+                            if (dateParts.length === 3) {
+                                const year = parseInt(dateParts[2]);
+                                return year === parseInt(filterState.anno);
+                            }
+                        }
+                        return false;
+                    });
+                }
+                
+                // Converti il Set in array e ordina in modo decrescente
+                ANNO_OPTIONS = Array.from(yearsSet).sort((a, b) => b - a);
+                
+                // Ordina le sessioni convertendo la data in formato confrontabile
+                filteredSessions.sort((a, b) => {
+                    const dateA = a.data.split('/').reverse().join('');
+                    const dateB = b.data.split('/').reverse().join('');
+                    return dateA.localeCompare(dateB);
+                });
+                
+                appState.sessionData = filteredSessions;
                 renderDataSummaryTable();
             }, (error) => {
                 console.error("Errore onSnapshot:", error);
