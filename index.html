@@ -1239,12 +1239,17 @@
         // ============= RIEPILOGO DATI =============
 
         let unsubscribeSnapshot = null;
-        let filterState = {
+let filterState = {
             distanza: '',
             tipoTarga: '',
             type: '',
             tipoLuogo: '',
+            anno: '',
         };
+
+        // Genera gli ultimi 5 anni
+        const currentYear = new Date().getFullYear();
+        const ANNO_OPTIONS = Array.from({length: 5}, (_, i) => currentYear - i);
 
         function fetchSessions() {
             if (!appState.loggedInArcher) {
@@ -1268,6 +1273,12 @@
             if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
             if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
+            
+            if (filterState.anno) {
+                const startDate = `${filterState.anno}-01-01`;
+                const endDate = `${filterState.anno}-12-31`;
+                q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
+            }
 
             unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 const sessions = [];
@@ -1295,7 +1306,7 @@
             }
 
             const filtersHtml = `
-                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-5">
+                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
                     <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
                         <option value="">Tutti i Tipi</option>
                         <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
@@ -1313,7 +1324,11 @@
                         <option value="">Tutti i Luoghi</option>
                         ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
-                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', '');">Reset</button>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
+                        <option value="">Tutti gli Anni</option>
+                        ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
                 </div>
             `;
 
