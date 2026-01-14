@@ -1247,7 +1247,7 @@ let filterState = {
             anno: '',
         };
 
-        let ANNO_OPTIONS = []; // Array dinamico che verrà popolato
+        const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034];
 
         function fetchSessions() {
             if (!appState.loggedInArcher) {
@@ -1276,22 +1276,10 @@ let filterState = {
 
             unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
                 const sessions = [];
-                const yearsSet = new Set();
                 
                 querySnapshot.forEach((doc) => {
                     const sessionData = { docId: doc.id, ...doc.data() };
                     sessions.push(sessionData);
-                    
-                    // Estrai l'anno dalla data in formato DD/MM/YYYY
-                    if (sessionData.data) {
-                        const dateParts = sessionData.data.split('/');
-                        if (dateParts.length === 3) {
-                            const year = parseInt(dateParts[2]);
-                            if (!isNaN(year)) {
-                                yearsSet.add(year);
-                            }
-                        }
-                    }
                 });
                 
                 // Filtra lato client per anno se selezionato
@@ -1309,9 +1297,6 @@ let filterState = {
                     });
                 }
                 
-                // Converti il Set in array e ordina in modo decrescente
-                ANNO_OPTIONS = Array.from(yearsSet).sort((a, b) => b - a);
-                
                 // Ordina le sessioni convertendo la data in formato confrontabile
                 filteredSessions.sort((a, b) => {
                     const dateA = a.data.split('/').reverse().join('');
@@ -1321,7 +1306,6 @@ let filterState = {
                 
                 appState.sessionData = filteredSessions;
                 renderDataSummaryTable();
-                updateYearFilter(); // Aggiorna il filtro anno dopo aver caricato i dati
             }, (error) => {
                 console.error("Errore onSnapshot:", error);
             });
@@ -1331,18 +1315,6 @@ let filterState = {
             filterState[field] = value;
             fetchSessions();
         };
-
-        function updateYearFilter() {
-            const yearSelect = document.querySelector('select[onchange*="anno"]');
-            if (yearSelect) {
-                const currentValue = filterState.anno;
-                yearSelect.innerHTML = `
-                    <option value="">Tutti gli Anni</option>
-                    ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                `;
-                yearSelect.value = currentValue;
-            }
-        }
 
         function renderDataSummary() {
             if (!appState.loggedInArcher) {
