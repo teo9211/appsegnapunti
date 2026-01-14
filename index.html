@@ -1321,6 +1321,7 @@ let filterState = {
                 
                 appState.sessionData = filteredSessions;
                 renderDataSummaryTable();
+                updateYearFilter(); // Aggiorna il filtro anno dopo aver caricato i dati
             }, (error) => {
                 console.error("Errore onSnapshot:", error);
             });
@@ -1330,6 +1331,18 @@ let filterState = {
             filterState[field] = value;
             fetchSessions();
         };
+
+        function updateYearFilter() {
+            const yearSelect = document.querySelector('select[onchange*="anno"]');
+            if (yearSelect) {
+                const currentValue = filterState.anno;
+                yearSelect.innerHTML = `
+                    <option value="">Tutti gli Anni</option>
+                    ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                `;
+                yearSelect.value = currentValue;
+            }
+        }
 
         function renderDataSummary() {
             if (!appState.loggedInArcher) {
