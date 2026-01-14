@@ -1247,6 +1247,7 @@ let filterState = {
             anno: '',
         };
 
+        // Anni fissi da 2025 a 2034
         const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034];
 
         function fetchSessions() {
@@ -1271,21 +1272,16 @@ let filterState = {
             if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
             if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
-            
-            // Il filtro per anno verrà applicato lato client dopo aver ricevuto i dati
 
             unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
-                const sessions = [];
-                
+                let sessions = [];
                 querySnapshot.forEach((doc) => {
-                    const sessionData = { docId: doc.id, ...doc.data() };
-                    sessions.push(sessionData);
+                    sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
                 
-                // Filtra lato client per anno se selezionato
-                let filteredSessions = sessions;
+                // Filtra per anno lato client (dopo aver ricevuto i dati)
                 if (filterState.anno) {
-                    filteredSessions = sessions.filter(session => {
+                    sessions = sessions.filter(session => {
                         if (session.data) {
                             const dateParts = session.data.split('/');
                             if (dateParts.length === 3) {
@@ -1297,14 +1293,14 @@ let filterState = {
                     });
                 }
                 
-                // Ordina le sessioni convertendo la data in formato confrontabile
-                filteredSessions.sort((a, b) => {
+                sessions.sort((a, b) => {
+                    // Converti DD/MM/YYYY in formato confrontabile
                     const dateA = a.data.split('/').reverse().join('');
                     const dateB = b.data.split('/').reverse().join('');
                     return dateA.localeCompare(dateB);
                 });
                 
-                appState.sessionData = filteredSessions;
+                appState.sessionData = sessions;
                 renderDataSummaryTable();
             }, (error) => {
                 console.error("Errore onSnapshot:", error);
