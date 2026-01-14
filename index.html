@@ -1240,111 +1240,110 @@
 
         let unsubscribeSnapshot = null;
 let filterState = {
-            distanza: '',
-            tipoTarga: '',
-            type: '',
-            tipoLuogo: '',
-            anno: '',
-        };
+    distanza: '',
+    tipoTarga: '',
+    type: '',
+    tipoLuogo: '',
+    anno: '',
+};
 
-        // Genera gli ultimi 5 anni
-        const currentYear = new Date().getFullYear();
-        const ANNO_OPTIONS = Array.from({length: 5}, (_, i) => currentYear - i);
+// Lista anni specifici
+const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
 
-        function fetchSessions() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
+function fetchSessions() {
+    if (!appState.loggedInArcher) {
+        window.setView('login');
+        return;
+    }
 
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot();
-            }
-            
-            const sessionsColRef = window.getSessionsCollectionRef();
-            if (!sessionsColRef) {
-                console.error("Riferimento collezione non disponibile.");
-                return;
-            }
+    if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+    }
+    
+    const sessionsColRef = window.getSessionsCollectionRef();
+    if (!sessionsColRef) {
+        console.error("Riferimento collezione non disponibile.");
+        return;
+    }
 
-            let q = query(sessionsColRef);
-            
-            if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
-            if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
-            if (filterState.type) q = query(q, where('type', '==', filterState.type));
-            if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
-            
-            if (filterState.anno) {
-                const startDate = `${filterState.anno}-01-01`;
-                const endDate = `${filterState.anno}-12-31`;
-                q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
-            }
+    let q = query(sessionsColRef);
+    
+    if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
+    if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
+    if (filterState.type) q = query(q, where('type', '==', filterState.type));
+    if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
+    
+    if (filterState.anno) {
+        const startDate = `${filterState.anno}-01-01`;
+        const endDate = `${filterState.anno}-12-31`;
+        q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
+    }
 
-            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
-                const sessions = [];
-                querySnapshot.forEach((doc) => {
-                    sessions.push({ docId: doc.id, ...doc.data() }); 
-                });
-                
-                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-                appState.sessionData = sessions;
-                renderDataSummaryTable();
-            }, (error) => {
-                console.error("Errore onSnapshot:", error);
-            });
-        }
+    unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+        const sessions = [];
+        querySnapshot.forEach((doc) => {
+            sessions.push({ docId: doc.id, ...doc.data() }); 
+        });
+        
+        sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+        appState.sessionData = sessions;
+        renderDataSummaryTable();
+    }, (error) => {
+        console.error("Errore onSnapshot:", error);
+    });
+}
 
-        window.handleFilterChange = (field, value) => {
-            filterState[field] = value;
-            fetchSessions();
-        };
+window.handleFilterChange = (field, value) => {
+    filterState[field] = value;
+    fetchSessions();
+};
 
-        function renderDataSummary() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
+function renderDataSummary() {
+    if (!appState.loggedInArcher) {
+        window.setView('login');
+        return;
+    }
 
-            const filtersHtml = `
-                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
-                    <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
-                        <option value="">Tutti i Tipi</option>
-                        <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
-                        <option value="Gara" ${filterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
-                    </select>
-                    <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
-                        <option value="">Tutte le Distanze</option>
-                        ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
-                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
-                        <option value="">Tutte le Targhe</option>
-                        ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
-                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
-                        <option value="">Tutti i Luoghi</option>
-                        ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
-                    <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
-                        <option value="">Tutti gli Anni</option>
-                        ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
-                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
-                </div>
-            `;
+    const filtersHtml = `
+        <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
+            <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
+                <option value="">Tutti i Tipi</option>
+                <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
+                <option value="Gara" ${filterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
+            </select>
+            <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
+                <option value="">Tutte le Distanze</option>
+                ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+            </select>
+            <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
+                <option value="">Tutte le Targhe</option>
+                ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+            </select>
+            <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
+                <option value="">Tutti i Luoghi</option>
+                ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+            </select>
+            <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
+                <option value="">Tutti gli Anni</option>
+                ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+            </select>
+            <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
+        </div>
+    `;
 
-            const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
+    const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
 
-            document.getElementById('content-view').innerHTML = `
-                <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
-                ${filtersHtml}
-                ${tableContainer}
-                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu
-                </button>
-            `;
+    document.getElementById('content-view').innerHTML = `
+        <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
+        ${filtersHtml}
+        ${tableContainer}
+        <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+            Torna al Menu
+        </button>
+    `;
 
-            renderDataSummaryTable();
-        }
+    renderDataSummaryTable();
+}
 
         function renderDataSummaryTable() {
             const tableContainer = document.getElementById('dataSummaryTable');
