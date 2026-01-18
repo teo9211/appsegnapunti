@@ -1417,23 +1417,30 @@ function renderDetailedSummary() {
     
     const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
 
+    // Recuperiamo le note provando entrambi i nomi possibili (notes o note)
+    const noteTesto = session.notes || session.note || "";
+
     const html = `
         <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
         <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
 
         <div class="space-y-6">
-            ${session.notes ? `
+            ${noteTesto ? `
                 <div class="bg-yellow-900/20 p-4 rounded-xl border border-yellow-600 shadow-lg">
                     <h3 class="text-yellow-500 font-bold mb-2">Note e Diario Tecnico:</h3>
-                    <p class="text-white italic">${session.notes}</p>
+                    <p class="text-white italic whitespace-pre-wrap">${noteTesto}</p>
                 </div>
-            ` : ''}
+            ` : `
+                <div class="bg-gray-800/50 p-4 rounded-xl border border-gray-700 italic text-gray-400 text-sm">
+                    Nessuna nota inserita per questa sessione.
+                </div>
+            `}
 
             <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                 <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
-                    <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo})</div>
+                    <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo || 'N/D'})</div>
                     <div><strong>Punteggio:</strong> <span class="text-white font-extrabold">${session.totalScore || 0}</span></div>
                     <div><strong>Media:</strong> <span class="text-white font-extrabold">${(session.totalAverage || 0).toFixed(2)}</span></div>
                 </div>
@@ -1448,10 +1455,24 @@ function renderDetailedSummary() {
                 <h3 class="text-2xl font-bold mb-3 mt-8 text-white">Segnapunti Dettagliato</h3>
                 ${renderDetailedScoreGrid(session.turn1, 'Primo Turno')}
                 ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
-            ` : ''}
+            ` : `
+                <div class="p-6 bg-blue-900/20 border border-blue-500 rounded-xl text-center">
+                    <p class="text-blue-400 font-bold">Sessione registrata come Solo Diario Tecnico.</p>
+                    <p class="text-sm text-gray-300">I punteggi non sono stati rilevati per questa sessione.</p>
+                </div>
+            `}
         </div>
-        
-        `;
+
+        <div class="mt-8 space-y-3">
+            <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
+                Torna al Riepilogo
+            </button>
+            <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" 
+                onclick="window.showDeleteSessionSection('${session.id || session.docId}', '${formatDate(session.data)}')">
+                🗑️ Elimina Questa Sessione
+            </button>
+        </div>
+    `;
     document.getElementById('content-view').innerHTML = html;
 }
 
