@@ -922,6 +922,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
                             Salva Allenamento
                         </button>
+                        <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
+                          ← Torna al Menu
+                        </button>
                         <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
                                 onclick="window.setView('registrationForm', { type: 'Allenamento' })">
                             Torna Indietro
