@@ -67,7 +67,6 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* Ottimizzazione mobile */
         @media (max-width: 640px) {
             .score-grid th, .score-grid td {
                 padding: 0.6rem 0.2rem;
@@ -81,14 +80,12 @@
             }
         }
         
-        /* Previene zoom su input mobile */
         @media screen and (max-width: 767px) {
             input, select, textarea {
                 font-size: 16px;
             }
         }
         
-        /* Migliora la visualizzazione del tastierino */
         .keypad-button {
             min-height: 48px;
             font-size: 1.25rem;
@@ -117,7 +114,6 @@
 
     <div id="app" class="app-container p-4 max-w-4xl mx-auto">
         <header class="text-center mb-8">
-            <!-- Logo/Immagine intestazione -->
             <div class="flex justify-center mb-4">
                 <img src="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg" alt="Logo Archery" class="h-24 w-auto rounded-lg shadow-lg">
             </div>
@@ -138,19 +134,13 @@
     </div>
 
 <script type="module">
-    // Import the functions you need from the SDKs you need
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
-    import { setLogLevel } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+    import { getFirestore, doc, addDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
-    // Password Master
     const MASTER_PASSWORD = "mecca";
-    
-    // Nuovo App ID per la collezione artifacts
     const appId = 'appsegnapunti'; 
     
-    // La tua nuova configurazione Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCeCB6X7RzwCPoUE7xZcH-vFQpfqYAIAsk",
         authDomain: "appsegnapunti.firebaseapp.com",
@@ -212,11 +202,10 @@
             </div>
         `;
     }
-
-    window.initializeApp = (db, firebaseUserId, authInstance) => {
+window.initializeApp = (db, firebaseUserId, authInstance) => {
         const appState = {
             view: 'login',
-            loggedInArcher: null, // Oggetto arciere loggato {id, nome, password}
+            loggedInArcher: null,
             sessionType: null,
             currentSession: null,
             currentTurn: 1,
@@ -225,7 +214,7 @@
             scoringGrid: null,
             firebaseUserId: firebaseUserId,
             auth: authInstance,
-            allArchers: [], // Lista di tutti gli arcieri registrati
+            allArchers: [],
         };
 
         const scoringState = {
@@ -242,7 +231,6 @@
         const FORMATO_GARA_OPTIONS = ['30 frecce (3x10)', '36 frecce (6x6)', '72 frecce (6x12)'];
         const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', 'M', 'CANC'];
 
-        // Riferimenti collezioni Firebase
         window.getArchersCollectionRef = () => {
             return collection(db, `artifacts/${appId}/archers`);
         };
@@ -251,15 +239,12 @@
             if (!appState.loggedInArcher) return null;
             return collection(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions`);
         };
-
-        // ============= FUNZIONI UTILITY =============
         
         function pad(num) {
             return num < 10 ? '0' + num : num;
         }
 
         function formatDate(dateString) {
-            // Converte da YYYY-MM-DD a DD/MM/YYYY
             if (!dateString) return 'N/D';
             const parts = dateString.split('-');
             if (parts.length !== 3) return dateString;
@@ -284,7 +269,6 @@
         }
         
         function sortVolleyScores(scores) {
-            // Ordina i punteggi da più alto a più basso secondo la scala: X, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, M
             const scoreOrder = { 'X': 0, '10': 1, '9': 2, '8': 3, '7': 4, '6': 5, '5': 6, '4': 7, '3': 8, '2': 9, '1': 10, 'M': 11, 'm': 11, '': 12 };
             return scores.sort((a, b) => {
                 const aOrder = scoreOrder[a] !== undefined ? scoreOrder[a] : 12;
@@ -329,7 +313,6 @@
             let totalTen = 0;
             let totalNine = 0;
             let totalShots = 0;
-
             const results = [];
 
             for (let i = 0; i < grid.length; i++) {
@@ -421,8 +404,6 @@
             }
         };
 
-        // ============= GESTIONE VISTE =============
-
         window.setView = (viewName, data = {}) => {
             appState.view = viewName;
             document.getElementById('content-view').innerHTML = '';
@@ -446,6 +427,9 @@
                     break;
                 case 'registrationForm':
                     renderRegistrationForm(data.type);
+                    break;
+                case 'trainingNotes':
+                    renderTrainingNotes();
                     break;
                 case 'scoring':
                     initializeScoringGrid();
@@ -474,8 +458,9 @@
                     break;
             }
         };
-
-        // ============= LOGIN E REGISTRAZIONE =============
+Ecco la PARTE 3 del codice (continua dopo la PARTE 2):
+javascript
+        // PARTE 3 - Login, Registrazione, Menu
 
         async function loadAllArchers() {
             try {
@@ -487,7 +472,6 @@
                     appState.allArchers.push({ id: doc.id, ...doc.data() });
                 });
                 
-                // Ordina alfabeticamente per nome
                 appState.allArchers.sort((a, b) => a.nome.localeCompare(b.nome));
                 
                 console.log('Caricati', appState.allArchers.length, 'arcieri');
@@ -497,7 +481,6 @@
         }
 
         function renderLogin() {
-            // Carica tutti gli arcieri
             loadAllArchers().then(() => {
                 const html = `
                     <div class="max-w-2xl mx-auto">
@@ -562,7 +545,6 @@
                 e.preventDefault();
                 const password = document.getElementById('archer-password').value;
                 
-                // Verifica password master o password utente
                 if (password === MASTER_PASSWORD || password === archer.password) {
                     appState.loggedInArcher = archer;
                     appState.firebaseUserId = archer.id;
@@ -631,7 +613,6 @@
                 }
 
                 try {
-                    // Verifica se il nome è già in uso
                     const archersRef = window.getArchersCollectionRef();
                     const q = query(archersRef, where('nome', '==', nome));
                     const querySnapshot = await getDocs(q);
@@ -643,7 +624,6 @@
                         return;
                     }
 
-                    // Crea il nuovo arciere
                     const newArcher = {
                         nome: nome,
                         password: password,
@@ -655,7 +635,6 @@
 
                     showModal("Successo", `Benvenuto ${nome}! Registrazione completata.`, [
                         { text: "Accedi", handler: () => {
-                            // Login automatico dopo registrazione
                             appState.loggedInArcher = { id: docRef.id, ...newArcher };
                             appState.firebaseUserId = docRef.id;
                             window.setView('mainMenu');
@@ -670,8 +649,6 @@
                 }
             });
         }
-
-        // ============= MENU PRINCIPALE =============
 
         function renderMainMenu() {
             if (!appState.loggedInArcher) {
@@ -742,7 +719,6 @@
                     return;
                 }
                 
-                // Verifica password master o password utente
                 if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
                     showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
                         { text: "Ok", handler: () => {} }
@@ -754,7 +730,6 @@
                     const archerId = appState.loggedInArcher.id;
                     const archerName = appState.loggedInArcher.nome;
                     
-                    // Elimina tutte le sessioni dell'arciere
                     const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
                     const sessionsSnapshot = await getDocs(sessionsRef);
                     
@@ -765,13 +740,11 @@
                     
                     await Promise.all(deletePromises);
                     
-                    // Elimina il profilo arciere
                     const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
                     await deleteDoc(archerDocRef);
                     
                     console.log("Profilo eliminato:", archerName);
                     
-                    // Logout
                     appState.loggedInArcher = null;
                     appState.currentSession = null;
                     appState.sessionData = [];
@@ -788,9 +761,7 @@
                 }
             });
         };
-
-        // ============= FORM REGISTRAZIONE SESSIONE =============
-function renderRegistrationForm(type) {
+        function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
                 return;
@@ -803,94 +774,243 @@ function renderRegistrationForm(type) {
             const today = new Date().toISOString().split('T')[0];
             const now = new Date();
             const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            
+            const isTrainingWithoutScore = session.trainingWithoutScore || false;
 
             const formFields = [
                 { id: 'data', label: 'Data', type: 'date', required: true, value: session.data || today },
                 { id: 'ora', label: 'Ora', type: 'time', required: true, value: session.startTime || defaultTime },
                 { id: 'luogo', label: 'Luogo', type: 'text', required: true, value: session.luogo || '', placeholder: 'Nome Luogo' },
                 { id: 'tipoLuogo', label: 'Tipo Luogo', type: 'select', options: TIPO_LUOGO_OPTIONS, required: true, value: session.tipoLuogo || '' },
+            ];
+            
+            const conditionalFields = [
                 { id: 'distanza', label: 'Distanza', type: 'select', options: DISTANZA_OPTIONS, required: true, value: session.distanza || '' },
                 { id: 'tipoTarga', label: 'Tipo Targa', type: 'select', options: TIPO_TARGA_OPTIONS, required: true, value: session.tipoTarga || '' },
                 { id: 'formatoGara', label: 'Formato Freccia', type: 'select', options: FORMATO_GARA_OPTIONS, required: true, value: session.formatoGara || '' },
-                { id: 'note', label: 'Note / Diario Tecnico', type: 'textarea', required: false, value: session.notes || '', placeholder: 'Scrivi qui le tue sensazioni o note tecniche...' },
             ];
 
             const html = `
                 <h2 class="text-3xl font-bold mb-6 text-white">${type}</h2>
                 <form id="registrationForm" class="space-y-4">
-                    <div class="flex items-center justify-between p-3 bg-secondary-dark rounded-lg border border-primary-orange/30 mb-4">
-                        <label class="text-white font-bold text-sm">Solo Diario Tecnico (Senza Punti)</label>
-                        <input type="checkbox" id="no-points-check" class="w-6 h-6 accent-primary-orange" onchange="window.toggleTechnicalMode(this.checked)">
-                    </div>
-
-                    <div id="form-fields-container" class="space-y-4">
-                        ${formFields.map(field => `
-                            <div id="container-${field.id}">
+                    ${type === 'Allenamento' ? `
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-primary-orange">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="trainingWithoutScore" name="trainingWithoutScore" 
+                                       class="w-5 h-5 mr-3" 
+                                       onchange="window.toggleTrainingMode(this.checked)"
+                                       ${isTrainingWithoutScore ? 'checked' : ''}>
+                                <span class="text-white font-bold">Allenamento Tecnico (senza punteggio)</span>
+                            </label>
+                            <p class="text-sm text-primary-orange mt-2 ml-8">Seleziona questa opzione per esercizi di tecnica, perfezionamento, ecc.</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${formFields.map(field => `
+                        <div>
+                            <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
+                            ${field.type === 'select' ? `
+                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required ? 'required' : ''}>
+                                    <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
+                                    ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                                </select>
+                            ` : field.type === 'textarea' ? `
+                                <textarea id="${field.id}" name="${field.id}" class="input-style h-20" placeholder="${field.placeholder}" ${field.required ? 'required' : ''}>${field.value}</textarea>
+                            ` : `
+                                <input type="${field.type}" id="${field.id}" name="${field.id}" class="input-style" value="${field.value}" placeholder="${field.placeholder || ''}" ${field.required ? 'required' : ''}>
+                            `}
+                        </div>
+                    `).join('')}
+                    
+                    <div id="conditionalFields" style="display: ${isTrainingWithoutScore ? 'none' : 'block'}">
+                        ${conditionalFields.map(field => `
+                            <div>
                                 <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
-                                ${field.type === 'select' ? `
-                                    <select id="${field.id}" name="${field.id}" class="input-style" ${field.required ? 'required' : ''}>
-                                        <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
-                                        ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-                                    </select>
-                                ` : field.type === 'textarea' ? `
-                                    <textarea id="${field.id}" name="${field.id}" class="input-style h-20" placeholder="${field.placeholder}" ${field.required ? 'required' : ''}>${field.value}</textarea>
-                                ` : `
-                                    <input type="${field.type}" id="${field.id}" name="${field.id}" class="input-style" value="${field.value}" placeholder="${field.placeholder || ''}" ${field.required ? 'required' : ''}>
-                                `}
+                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required && !isTrainingWithoutScore ? 'required' : ''}>
+                                    <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
+                                    ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                                </select>
                             </div>
                         `).join('')}
                     </div>
+                    
+                    <div>
+                        <label for="note" class="block text-sm font-medium mb-1">Note</label>
+                        <textarea id="note" name="note" class="input-style h-20" placeholder="Dettagli aggiuntivi...">${session.note || ''}</textarea>
+                    </div>
 
                     <div class="mt-8 flex flex-col space-y-3">
-                        <button type="submit" id="submit-btn" class="btn-primary w-full p-3 rounded-lg text-lg">Inizia Primo Turno</button>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg" id="submitBtn">
+                            ${isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
+                        </button>
                         <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">Torna Indietro</button>
                     </div>
                 </form>
             `;
             document.getElementById('content-view').innerHTML = html;
 
-            // Logica per nascondere i campi non necessari in modalità tecnica
-            window.toggleTechnicalMode = (isTechnical) => {
-                const fieldsToHide = ['distanza', 'tipoTarga', 'formatoGara'];
-                fieldsToHide.forEach(id => {
-                    const el = document.getElementById('container-' + id);
-                    if (el) el.style.display = isTechnical ? 'none' : 'block';
-                    const input = document.getElementById(id);
-                    if (input) input.required = !isTechnical;
-                });
-                document.getElementById('submit-btn').textContent = isTechnical ? 'Salva Diario Tecnico' : 'Inizia Primo Turno';
-            };
-
             document.getElementById('registrationForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                const noPoints = document.getElementById('no-points-check').checked;
                 const formData = new FormData(e.target);
                 const session = Object.fromEntries(formData.entries());
-                
                 session.type = appState.sessionType;
                 session.arciere = appState.loggedInArcher.nome;
                 session.archerId = appState.loggedInArcher.id;
                 session.startTime = scoringState.startTime;
                 session.id = Date.now();
-                session.noPoints = noPoints;
-                
-                // Mappa le note correttamente se il campo si chiama 'note' nel tuo HTML
-                session.notes = session.note || ""; 
+                session.trainingWithoutScore = document.getElementById('trainingWithoutScore')?.checked || false;
 
                 appState.currentSession = session;
-
-                if (noPoints) {
-                    // Se tecnico, salva direttamente usando la tua funzione originale
-                    saveSessionToFirestore();
+                
+                if (session.trainingWithoutScore) {
+                    window.setView('trainingNotes');
                 } else {
-                    // Altrimenti vai al tuo segnapunti originale
                     window.setView('scoring');
                 }
             });
         }
+        
+        window.toggleTrainingMode = (isChecked) => {
+            const conditionalFields = document.getElementById('conditionalFields');
+            const submitBtn = document.getElementById('submitBtn');
+            const requiredInputs = conditionalFields.querySelectorAll('select[required]');
+            
+            if (isChecked) {
+                conditionalFields.style.display = 'none';
+                submitBtn.textContent = 'Continua';
+                requiredInputs.forEach(input => input.removeAttribute('required'));
+            } else {
+                conditionalFields.style.display = 'block';
+                submitBtn.textContent = 'Inizia Primo Turno';
+                requiredInputs.forEach(input => input.setAttribute('required', 'required'));
+            }
+        };
 
-        // ============= GRIGLIA PUNTEGGIO =============
-
+        function renderTrainingNotes() {
+            if (!appState.loggedInArcher || !appState.currentSession) {
+                window.setView('login');
+                return;
+            }
+            
+            const session = appState.currentSession;
+            const savedNotes = session.trainingContent || '';
+            
+            const html = `
+                <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico</h2>
+                <p class="text-sm mb-6 text-primary-orange">Descrivi le attività svolte durante l'allenamento</p>
+                
+                <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-white">Informazioni Sessione</h3>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div><strong>Data:</strong> ${formatDate(session.data)}</div>
+                        <div><strong>Ora:</strong> ${session.ora}</div>
+                        <div><strong>Luogo:</strong> ${session.luogo}</div>
+                        <div><strong>Tipo:</strong> ${session.tipoLuogo}</div>
+                    </div>
+                </div>
+                
+                <form id="trainingNotesForm" class="space-y-4">
+                    <div>
+                        <label for="trainingContent" class="block text-lg font-medium mb-2 text-white">
+                            Contenuto Allenamento <span class="text-red-500">*</span>
+                        </label>
+                        <textarea id="trainingContent" name="trainingContent" 
+                                  class="input-style h-64" 
+                                  required
+                                  placeholder="Descrivi gli esercizi svolti, tecniche praticate, obiettivi raggiunti, problemi riscontrati, ecc...">${savedNotes}</textarea>
+                        <p class="text-xs text-primary-orange mt-1">Sii dettagliato: questo ti aiuterà a monitorare i progressi nel tempo</p>
+                    </div>
+                    
+                    <div class="mt-8 flex flex-col space-y-3">
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
+                            Salva Allenamento
+                        </button>
+                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
+                                onclick="window.setView('registrationForm', { type: 'Allenamento' })">
+                            Torna Indietro
+                        </button>
+                    </div>
+                </form>
+            `;
+            
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('trainingNotesForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const trainingContent = document.getElementById('trainingContent').value.trim();
+                
+                if (!trainingContent) {
+                    showModal("Errore", "Inserisci una descrizione dell'allenamento.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                const endTime = new Date();
+                appState.currentSession.endTime = getFormattedTime(endTime);
+                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                appState.currentSession.trainingContent = trainingContent;
+                
+                await saveTrainingWithoutScoreToFirestore();
+                
+                const modalBody = `
+                    <p class="text-white mb-3">Allenamento tecnico salvato con successo!</p>
+                    <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                `;
+                
+                const sessionIdBeforeSave = appState.currentSession.id;
+                
+                showModal("Allenamento Salvato!", modalBody, [
+                    { text: "Vedi Riepilogo", handler: () => {
+                        setTimeout(() => {
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }},
+                    { text: "Menu Principale", handler: () => window.setView('mainMenu') }
+                ]);
+            });
+        }
+        
+        async function saveTrainingWithoutScoreToFirestore() {
+            try {
+                const session = appState.currentSession;
+                
+                const finalSessionData = {
+                    type: session.type,
+                    arciere: session.arciere,
+                    archerId: session.archerId,
+                    data: session.data,
+                    startTime: session.startTime,
+                    endTime: session.endTime,
+                    duration: session.duration,
+                    luogo: session.luogo,
+                    tipoLuogo: session.tipoLuogo,
+                    note: session.note || '',
+                    trainingWithoutScore: true,
+                    trainingContent: session.trainingContent,
+                    timestamp: serverTimestamp(),
+                    totalScore: 0,
+                    totalX: 0,
+                    totalTen: 0,
+                    totalNine: 0,
+                    totalAverage: 0,
+                    distanza: session.distanza || 'N/A',
+                    tipoTarga: session.tipoTarga || 'N/A',
+                    formatoGara: session.formatoGara || 'N/A',
+                };
+                
+                const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
+                console.log("Allenamento tecnico salvato con ID:", docRef.id);
+                
+                appState.currentSession = null;
+            } catch (e) {
+                console.error("Errore salvataggio allenamento:", e);
+                showModal("Errore", "Impossibile salvare l'allenamento.", [{ text: "Ok", handler: () => {} }]);
+            }
+        }
         function initializeScoringGrid() {
             const format = appState.currentSession.formatoGara;
 
@@ -928,7 +1048,6 @@ function renderRegistrationForm(type) {
             const rowIndex = row - 1;
             const colIndex = col - 1;
 
-            // Se siamo fuori dai limiti della griglia, non fare nulla
             if (rowIndex < 0 || rowIndex >= scoringState.rows || colIndex < 0 || colIndex >= scoringState.cols) {
                 return;
             }
@@ -958,7 +1077,6 @@ function renderRegistrationForm(type) {
                     newCol = 0;
                     newRow = rowIndex + 1;
                     
-                    // Ordina la riga completata
                     const currentRow = appState.scoringGrid[rowIndex];
                     const nonEmptyScores = currentRow.filter(s => s !== '' && s !== undefined);
                     if (nonEmptyScores.length === scoringState.cols) {
@@ -966,12 +1084,9 @@ function renderRegistrationForm(type) {
                     }
                 }
 
-                // IMPORTANTE: Muovi il cursore solo se non siamo all'ultima cella
                 if (newRow < scoringState.rows) {
                     scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
                 }
-                // Se siamo all'ultima cella (ultima riga, ultima colonna), non cambiare activeCell
-                // in questo modo non si può più inserire e sovrascrivere
             }
             renderScoringView();
         };
@@ -1113,7 +1228,6 @@ function renderRegistrationForm(type) {
             const format = appState.currentSession.formatoGara;
 
             if (isFinal) {
-                // Caso: Fine sessione (sia dopo primo turno che dopo secondo)
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
@@ -1134,14 +1248,11 @@ function renderRegistrationForm(type) {
                     }}
                 ]);
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
-                // Caso: Primo turno - offri scelta tra secondo turno o fine
                 showModal("Turno Salvato!", modalBody, [
                     { text: "Secondo Turno", handler: () => startNextTurn() },
                     { text: "Fine (Salva)", handler: () => {
-                        // Chiudi modale e salva definitivamente
                         closeModal();
                         
-                        // Ora salva e vai al riepilogo
                         const endTime = new Date();
                         appState.currentSession.endTime = getFormattedTime(endTime);
                         appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
@@ -1149,7 +1260,6 @@ function renderRegistrationForm(type) {
                         const sessionIdBeforeSave = appState.currentSession.id;
                         saveSessionToFirestore();
                         
-                        // Mostra nuovo modale con conferma
                         setTimeout(() => {
                             showModal("Sessione Salvata!", `<p class="text-white">Durata: ${durationToString(appState.currentSession.duration)}</p>`, [
                                 { text: "Vedi Riepilogo", handler: () => {
@@ -1165,7 +1275,6 @@ function renderRegistrationForm(type) {
                     }}
                 ]);
             } else {
-                // Questo caso non dovrebbe mai verificarsi con la logica attuale
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
@@ -1266,217 +1375,159 @@ function renderRegistrationForm(type) {
                 turn2Average: turn2Summary.average, 
             };
         }
-
-        // ============= RIEPILOGO DATI =============
-
         let unsubscribeSnapshot = null;
-let filterState = {
-    distanza: '',
-    tipoTarga: '',
-    type: '',
-    tipoLuogo: '',
-    anno: '',
-};
+        let filterState = {
+            distanza: '',
+            tipoTarga: '',
+            type: '',
+            tipoLuogo: '',
+            anno: '',
+        };
 
-// Lista anni specifici
-const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
+        const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
 
-function fetchSessions() {
-    if (!appState.loggedInArcher) {
-        window.setView('login');
-        return;
-    }
+        function fetchSessions() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
 
-    if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-    }
-    
-    const sessionsColRef = window.getSessionsCollectionRef();
-    if (!sessionsColRef) {
-        console.error("Riferimento collezione non disponibile.");
-        return;
-    }
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+            
+            const sessionsColRef = window.getSessionsCollectionRef();
+            if (!sessionsColRef) {
+                console.error("Riferimento collezione non disponibile.");
+                return;
+            }
 
-    let q = query(sessionsColRef);
-    
-    if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
-    if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
-    if (filterState.type) q = query(q, where('type', '==', filterState.type));
-    if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
-    
-    if (filterState.anno) {
-        const startDate = `${filterState.anno}-01-01`;
-        const endDate = `${filterState.anno}-12-31`;
-        q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
-    }
+            let q = query(sessionsColRef);
+            
+            if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
+            if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
+            if (filterState.type) q = query(q, where('type', '==', filterState.type));
+            if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
+            
+            if (filterState.anno) {
+                const startDate = `${filterState.anno}-01-01`;
+                const endDate = `${filterState.anno}-12-31`;
+                q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
+            }
 
-    unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
-        const sessions = [];
-        querySnapshot.forEach((doc) => {
-            sessions.push({ docId: doc.id, ...doc.data() }); 
-        });
-        
-        sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-        appState.sessionData = sessions;
-        renderDataSummaryTable();
-    }, (error) => {
-        console.error("Errore onSnapshot:", error);
-    });
-}
+            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+                const sessions = [];
+                querySnapshot.forEach((doc) => {
+                    sessions.push({ docId: doc.id, ...doc.data() }); 
+                });
+                
+                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+                appState.sessionData = sessions;
+                renderDataSummaryTable();
+            }, (error) => {
+                console.error("Errore onSnapshot:", error);
+            });
+        }
 
-window.handleFilterChange = (field, value) => {
-    filterState[field] = value;
-    fetchSessions();
-};
+        window.handleFilterChange = (field, value) => {
+            filterState[field] = value;
+            fetchSessions();
+        };
 
-function renderDataSummary() {
-    if (!appState.loggedInArcher) {
-        window.setView('login');
-        return;
-    }
+        function renderDataSummary() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
 
-    const filtersHtml = `
-        <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
-            <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
-                <option value="">Tutti i Tipi</option>
-                <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
-                <option value="Gara" ${filterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
-                <option value="">Tutte le Distanze</option>
-                ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
-                <option value="">Tutte le Targhe</option>
-                ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
-                <option value="">Tutti i Luoghi</option>
-                ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
-                <option value="">Tutti gli Anni</option>
-                ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-            </select>
-            <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
-        </div>
-    `;
-
-    const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
-
-    document.getElementById('content-view').innerHTML = `
-        <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
-        ${filtersHtml}
-        ${tableContainer}
-        <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-            Torna al Menu
-        </button>
-    `;
-
-    renderDataSummaryTable();
-}
-
-function renderDataSummaryTable() {
-    const tableContainer = document.getElementById('dataSummaryTable');
-    if (!tableContainer) return;
-
-    // USIAMO LA TUA TABELLA ORIGINALE
-    const tableHtml = `
-        <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
-            <thead>
-                <tr class="text-xs sm:text-sm">
-                    <th>Data</th><th>Tipo</th><th>Tot.</th><th>T1</th><th>T2</th><th>X</th><th>10</th><th>9</th><th>Luogo</th><th>Distanza</th><th>Targa</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${appState.sessionData.map(session => `
-                    <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
-                        onclick="window.setView('detailedSummary', { sessionId: '${session.id || session.docId}' })">
-                        <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
-                        <td>${session.type}</td>
-                        <td class="font-extrabold text-white">${session.noPoints ? '📝 DIARIO' : (session.totalScore || 0)}</td>
-                        <td>${session.turn1Score || 0}</td>
-                        <td>${session.turn2Score || 0}</td>
-                        <td>${session.totalX || 0}</td>
-                        <td>${session.totalTen || 0}</td>
-                        <td>${session.totalNine || 0}</td>
-                        <td>${session.luogo}</td>
-                        <td>${session.distanza}</td>
-                        <td>${session.tipoTarga}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-    tableContainer.innerHTML = tableHtml;
-}
-
-function renderDetailedSummary() {
-    const session = appState.detailedSession;
-    if (!session) { window.setView('dataSummary'); return; }
-    
-    const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
-
-    // Recuperiamo le note provando entrambi i nomi possibili (notes o note)
-    const noteTesto = session.notes || session.note || "";
-
-    const html = `
-        <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
-        <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
-
-        <div class="space-y-6">
-            ${noteTesto ? `
-                <div class="bg-yellow-900/20 p-4 rounded-xl border border-yellow-600 shadow-lg">
-                    <h3 class="text-yellow-500 font-bold mb-2">Note e Diario Tecnico:</h3>
-                    <p class="text-white italic whitespace-pre-wrap">${noteTesto}</p>
+            const filtersHtml = `
+                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
+                        <option value="">Tutti i Tipi</option>
+                        <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
+                        <option value="Gara" ${filterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
+                        <option value="">Tutte le Distanze</option>
+                        ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
+                        <option value="">Tutte le Targhe</option>
+                        ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
+                        <option value="">Tutti i Luoghi</option>
+                        ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
+                        <option value="">Tutti gli Anni</option>
+                        ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
                 </div>
-            ` : `
-                <div class="bg-gray-800/50 p-4 rounded-xl border border-gray-700 italic text-gray-400 text-sm">
-                    Nessuna nota inserita per questa sessione.
-                </div>
-            `}
+            `;
 
-            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
-                    <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo || 'N/D'})</div>
-                    <div><strong>Punteggio:</strong> <span class="text-white font-extrabold">${session.totalScore || 0}</span></div>
-                    <div><strong>Media:</strong> <span class="text-white font-extrabold">${(session.totalAverage || 0).toFixed(2)}</span></div>
-                </div>
-            </div>
+            const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
 
-            ${!session.noPoints ? `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    ${renderTurnSummaryCard(session.turn1, 'Primo Turno')}
-                    ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
-                </div>
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
+                ${filtersHtml}
+                ${tableContainer}
+                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu
+                </button>
+            `;
 
-                <h3 class="text-2xl font-bold mb-3 mt-8 text-white">Segnapunti Dettagliato</h3>
-                ${renderDetailedScoreGrid(session.turn1, 'Primo Turno')}
-                ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
-            ` : `
-                <div class="p-6 bg-blue-900/20 border border-blue-500 rounded-xl text-center">
-                    <p class="text-blue-400 font-bold">Sessione registrata come Solo Diario Tecnico.</p>
-                    <p class="text-sm text-gray-300">I punteggi non sono stati rilevati per questa sessione.</p>
-                </div>
-            `}
-        </div>
+            renderDataSummaryTable();
+        }
 
-        <div class="mt-8 space-y-3">
-            <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
-                Torna al Riepilogo
-            </button>
-            <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" 
-                onclick="window.showDeleteSessionSection('${session.id || session.docId}', '${formatDate(session.data)}')">
-                🗑️ Elimina Questa Sessione
-            </button>
-        </div>
-    `;
-    document.getElementById('content-view').innerHTML = html;
-}
+        function renderDataSummaryTable() {
+            const tableContainer = document.getElementById('dataSummaryTable');
+            if (!tableContainer) return;
 
-        // ============= RIEPILOGO DETTAGLIATO =============
+            const tableHtml = `
+                <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
+                    <thead>
+                        <tr class="text-xs sm:text-sm">
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Tot.</th>
+                            <th>T1</th>
+                            <th>T2</th>
+                            <th>X</th>
+                            <th>10</th>
+                            <th>9</th>
+                            <th>Luogo</th>
+                            <th>Distanza</th>
+                            <th>Targa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${appState.sessionData.length === 0 ? `
+                            <tr><td colspan="11" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
+                        ` : appState.sessionData.map(session => {
+                            const isTrainingWithoutScore = session.trainingWithoutScore === true;
+                            return `
+                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : isTrainingWithoutScore ? 'bg-blue-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
+                                <td>${session.type}${isTrainingWithoutScore ? ' 🎓' : ''}</td>
+                                <td class="font-extrabold text-white">${isTrainingWithoutScore ? '-' : (session.totalScore || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.turn1Score || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.turn2Score || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.totalX || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.totalTen || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.totalNine || 0)}</td>
+                                <td>${session.luogo}</td>
+                                <td>${session.distanza || '-'}</td>
+                                <td>${session.tipoTarga || '-'}</td>
+                            </tr>
+                        `}).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableContainer.innerHTML = tableHtml;
+        }
 
         function renderDetailedSummary() {
             const session = appState.detailedSession;
@@ -1485,50 +1536,100 @@ function renderDetailedSummary() {
                 return;
             }
             
+            const isTrainingWithoutScore = session.trainingWithoutScore === true;
             const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
-
-            const html = `
-                <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
-                <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
-
-                <div class="space-y-6">
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                        <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
-                            <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo})</div>
-                            <div><strong>Punteggio:</strong> <span class="text-white font-extrabold">${session.totalScore}</span></div>
-                            <div><strong>Media:</strong> <span class="text-white font-extrabold">${session.totalAverage.toFixed(2)}</span></div>
-                        </div>
-                        <div class="mt-3 p-2 bg-gray-800 rounded-lg">
-                            <strong>X-10/9:</strong> 
-                            <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${renderTurnSummaryCard(session.turn1, 'Primo Turno')}
-                        ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
-                    </div>
-
-                    <h3 class="text-2xl font-bold mb-3 mt-8 text-white">Segnapunti Dettagliato</h3>
-                    ${renderDetailedScoreGrid(session.turn1, 'Primo Turno')}
-                    ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
-                </div>
-
-</div> <div class="mt-8 space-y-3">
-            <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
-                Torna al Riepilogo
-            </button>
             
-            <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" 
-                onclick="window.showDeleteSessionSection('${session.id || session.docId}', '${formatDate(session.data)}')">
-                🗑️ Elimina Questa Sessione
-            </button>
-        </div>
-    `;
-    document.getElementById('content-view').innerHTML = html;
-}
+            if (isTrainingWithoutScore) {
+                const html = `
+                    <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico del ${formatDate(session.data)}</h2>
+                    <p class="text-xl mb-6 text-primary-orange">${session.luogo} (${session.tipoLuogo})</p>
+                    
+                    <div class="space-y-6">
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                            <h3 class="text-2xl font-bold mb-3 text-white">Informazioni Sessione</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><strong>Data:</strong> ${formatDate(session.data)}</div>
+                                <div><strong>Ora Inizio:</strong> ${session.startTime}</div>
+                                <div><strong>Ora Fine:</strong> ${session.endTime}</div>
+                                <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
+                                <div><strong>Luogo:</strong> ${session.luogo}</div>
+                                <div><strong>Tipo Luogo:</strong> ${session.tipoLuogo}</div>
+                            </div>
+                        </div>
+                        
+                        ${session.note ? `
+                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                                <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
+                                <p class="text-white whitespace-pre-wrap">${session.note}</p>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-primary-orange">
+                            <h3 class="text-2xl font-bold mb-3 text-white">Contenuto Allenamento</h3>
+                            <div class="bg-gray-800 p-4 rounded-lg">
+                                <p class="text-white whitespace-pre-wrap">${session.trainingContent || 'Nessun contenuto inserito.'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 space-y-3">
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
+                            Torna al Riepilogo
+                        </button>
+                        
+                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
+                            🗑️ Elimina Questa Sessione
+                        </button>
+                    </div>
+                `;
+                document.getElementById('content-view').innerHTML = html;
+            } else {
+                const html = `
+                    <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
+                    <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
+                    <div class="space-y-6">
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                            <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
+                                <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo})</div>
+                                <div><strong>Punteggio:</strong> <span class="text-white font-extrabold">${session.totalScore}</span></div>
+                                <div><strong>Media:</strong> <span class="text-white font-extrabold">${session.totalAverage.toFixed(2)}</span></div>
+                            </div>
+                            <div class="mt-3 p-2 bg-gray-800 rounded-lg">
+                                <strong>X-10/9:</strong> 
+                                <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
+                            </div>
+                        </div>
+                        
+                        ${session.note ? `
+                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                                <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
+                                <p class="text-white whitespace-pre-wrap">${session.note}</p>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            ${renderTurnSummaryCard(session.turn1, 'Primo Turno')}
+                            ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 mt-8 text-white">Segnapunti Dettagliato</h3>
+                        ${renderDetailedScoreGrid(session.turn1, 'Primo Turno')}
+                        ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
+                    </div>
+                    <div class="mt-8 space-y-3">
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
+                            Torna al Riepilogo
+                        </button>
+                        
+                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
+                            🗑️ Elimina Questa Sessione
+                        </button>
+                    </div>
+                `;
+                document.getElementById('content-view').innerHTML = html;
+            }
+        }
 
         window.showDeleteSessionSection = (sessionId, sessionDate) => {
             if (!appState.loggedInArcher) {
@@ -1587,10 +1688,9 @@ function renderDetailedSummary() {
                 try {
                     const archerId = appState.loggedInArcher.id;
                     const sessionIdToDelete = sessionId;
-
                     console.log("Tentativo eliminazione sessione:", sessionIdToDelete);
-                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
                     
+                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
                     await deleteDoc(sessionDocRef);
                     
                     console.log("Sessione eliminata con successo:", sessionIdToDelete);
@@ -1614,6 +1714,7 @@ function renderDetailedSummary() {
         function renderTurnSummaryCard(turn, title) {
             const summary = turn.summary;
             if (!summary) return '';
+            
             return `
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                     <h4 class="text-xl font-bold mb-2 text-white">${title}</h4>
@@ -1684,9 +1785,6 @@ function renderDetailedSummary() {
             `;
             return tableHtml;
         }
-
-        // ============= GRAFICI =============
-
         function renderChartsView() {
             const html = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
@@ -1840,22 +1938,22 @@ function renderDetailedSummary() {
                 const sessionDate = session.data ? new Date(session.data) : null;
                 const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
                 const sYear = sessionDate ? sessionDate.getFullYear() : null;
-
                 const hasTwoTurns = session.turn2Score > 0; 
                 
                 const matchesType = typeFilter === 'all' || sType === typeFilter;
                 const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
                 const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
                 const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
-
                 const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
                 const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
                 
                 const matchesTurns = turnsFilter === 'all' || 
                                      (turnsFilter === 'single' && !hasTwoTurns) || 
                                      (turnsFilter === 'double' && hasTwoTurns);
-
-                return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesMonth && matchesYear && matchesTurns;
+                
+                const isNotTrainingWithoutScore = !session.trainingWithoutScore;
+                
+                return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesMonth && matchesYear && matchesTurns && isNotTrainingWithoutScore;
             });
 
             filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
