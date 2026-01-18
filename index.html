@@ -1620,9 +1620,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
                     </div>
                     <div class="mt-8 space-y-3">
-                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
-                            Torna al Riepilogo
-                        </button>
+                    <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu Principale
+                    </button>
                         
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                             🗑️ Elimina Questa Sessione
