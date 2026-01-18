@@ -1475,6 +1475,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
                     Torna al Menu
                 </button>
+                                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('registrationForm', { type: '${sessionType}' })">
+                        Torna Indietro
+                    </button>
             `;
 
             renderDataSummaryTable();
@@ -1623,10 +1626,13 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
                     Torna al Menu Principale
                     </button>
-                        
+                        </button>
+                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">Torna Indietro</button>
+                    </div>
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                             🗑️ Elimina Questa Sessione
                         </button>
+
                     </div>
                 `;
                 document.getElementById('content-view').innerHTML = html;
