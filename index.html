@@ -403,62 +403,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 ]);
             }
         };
-
-        window.setView = (viewName, data = {}) => {
-            appState.view = viewName;
-            document.getElementById('content-view').innerHTML = '';
-            closeModal();
-
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot();
-            }
-
-            updateUserInfo();
-
-            switch (viewName) {
-                case 'login':
-                    renderLogin();
-                    break;
-                case 'register':
-                    renderRegister();
-                    break;
-                case 'mainMenu':
-                    renderMainMenu();
-                    break;
-                case 'registrationForm':
-                    renderRegistrationForm(data.type);
-                    break;
-                case 'trainingNotes':
-                    renderTrainingNotes();
-                    break;
-                case 'scoring':
-                    initializeScoringGrid();
-                    renderScoringView();
-                    break;
-                case 'dataSummary':
-                    fetchSessions();
-                    renderDataSummary();
-                    break;
-                case 'detailedSummary':
-                    const sessionToView = appState.sessionData.find(s => 
-                        String(s.id) === String(data.sessionId)
-                    );
-                    
-                    if (!sessionToView) {
-                        console.error("Sessione non trovata:", data.sessionId);
-                        window.setView('dataSummary');
-                        return; 
-                    }
-                    
-                    appState.detailedSession = sessionToView;
-                    renderDetailedSummary();
-                    break;
-                case 'charts':
-                    renderChartsView();
-                    break;
-            }
-        };
-
         async function loadAllArchers() {
             try {
                 const archersRef = window.getArchersCollectionRef();
@@ -646,55 +590,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 }
             });
         }
-window.setView = (view, params = {}) => {
-            console.log("Cambio vista in:", view, "con parametri:", params);
-            
-            // Gestione specifica per il dettaglio sessione
-            if (view === 'detailedSummary') {
-                const sId = params.sessionId;
-                // Cerchiamo la sessione nei dati caricati usando docId
-                const foundSession = appState.sessionData.find(s => s.docId === sId);
-                
-                if (foundSession) {
-                    appState.detailedSession = foundSession;
-                    renderDetailedSummary();
-                    return; // Usciamo perché abbiamo già renderizzato
-                } else {
-                    console.error("Sessione non trovata!");
-                    view = 'dataSummary';
-                }
-            }
 
-            // Switch per le altre viste
-            switch (view) {
-                case 'login':
-                    renderLogin();
-                    break;
-                case 'register':
-                    renderRegister();
-                    break;
-                case 'mainMenu':
-                    renderMainMenu();
-                    break;
-                case 'registrationForm':
-                    // Passiamo il tipo (Gara/Allenamento) allo stato globale
-                    appState.currentSessionType = params.type || 'Allenamento';
-                    renderRegistrationForm();
-                    break;
-                case 'scoreEntry':
-                    renderScoreEntry();
-                    break;
-                case 'dataSummary':
-                    fetchSessions(); // Ricarica i dati da Firebase
-                    renderDataSummary();
-                    break;
-                case 'charts':
-                    renderCharts();
-                    break;
-                default:
-                    renderLogin();
-            }
-        };
         function renderMainMenu() {
             if (!appState.loggedInArcher) {
                 window.setView('login');
@@ -806,6 +702,63 @@ window.setView = (view, params = {}) => {
                 }
             });
         };
+window.setView = (view, params = {}) => {
+    console.log("Cambio vista in:", view, "con parametri:", params);
+    
+    // 1. PROTEZIONE: Se non sono loggato e non sono in login/register, vai al login
+    if (!appState.loggedInArcher && view !== 'login' && view !== 'register') {
+        console.warn("Accesso negato: utente non loggato");
+        renderLogin();
+        return;
+    }
+
+    // 2. GESTIONE VISTE
+    switch (view) {
+        case 'login':
+            renderLogin();
+            break;
+        case 'register':
+            renderRegister();
+            break;
+        case 'mainMenu':
+            renderMainMenu();
+            break;
+        case 'registrationForm':
+            appState.currentSessionType = params.type || 'Allenamento';
+            renderRegistrationForm();
+            break;
+        case 'scoreEntry':
+            // Assicurati che il nome della funzione sia corretto (renderScoreEntry o renderScoring?)
+            if (typeof renderScoreEntry === 'function') {
+                renderScoreEntry();
+            } else if (typeof renderScoring === 'function') {
+                renderScoring();
+            }
+            break;
+        case 'dataSummary':
+            fetchSessions(); 
+            renderDataSummary();
+            break;
+        case 'detailedSummary':
+            const sId = params.sessionId;
+            const foundSession = appState.sessionData.find(s => s.docId === sId);
+            if (foundSession) {
+                appState.detailedSession = foundSession;
+                renderDetailedSummary();
+            } else {
+                window.setView('dataSummary');
+            }
+            break;
+        case 'charts':
+            if (typeof renderCharts === 'function') renderCharts();
+            break;
+        default:
+            console.log("Vista non riconosciuta, rimango qui o vado al menu");
+            // Se siamo già loggati, non tornare al login per errore
+            if (appState.loggedInArcher) renderMainMenu();
+            else renderLogin();
+    }
+};
         function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
