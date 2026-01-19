@@ -204,6 +204,7 @@
     }
 
     // QUESTA È LA FINE DELLA PARTE1
+// PARTE2
 window.initializeApp = (db, firebaseUserId, authInstance) => {
         const appState = {
             view: 'login',
@@ -405,455 +406,476 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 ]);
             }
         };
-        // FINE PARTE 2
+
+        window.setView = (viewName, data = {}) => {
+            appState.view = viewName;
+            document.getElementById('content-view').innerHTML = '';
+            closeModal();
+
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+
+            updateUserInfo();
+
+            switch (viewName) {
+                case 'login':
+                    renderLogin();
+                    break;
+                case 'register':
+                    renderRegister();
+                    break;
+                case 'mainMenu':
+                    renderMainMenu();
+                    break;
+                case 'registrationForm':
+                    renderRegistrationForm(data.type);
+                    break;
+                case 'trainingNotes':
+                    renderTrainingNotes();
+                    break;
+                case 'scoring':
+                    initializeScoringGrid();
+                    renderScoringView();
+                    break;
+                case 'dataSummary':
+                    fetchSessions();
+                    renderDataSummary();
+                    break;
+                case 'detailedSummary':
+                    const sessionToView = appState.sessionData.find(s => 
+                        String(s.id) === String(data.sessionId)
+                    );
+                    
+                    if (!sessionToView) {
+                        console.error("Sessione non trovata:", data.sessionId);
+                        window.setView('dataSummary');
+                        return; 
+                    }
+                    
+                    appState.detailedSession = sessionToView;
+                    renderDetailedSummary();
+                    break;
+                case 'charts':
+                    renderChartsView();
+                    break;
+            }
+        };
+
+        // FINE PARTE2
 // PARTE3 - Login, Registrazione, Menu
 
-        async function loadAllArchers() {
-            try {
-                const archersRef = window.getArchersCollectionRef();
-                const querySnapshot = await getDocs(archersRef);
-                
-                appState.allArchers = [];
-                querySnapshot.forEach((doc) => {
-                    appState.allArchers.push({ id: doc.id, ...doc.data() });
-                });
-                
-                appState.allArchers.sort((a, b) => a.nome.localeCompare(b.nome));
-                
-                console.log('Caricati', appState.allArchers.length, 'arcieri');
-            } catch (error) {
-                console.error("Errore caricamento arcieri:", error);
-            }
-        }
+        async function loadAllArchers() {
+            try {
+                const archersRef = window.getArchersCollectionRef();
+                const querySnapshot = await getDocs(archersRef);
+                
+                appState.allArchers = [];
+                querySnapshot.forEach((doc) => {
+                    appState.allArchers.push({ id: doc.id, ...doc.data() });
+                });
+                
+                appState.allArchers.sort((a, b) => a.nome.localeCompare(b.nome));
+                
+                console.log('Caricati', appState.allArchers.length, 'arcieri');
+            } catch (error) {
+                console.error("Errore caricamento arcieri:", error);
+            }
+        }
 
-        function renderLogin() {
-            loadAllArchers().then(() => {
-                const html = `
-                    <div class="max-w-2xl mx-auto">
-                        <h2 class="text-3xl font-bold mb-6 text-white text-center">Seleziona il tuo Profilo</h2>
-                        
-                        ${appState.allArchers.length > 0 ? `
-                            <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
-                                <h3 class="text-xl font-bold mb-4 text-primary-orange">Arcieri Registrati</h3>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                                    ${appState.allArchers.map(archer => `
-                                        <button class="bg-gray-800 hover:bg-gray-700 p-4 rounded-lg text-left border-2 border-transparent hover:border-primary-orange transition-all"
-                                                onclick="window.selectArcher('${archer.id}')">
-                                            <div class="font-bold text-white text-lg">${archer.nome}</div>
-                                            <div class="text-sm text-primary-orange mt-1">Clicca per accedere</div>
-                                        </button>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : `
-                            <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6 text-center">
-                                <p class="text-white">Nessun arciere registrato ancora.</p>
-                            </div>
-                        `}
-                        
-                        <div class="bg-secondary-dark p-6 rounded-xl shadow-lg">
-                            <h3 class="text-xl font-bold mb-4 text-primary-orange">Nuovo Arciere?</h3>
-                            <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.setView('register')">
-                                Registra Nuovo Arciere
-                            </button>
-                        </div>
-                    </div>
-                `;
-                document.getElementById('content-view').innerHTML = html;
-            });
-        }
+        function renderLogin() {
+            loadAllArchers().then(() => {
+                const html = `
+                    <div class="max-w-2xl mx-auto">
+                        <h2 class="text-3xl font-bold mb-6 text-white text-center">Seleziona il tuo Profilo</h2>
+                        
+                        ${appState.allArchers.length > 0 ? `
+                            <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                                <h3 class="text-xl font-bold mb-4 text-primary-orange">Arcieri Registrati</h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                                    ${appState.allArchers.map(archer => `
+                                        <button class="bg-gray-800 hover:bg-gray-700 p-4 rounded-lg text-left border-2 border-transparent hover:border-primary-orange transition-all"
+                                                onclick="window.selectArcher('${archer.id}')">
+                                            <div class="font-bold text-white text-lg">${archer.nome}</div>
+                                            <div class="text-sm text-primary-orange mt-1">Clicca per accedere</div>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6 text-center">
+                                <p class="text-white">Nessun arciere registrato ancora.</p>
+                            </div>
+                        `}
+                        
+                        <div class="bg-secondary-dark p-6 rounded-xl shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-primary-orange">Nuovo Arciere?</h3>
+                            <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.setView('register')">
+                                Registra Nuovo Arciere
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('content-view').innerHTML = html;
+            });
+        }
 
-        window.selectArcher = (archerId) => {
-            const archer = appState.allArchers.find(a => a.id === archerId);
-            if (!archer) return;
-            
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
-                        ← Torna alla lista
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
-                    <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
-                    
-                    <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
-                        </div>
-                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
-                    </form>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
-            
-            document.getElementById('passwordForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const password = document.getElementById('archer-password').value;
-                
-                if (password === MASTER_PASSWORD || password === archer.password) {
-                    appState.loggedInArcher = archer;
-                    appState.firebaseUserId = archer.id;
-                    console.log('Login effettuato:', archer.nome);
-                    window.setView('mainMenu');
-                } else {
-                    showModal("Errore", "Password errata.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                }
-            });
-        };
+        window.selectArcher = (archerId) => {
+            const archer = appState.allArchers.find(a => a.id === archerId);
+            if (!archer) return;
+            
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
+                        ← Torna alla lista
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
+                    <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
+                    
+                    <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
+                        </div>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('passwordForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const password = document.getElementById('archer-password').value;
+                
+                if (password === MASTER_PASSWORD || password === archer.password) {
+                    appState.loggedInArcher = archer;
+                    appState.firebaseUserId = archer.id;
+                    console.log('Login effettuato:', archer.nome);
+                    window.setView('mainMenu');
+                } else {
+                    showModal("Errore", "Password errata.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        };
 
-        function renderRegister() {
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
-                        ← Torna alla lista
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione Nuovo Arciere</h2>
-                    <form id="registerForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
-                            <input type="text" id="register-nome" class="input-style" required placeholder="Scegli un nome">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password (min 4 caratteri)">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Conferma Password</label>
-                            <input type="password" id="register-password-confirm" class="input-style" required placeholder="Conferma la password">
-                        </div>
-                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Registrati</button>
-                    </form>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
+        function renderRegister() {
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
+                        ← Torna alla lista
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione Nuovo Arciere</h2>
+                    <form id="registerForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
+                            <input type="text" id="register-nome" class="input-style" required placeholder="Scegli un nome">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password (min 4 caratteri)">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Conferma Password</label>
+                            <input type="password" id="register-password-confirm" class="input-style" required placeholder="Conferma la password">
+                        </div>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Registrati</button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
 
-            document.getElementById('registerForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const nome = document.getElementById('register-nome').value.trim();
-                const password = document.getElementById('register-password').value;
-                const passwordConfirm = document.getElementById('register-password-confirm').value;
+            document.getElementById('registerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const nome = document.getElementById('register-nome').value.trim();
+                const password = document.getElementById('register-password').value;
+                const passwordConfirm = document.getElementById('register-password-confirm').value;
 
-                if (password !== passwordConfirm) {
-                    showModal("Errore", "Le password non coincidono.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
+                if (password !== passwordConfirm) {
+                    showModal("Errore", "Le password non coincidono.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
 
-                if (nome.length < 3) {
-                    showModal("Errore", "Il nome deve essere di almeno 3 caratteri.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
+                if (nome.length < 3) {
+                    showModal("Errore", "Il nome deve essere di almeno 3 caratteri.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
 
-                if (password.length < 4) {
-                    showModal("Errore", "La password deve essere di almeno 4 caratteri.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
+                if (password.length < 4) {
+                    showModal("Errore", "La password deve essere di almeno 4 caratteri.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
 
-                try {
-                    const archersRef = window.getArchersCollectionRef();
-                    const q = query(archersRef, where('nome', '==', nome));
-                    const querySnapshot = await getDocs(q);
+                try {
+                    const archersRef = window.getArchersCollectionRef();
+                    const q = query(archersRef, where('nome', '==', nome));
+                    const querySnapshot = await getDocs(q);
 
-                    if (!querySnapshot.empty) {
-                        showModal("Errore", "Questo nome arciere è già in uso. Scegline un altro.", [
-                            { text: "Ok", handler: () => {} }
-                        ]);
-                        return;
-                    }
+                    if (!querySnapshot.empty) {
+                        showModal("Errore", "Questo nome arciere è già in uso. Scegline un altro.", [
+                            { text: "Ok", handler: () => {} }
+                        ]);
+                        return;
+                    }
 
-                    const newArcher = {
-                        nome: nome,
-                        password: password,
-                        createdAt: serverTimestamp()
-                    };
+                    const newArcher = {
+                        nome: nome,
+                        password: password,
+                        createdAt: serverTimestamp()
+                    };
 
-                    const docRef = await addDoc(archersRef, newArcher);
-                    console.log("Arciere registrato con ID:", docRef.id);
+                    const docRef = await addDoc(archersRef, newArcher);
+                    console.log("Arciere registrato con ID:", docRef.id);
 
-                    showModal("Successo", `Benvenuto ${nome}! Registrazione completata.`, [
-                        { text: "Accedi", handler: () => {
-                            appState.loggedInArcher = { id: docRef.id, ...newArcher };
-                            appState.firebaseUserId = docRef.id;
-                            window.setView('mainMenu');
-                        }}
-                    ]);
+                    showModal("Successo", `Benvenuto ${nome}! Registrazione completata.`, [
+                        { text: "Accedi", handler: () => {
+                            appState.loggedInArcher = { id: docRef.id, ...newArcher };
+                            appState.firebaseUserId = docRef.id;
+                            window.setView('mainMenu');
+                        }}
+                    ]);
 
-                } catch (error) {
-                    console.error("Errore durante la registrazione:", error);
-                    showModal("Errore", "Si è verificato un errore. Riprova.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                }
-            });
-        }
+                } catch (error) {
+                    console.error("Errore durante la registrazione:", error);
+                    showModal("Errore", "Si è verificato un errore. Riprova.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        }
 
-        function renderMainMenu() {
+        function renderMainMenu() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            const html = `
+                <div class="text-center space-y-4">
+                    <h2 class="text-2xl font-bold mb-6 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">🎯 Allenamento 🏋️</button>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Gara' })">🏆 Gara 🥇</button>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">🧾 Riepilogo Dati 🧾</button>
+                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('charts')">📈 Grafici Andamento 📈</button>
+                    
+                    <div class="mt-8 pt-4 border-t-2 border-gray-700">
+                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
+                            🗑️ Elimina Profilo
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+        }
+
+        window.showDeleteProfileSection = () => {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
+                        ← Torna al Menu
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Profilo</h2>
+                    <p class="text-center mb-4 text-white">Stai per eliminare il profilo di <strong class="text-primary-orange">${appState.loggedInArcher.nome}</strong></p>
+                    <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione eliminerà definitivamente il tuo profilo e TUTTE le sessioni associate!</p>
+                    
+                    <form id="deleteProfileForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
+                            <input type="password" id="delete-profile-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('mainMenu')">
+                                Annulla
+                            </button>
+                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
+                                Elimina Definitivamente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('deleteProfileForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('delete-profile-password').value;
+                
+                if (!password) {
+                    showModal("Errore", "Inserisci la password per confermare.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
+                    showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                try {
+                    const archerId = appState.loggedInArcher.id;
+                    const archerName = appState.loggedInArcher.nome;
+                    
+                    const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
+                    const sessionsSnapshot = await getDocs(sessionsRef);
+                    
+                    const deletePromises = [];
+                    sessionsSnapshot.forEach((sessionDoc) => {
+                        deletePromises.push(deleteDoc(sessionDoc.ref));
+                    });
+                    
+                    await Promise.all(deletePromises);
+                    
+                    const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
+                    await deleteDoc(archerDocRef);
+                    
+                    console.log("Profilo eliminato:", archerName);
+                    
+                    appState.loggedInArcher = null;
+                    appState.currentSession = null;
+                    appState.sessionData = [];
+                    
+                    showModal("Successo", `Il profilo di ${archerName} è stato eliminato con successo.`, [
+                        { text: "Ok", handler: () => window.setView('login') }
+                    ]);
+                    
+                } catch (error) {
+                    console.error("Errore eliminazione profilo:", error);
+                    showModal("Errore", `Si è verificato un errore: ${error.message}`, [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        };
+
+        // FINE PARTE3
+ // PARTE4A - Form Registrazione Sessione, Allenamenti Tecnici, Segnapunti
+
+        function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
                 return;
             }
 
+            appState.sessionType = type;
+            scoringState.startTime = getFormattedTime(new Date());
+
+            const session = appState.currentSession || {};
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            
+            const isTrainingWithoutScore = session.trainingWithoutScore || false;
+
+            const formFields = [
+                { id: 'data', label: 'Data', type: 'date', required: true, value: session.data || today },
+                { id: 'ora', label: 'Ora', type: 'time', required: true, value: session.startTime || defaultTime },
+                { id: 'luogo', label: 'Luogo', type: 'text', required: true, value: session.luogo || '', placeholder: 'Nome Luogo' },
+                { id: 'tipoLuogo', label: 'Tipo Luogo', type: 'select', options: TIPO_LUOGO_OPTIONS, required: true, value: session.tipoLuogo || '' },
+            ];
+            
+            const conditionalFields = [
+                { id: 'distanza', label: 'Distanza', type: 'select', options: DISTANZA_OPTIONS, required: true, value: session.distanza || '' },
+                { id: 'tipoTarga', label: 'Tipo Targa', type: 'select', options: TIPO_TARGA_OPTIONS, required: true, value: session.tipoTarga || '' },
+                { id: 'formatoGara', label: 'Formato Freccia', type: 'select', options: FORMATO_GARA_OPTIONS, required: true, value: session.formatoGara || '' },
+            ];
+
             const html = `
-                <div class="text-center space-y-4">
-                    <h2 class="text-2xl font-bold mb-6 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">🎯 Allenamento 🏋️</button>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Gara' })">🏆 Gara 🥇</button>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">🧾 Riepilogo Dati 🧾</button>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('charts')">📈 Grafici Andamento 📈</button>
+                <h2 class="text-3xl font-bold mb-6 text-white">${type}</h2>
+                <form id="registrationForm" class="space-y-4">
+                    ${type === 'Allenamento' ? `
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-primary-orange">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="trainingWithoutScore" name="trainingWithoutScore" 
+                                       class="w-5 h-5 mr-3" 
+                                       onchange="window.toggleTrainingMode(this.checked)"
+                                       ${isTrainingWithoutScore ? 'checked' : ''}>
+                                <span class="text-white font-bold">Allenamento Tecnico (senza punteggio)</span>
+                            </label>
+                            <p class="text-sm text-primary-orange mt-2 ml-8">Seleziona questa opzione per esercizi di tecnica, perfezionamento, ecc.</p>
+                        </div>
+                    ` : ''}
                     
-                    <div class="mt-8 pt-4 border-t-2 border-gray-700">
-                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
-                            🗑️ Elimina Profilo
+                    ${formFields.map(field => `
+                        <div>
+                            <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
+                            ${field.type === 'select' ? `
+                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required ? 'required' : ''}>
+                                    <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
+                                    ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                                </select>
+                            ` : field.type === 'textarea' ? `
+                                <textarea id="${field.id}" name="${field.id}" class="input-style h-20" placeholder="${field.placeholder}" ${field.required ? 'required' : ''}>${field.value}</textarea>
+                            ` : `
+                                <input type="${field.type}" id="${field.id}" name="${field.id}" class="input-style" value="${field.value}" placeholder="${field.placeholder || ''}" ${field.required ? 'required' : ''}>
+                            `}
+                        </div>
+                    `).join('')}
+                    
+                    <div id="conditionalFields" style="display: ${isTrainingWithoutScore ? 'none' : 'block'}">
+                        ${conditionalFields.map(field => `
+                            <div>
+                                <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
+                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required && !isTrainingWithoutScore ? 'required' : ''}>
+                                    <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
+                                    ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                                </select>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div>
+                        <label for="note" class="block text-sm font-medium mb-1">Note</label>
+                        <textarea id="note" name="note" class="input-style h-20" placeholder="Dettagli aggiuntivi...">${session.note || ''}</textarea>
+                    </div>
+
+                    <div class="mt-8 flex flex-col space-y-3">
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg" id="submitBtn">
+                            ${isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
                         </button>
+                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">Torna Indietro</button>
                     </div>
-                </div>
+                </form>
             `;
             document.getElementById('content-view').innerHTML = html;
-        }
 
-        window.showDeleteProfileSection = () => {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
-
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
-                        ← Torna al Menu
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Profilo</h2>
-                    <p class="text-center mb-4 text-white">Stai per eliminare il profilo di <strong class="text-primary-orange">${appState.loggedInArcher.nome}</strong></p>
-                    <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione eliminerà definitivamente il tuo profilo e TUTTE le sessioni associate!</p>
-                    
-                    <form id="deleteProfileForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
-                        <div>
-                            <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
-                            <input type="password" id="delete-profile-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>
-                        </div>
-                        <div class="flex gap-3">
-                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('mainMenu')">
-                                Annulla
-                            </button>
-                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
-                                Elimina Definitivamente
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
-            
-            document.getElementById('deleteProfileForm').addEventListener('submit', async (e) => {
+            document.getElementById('registrationForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                const password = document.getElementById('delete-profile-password').value;
+                const formData = new FormData(e.target);
+                const session = Object.fromEntries(formData.entries());
+                session.type = appState.sessionType;
+                session.arciere = appState.loggedInArcher.nome;
+                session.archerId = appState.loggedInArcher.id;
+                session.startTime = scoringState.startTime;
+                session.id = Date.now();
+                session.trainingWithoutScore = document.getElementById('trainingWithoutScore')?.checked || false;
+
+                appState.currentSession = session;
                 
-                if (!password) {
-                    showModal("Errore", "Inserisci la password per confermare.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
-                
-                if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
-                    showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
-                
-                try {
-                    const archerId = appState.loggedInArcher.id;
-                    const archerName = appState.loggedInArcher.nome;
-                    
-                    const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
-                    const sessionsSnapshot = await getDocs(sessionsRef);
-                    
-                    const deletePromises = [];
-                    sessionsSnapshot.forEach((sessionDoc) => {
-                        deletePromises.push(deleteDoc(sessionDoc.ref));
-                    });
-                    
-                    await Promise.all(deletePromises);
-                    
-                    const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
-                    await deleteDoc(archerDocRef);
-                    
-                    console.log("Profilo eliminato:", archerName);
-                    
-                    appState.loggedInArcher = null;
-                    appState.currentSession = null;
-                    appState.sessionData = [];
-                    
-                    showModal("Successo", `Il profilo di ${archerName} è stato eliminato con successo.`, [
-                        { text: "Ok", handler: () => window.setView('login') }
-                    ]);
-                    
-                } catch (error) {
-                    console.error("Errore eliminazione profilo:", error);
-                    showModal("Errore", `Si è verificato un errore: ${error.message}`, [
-                        { text: "Ok", handler: () => {} }
-                    ]);
+                if (session.trainingWithoutScore) {
+                    window.setView('trainingNotes');
+                } else {
+                    window.setView('scoring');
                 }
             });
-        };
-window.setView = (view, params = {}) => {
-    console.log("Cambio vista in:", view, "con parametri:", params);
-    
-    // Aggiorna lo stato globale con i parametri passati
-    if (params.type) appState.sessionType = params.type;
-    
-    if (!appState.loggedInArcher && view !== 'login' && view !== 'register') {
-        renderLogin();
-        return;
-    }
-
-    switch (view) {
-        case 'login': renderLogin(); break;
-        case 'mainMenu': renderMainMenu(); break;
-        case 'registrationForm': 
-            renderRegistrationForm(); 
-            break;
-        case 'scoring': 
-            initializeScoringGrid();
-            renderScoringView(); 
-            break;
-        case 'trainingNotes':
-            renderTrainingNotes();
-            break;
-        case 'dataSummary': 
-            fetchSessions(); // <--- Questo carica i dati dal database
-            renderDataSummary(); 
-            break;
-        case 'detailedSummary':
-            // Cerca la sessione caricata nell'appState
-            const found = appState.sessionData.find(s => s.docId === params.sessionId);
-            if (found) { 
-                appState.detailedSession = found; 
-                renderDetailedSummary(); 
-            } else { 
-                window.setView('dataSummary'); 
-            }
-            break;
-        case 'charts': 
-            renderChartsView(); 
-            break;
-    }
-    updateUserInfo();
-};
-        // FINE PARTE3
-// PARTE4A - Form Registrazione Sessione, Allenamenti Tecnici
-
-function renderRegistrationForm() {
-    if (!appState.loggedInArcher) {
-        window.setView('login');
-        return;
-    }
-
-    const type = appState.sessionType; // Preso da appState impostato in Parte 3
-    scoringState.startTime = getFormattedTime(new Date());
-    const today = new Date().toISOString().split('T')[0];
-
-    const html = `
-        <div class="max-w-md mx-auto">
-            <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">← Torna al Menu</button>
-            <h2 class="text-3xl font-bold mb-6 text-white text-center">${type}</h2>
-            
-            <form id="registrationFormElement" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-                ${type === 'Allenamento' ? `
-                    <div class="bg-gray-800 p-4 rounded-xl border-2 border-primary-orange mb-4">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" id="trainingWithoutScore" class="w-6 h-6 mr-3 accent-primary-orange">
-                            <span class="text-white font-bold text-lg">Allenamento Tecnico</span>
-                        </label>
-                        <p class="text-xs text-primary-orange mt-2 italic">Senza punteggio (solo note tecniche)</p>
-                    </div>
-                ` : ''}
-                
-                <div id="standard-fields" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Data</label>
-                        <input type="date" name="data" class="input-style" value="${today}" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Luogo</label>
-                        <input type="text" name="luogo" class="input-style" placeholder="Es: Campo, Palestra..." required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Tipo Luogo</label>
-                        <select name="tipoLuogo" class="input-style">
-                            ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                    </div>
-
-                    <div id="scoring-fields" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Distanza</label>
-                            <select name="distanza" class="input-style">
-                                ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Tipo Targa</label>
-                            <select name="tipoTarga" class="input-style">
-                                ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Formato</label>
-                            <select name="formatoGara" class="input-style">
-                                ${FORMATO_GARA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-primary w-full p-4 rounded-xl text-lg font-bold mt-4 shadow-lg">
-                    Continua
-                </button>
-            </form>
-        </div>
-    `;
-    document.getElementById('content-view').innerHTML = html;
-
-    // Logica per nascondere campi se è Allenamento Tecnico
-    const check = document.getElementById('trainingWithoutScore');
-    const scoringFields = document.getElementById('scoring-fields');
-    if (check) {
-        check.addEventListener('change', (e) => {
-            scoringFields.style.display = e.target.checked ? 'none' : 'block';
-        });
-    }
-
-document.getElementById('registrationFormElement').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const sessionData = Object.fromEntries(formData.entries());
-        
-        sessionData.type = appState.sessionType;
-        sessionData.trainingWithoutScore = check ? check.checked : false;
-        sessionData.id = Date.now();
-        sessionData.startTime = scoringState.startTime; // AGGIUNGI QUESTA RIGA PER IL SALVATAGGIO
-
-        appState.currentSession = sessionData;
-        
-        if (sessionData.trainingWithoutScore) {
-            window.setView('trainingNotes');
-        } else {
-            window.setView('scoring');
         }
-    });
-}
         
         window.toggleTrainingMode = (isChecked) => {
             const conditionalFields = document.getElementById('conditionalFields');
@@ -884,14 +906,15 @@ document.getElementById('registrationFormElement').addEventListener('submit', (e
                 <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico</h2>
                 <p class="text-sm mb-6 text-primary-orange">Descrivi le attività svolte durante l'allenamento</p>
                 
-<div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
-    <h3 class="text-xl font-bold mb-4 text-white">Informazioni Sessione</h3>
-    <div class="grid grid-cols-2 gap-3 text-sm">
-        <div><strong>Data:</strong> ${formatDate(session.data)}</div>
-        <div><strong>Inizio:</strong> ${scoringState.startTime}</div> <div><strong>Luogo:</strong> ${session.luogo}</div>
-        <div><strong>Tipo:</strong> ${session.tipoLuogo}</div>
-    </div>
-</div>
+                <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-white">Informazioni Sessione</h3>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div><strong>Data:</strong> ${formatDate(session.data)}</div>
+                        <div><strong>Ora:</strong> ${session.ora}</div>
+                        <div><strong>Luogo:</strong> ${session.luogo}</div>
+                        <div><strong>Tipo:</strong> ${session.tipoLuogo}</div>
+                    </div>
+                </div>
                 
                 <form id="trainingNotesForm" class="space-y-4">
                     <div>
@@ -956,15 +979,15 @@ document.getElementById('registrationFormElement').addEventListener('submit', (e
             });
         }
         
-async function saveTrainingWithoutScoreToFirestore() {
-    try {
-        const session = appState.currentSession;
-        
-        const finalSessionData = {
-            type: session.type,
-            arciere: appState.loggedInArcher.nome, // Prendi dal profilo loggato
-            archerId: appState.loggedInArcher.id,   // Prendi dal profilo loggato
-            data: session.data,
+        async function saveTrainingWithoutScoreToFirestore() {
+            try {
+                const session = appState.currentSession;
+                
+                const finalSessionData = {
+                    type: session.type,
+                    arciere: session.arciere,
+                    archerId: session.archerId,
+                    data: session.data,
                     startTime: session.startTime,
                     endTime: session.endTime,
                     duration: session.duration,
@@ -993,8 +1016,8 @@ async function saveTrainingWithoutScoreToFirestore() {
                 showModal("Errore", "Impossibile salvare l'allenamento.", [{ text: "Ok", handler: () => {} }]);
             }
         }
-        // FINE PARTE4a
-// PARTE 4B - Griglia Punteggio e Salvataggio Sessioni
+        // FINE PARTE4A
+// PARTE4B - Griglia Punteggio e Salvataggio Sessioni
 
         function initializeScoringGrid() {
             const format = appState.currentSession.formatoGara;
@@ -1315,20 +1338,20 @@ async function saveTrainingWithoutScoreToFirestore() {
                 const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
                 
-modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                
-                showModal("Turno Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
+                modalBody += <p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>
+showModal("Turno Salvato!", modalBody, [
+                { text: "Vedi Riepilogo", handler: () => {
+                    setTimeout(() => {
+                        fetchSessions();
                         setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
-                    }}
-                ]);
-            }
+                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                        }, 500);
+                    }, 300);
+                }}
+            ]);
         }
+    }
+
     function startNextTurn() {
         if (appState.currentTurn === 1) {
             appState.currentTurn = 2;
@@ -1407,148 +1430,163 @@ modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(
             turn2Average: turn2Summary.average, 
         };
     }
-        // FINE PARTE4b
+
+    // FINE PARTE4B
 // PARTE4C - Riepilogo Dati e Visualizzazione Dettagliata
 
-let unsubscribeSnapshot = null;
-let filterState = {
-    distanza: '',
-    tipoTarga: '',
-    type: '',
-    tipoLuogo: '',
-    anno: '',
-};
+        let unsubscribeSnapshot = null;
+        let filterState = {
+            distanza: '',
+            tipoTarga: '',
+            type: '',
+            tipoLuogo: '',
+            anno: '',
+        };
 
-const ANNO_OPTIONS = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+        const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
 
-function fetchSessions() {
-    if (!appState.loggedInArcher) return;
+        function fetchSessions() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
 
-    if (unsubscribeSnapshot) unsubscribeSnapshot();
-    
-    const sessionsColRef = window.getSessionsCollectionRef();
-    if (!sessionsColRef) return;
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+            }
+            
+            const sessionsColRef = window.getSessionsCollectionRef();
+            if (!sessionsColRef) {
+                console.error("Riferimento collezione non disponibile.");
+                return;
+            }
 
-    // Carichiamo tutte le sessioni dell'arciere loggato ordinate per data
-    let q = query(sessionsColRef, orderBy('data', 'desc'));
+            let q = query(sessionsColRef);
+            
+            if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
+            if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
+            if (filterState.type) q = query(q, where('type', '==', filterState.type));
+            if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
+            
+            if (filterState.anno) {
+                const startDate = `${filterState.anno}-01-01`;
+                const endDate = `${filterState.anno}-12-31`;
+                q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
+            }
 
-    unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
-        const sessions = [];
-        querySnapshot.forEach((doc) => {
-            // Fondamentale: iniettiamo doc.id come docId per il collegamento ai dettagli
-            sessions.push({ docId: doc.id, ...doc.data() }); 
-        });
-        
-        appState.sessionData = sessions;
-        console.log("Dati scaricati:", sessions.length);
-        
-        // Se siamo nella vista riepilogo, aggiorniamo la tabella
-        const tableContainer = document.getElementById('dataSummaryTable');
-        if (tableContainer) {
+            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+                const sessions = [];
+                querySnapshot.forEach((doc) => {
+                    sessions.push({ docId: doc.id, ...doc.data() }); 
+                });
+                
+                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+                appState.sessionData = sessions;
+                renderDataSummaryTable();
+            }, (error) => {
+                console.error("Errore onSnapshot:", error);
+            });
+        }
+
+        window.handleFilterChange = (field, value) => {
+            filterState[field] = value;
+            fetchSessions();
+        };
+
+        function renderDataSummary() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            const filtersHtml = `
+                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
+                        <option value="">Tutti i Tipi</option>
+                        <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
+                        <option value="Gara" ${filterState.type === 'Gara' ? 'selected' : ''}>Gara</option>
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
+                        <option value="">Tutte le Distanze</option>
+                        ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
+                        <option value="">Tutte le Targhe</option>
+                        ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
+                        <option value="">Tutti i Luoghi</option>
+                        ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
+                        <option value="">Tutti gli Anni</option>
+                        ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
+                </div>
+            `;
+
+            const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
+
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
+                ${filtersHtml}
+                ${tableContainer}
+                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu
+                </button>
+            `;
+
             renderDataSummaryTable();
         }
-    }, (error) => {
-        console.error("Errore nel caricamento dati:", error);
-    });
-}
 
-window.handleFilterChange = (field, value) => {
-    filterState[field] = value;
-    renderDataSummaryTable();
-};
+        function renderDataSummaryTable() {
+            const tableContainer = document.getElementById('dataSummaryTable');
+            if (!tableContainer) return;
 
-function renderDataSummary() {
-    if (!appState.loggedInArcher) {
-        window.setView('login');
-        return;
-    }
-
-    const filtersHtml = `
-        <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
-            <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
-                <option value="">Tutti i Tipi</option>
-                <option value="Allenamento">Allenamento</option>
-                <option value="Gara">Gara</option>
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
-                <option value="">Distanze</option>
-                ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
-                <option value="">Luoghi</option>
-                ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-            </select>
-            <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
-                <option value="">Anni</option>
-                ${ANNO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-            </select>
-            <button class="btn-primary p-2 text-sm bg-gray-700" onclick="location.reload()">Reset</button>
-        </div>
-    `;
-
-    document.getElementById('content-view').innerHTML = `
-        <h2 class="text-3xl font-bold mb-6 text-white text-center">I Tuoi Risultati</h2>
-        ${filtersHtml}
-        <div id="dataSummaryTable" class="grid-wrapper">
-            </div>
-        <button class="btn-primary w-full p-4 rounded-xl mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-            Torna al Menu
-        </button>
-    `;
-
-    renderDataSummaryTable();
-}
-
-function renderDataSummaryTable() {
-    const tableContainer = document.getElementById('dataSummaryTable');
-    if (!tableContainer) return;
-
-    // Applichiamo i filtri locali sui dati in memoria
-    let filtered = appState.sessionData.filter(s => {
-        return (!filterState.type || s.type === filterState.type) &&
-               (!filterState.distanza || s.distanza === filterState.distanza) &&
-               (!filterState.tipoLuogo || s.tipoLuogo === filterState.tipoLuogo) &&
-               (!filterState.anno || (s.data && s.data.includes(filterState.anno)));
-    });
-
-    if (filtered.length === 0) {
-        tableContainer.innerHTML = `<div class="p-10 text-center text-gray-400 bg-secondary-dark rounded-xl">Nessuna sessione trovata.</div>`;
-        return;
-    }
-
-    const tableHtml = `
-        <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
-            <thead>
-                <tr class="text-xs sm:text-sm">
-                    <th>Data</th>
-                    <th>Tipo</th>
-                    <th>Totale</th>
-                    <th>X-10</th>
-                    <th>Media</th>
-                    <th>Distanza</th>
-                    <th>Luogo</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filtered.map(session => {
-                    const isTS = session.trainingWithoutScore === true;
-                    return `
-                    <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-20' : isTS ? 'bg-blue-900 bg-opacity-20' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer"
-                        onclick="window.setView('detailedSummary', { sessionId: '${session.docId}' })">
-                        <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
-                        <td>${session.type}${isTS ? ' 🎓' : ''}</td>
-                        <td class="font-extrabold text-white">${isTS ? '-' : (session.totalScore || 0)}</td>
-                        <td>${isTS ? '-' : `${session.totalX || 0}-${session.totalTen || 0}`}</td>
-                        <td>${isTS ? '-' : (session.totalAverage ? session.totalAverage.toFixed(2) : '0.00')}</td>
-                        <td>${session.distanza || '-'}</td>
-                        <td class="text-xs text-gray-400">${session.luogo}</td>
-                    </tr>
-                `}).join('')}
-            </tbody>
-        </table>
-    `;
-    tableContainer.innerHTML = tableHtml;
-}
+            const tableHtml = `
+                <table class="score-grid w-full table-auto min-w-[800px] border-collapse">
+                    <thead>
+                        <tr class="text-xs sm:text-sm">
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Tot.</th>
+                            <th>T1</th>
+                            <th>T2</th>
+                            <th>X</th>
+                            <th>10</th>
+                            <th>9</th>
+                            <th>Luogo</th>
+                            <th>Distanza</th>
+                            <th>Targa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${appState.sessionData.length === 0 ? `
+                            <tr><td colspan="11" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
+                        ` : appState.sessionData.map(session => {
+                            const isTrainingWithoutScore = session.trainingWithoutScore === true;
+                            return `
+                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : isTrainingWithoutScore ? 'bg-blue-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
+                                <td>${session.type}${isTrainingWithoutScore ? ' 🎓' : ''}</td>
+                                <td class="font-extrabold text-white">${isTrainingWithoutScore ? '-' : (session.totalScore || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.turn1Score || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.turn2Score || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.totalX || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.totalTen || 0)}</td>
+                                <td>${isTrainingWithoutScore ? '-' : (session.totalNine || 0)}</td>
+                                <td>${session.luogo}</td>
+                                <td>${session.distanza || '-'}</td>
+                                <td>${session.tipoTarga || '-'}</td>
+                            </tr>
+                        `}).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableContainer.innerHTML = tableHtml;
+        }
 
         function renderDetailedSummary() {
             const session = appState.detailedSession;
@@ -1808,7 +1846,7 @@ function renderDataSummaryTable() {
         }
 
         // FINE PARTE4C
-// PARTE 4D - FINALE - Grafici e Chiusura
+// PARTE4D - FINALE - Grafici e Chiusura
 
         function renderChartsView() {
             const html = `
