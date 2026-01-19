@@ -646,7 +646,55 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 }
             });
         }
+window.setView = (view, params = {}) => {
+            console.log("Cambio vista in:", view, "con parametri:", params);
+            
+            // Gestione specifica per il dettaglio sessione
+            if (view === 'detailedSummary') {
+                const sId = params.sessionId;
+                // Cerchiamo la sessione nei dati caricati usando docId
+                const foundSession = appState.sessionData.find(s => s.docId === sId);
+                
+                if (foundSession) {
+                    appState.detailedSession = foundSession;
+                    renderDetailedSummary();
+                    return; // Usciamo perché abbiamo già renderizzato
+                } else {
+                    console.error("Sessione non trovata!");
+                    view = 'dataSummary';
+                }
+            }
 
+            // Switch per le altre viste
+            switch (view) {
+                case 'login':
+                    renderLogin();
+                    break;
+                case 'register':
+                    renderRegister();
+                    break;
+                case 'mainMenu':
+                    renderMainMenu();
+                    break;
+                case 'registrationForm':
+                    // Passiamo il tipo (Gara/Allenamento) allo stato globale
+                    appState.currentSessionType = params.type || 'Allenamento';
+                    renderRegistrationForm();
+                    break;
+                case 'scoreEntry':
+                    renderScoreEntry();
+                    break;
+                case 'dataSummary':
+                    fetchSessions(); // Ricarica i dati da Firebase
+                    renderDataSummary();
+                    break;
+                case 'charts':
+                    renderCharts();
+                    break;
+                default:
+                    renderLogin();
+            }
+        };
         function renderMainMenu() {
             if (!appState.loggedInArcher) {
                 window.setView('login');
