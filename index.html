@@ -458,7 +458,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     break;
             }
         };
-
         async function loadAllArchers() {
             try {
                 const archersRef = window.getArchersCollectionRef();
@@ -758,7 +757,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 }
             });
         };
-
         function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
@@ -1007,7 +1005,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 showModal("Errore", "Impossibile salvare l'allenamento.", [{ text: "Ok", handler: () => {} }]);
             }
         }
-
         function initializeScoringGrid() {
             const format = appState.currentSession.formatoGara;
 
@@ -1419,9 +1416,6 @@ showModal("Turno Salvato!", modalBody, [
             turn2Average: turn2Summary.average, 
         };
     }
-
-// PARTE 4C - Riepilogo Dati e Visualizzazione Dettagliata
-
         let unsubscribeSnapshot = null;
         let filterState = {
             distanza: '',
@@ -1832,7 +1826,6 @@ showModal("Turno Salvato!", modalBody, [
             `;
             return tableHtml;
         }
-
         function renderChartsView() {
             const html = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
