@@ -202,6 +202,8 @@
             </div>
         `;
     }
+
+    // QUESTA È LA FINE DELLA PARTE1
 window.initializeApp = (db, firebaseUserId, authInstance) => {
         const appState = {
             view: 'login',
@@ -403,6 +405,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 ]);
             }
         };
+        // FINE PARTE 2
+// PARTE3 - Login, Registrazione, Menu
+
         async function loadAllArchers() {
             try {
                 const archersRef = window.getArchersCollectionRef();
@@ -723,16 +728,24 @@ window.setView = (view, params = {}) => {
         case 'mainMenu':
             renderMainMenu();
             break;
-        case 'registrationForm':
-            appState.currentSessionType = params.type || 'Allenamento';
+case 'registrationForm':
+            appState.sessionType = params.type || 'Allenamento';
             renderRegistrationForm();
             break;
-        case 'scoreEntry':
-            // Assicurati che il nome della funzione sia corretto (renderScoreEntry o renderScoring?)
-            if (typeof renderScoreEntry === 'function') {
+
+case 'scoring': 
+            console.log("Inizializzazione interfaccia punti...");
+            // Inizializziamo la griglia di calcolo prima di renderizzare la vista
+            if (typeof initializeScoringGrid === 'function') {
+                initializeScoringGrid();
+            }
+            
+            if (typeof renderScoringView === 'function') {
+                renderScoringView();
+            } else if (typeof renderScoreEntry === 'function') {
                 renderScoreEntry();
-            } else if (typeof renderScoring === 'function') {
-                renderScoring();
+            } else {
+                console.error("ERRORE: Non trovo la funzione per i punti!");
             }
             break;
         case 'dataSummary':
@@ -759,6 +772,9 @@ window.setView = (view, params = {}) => {
             else renderLogin();
     }
 };
+        // FINE PARTE3
+// PARTE 4A - Form Registrazione Sessione, Allenamenti Tecnici, Segnapunti
+
         function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
@@ -1007,6 +1023,9 @@ window.setView = (view, params = {}) => {
                 showModal("Errore", "Impossibile salvare l'allenamento.", [{ text: "Ok", handler: () => {} }]);
             }
         }
+        // FINE PARTE4a
+// PARTE 4B - Griglia Punteggio e Salvataggio Sessioni
+
         function initializeScoringGrid() {
             const format = appState.currentSession.formatoGara;
 
@@ -1418,6 +1437,9 @@ modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(
             turn2Average: turn2Summary.average, 
         };
     }
+        // FINE PARTE4b
+// PARTE 4C - Riepilogo Dati e Visualizzazione Dettagliata
+
         let unsubscribeSnapshot = null;
         let filterState = {
             distanza: '',
@@ -1828,6 +1850,10 @@ modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(
             `;
             return tableHtml;
         }
+
+        // FINE PARTE 4C
+// PARTE 4D - FINALE - Grafici e Chiusura
+
         function renderChartsView() {
             const html = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
