@@ -758,6 +758,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 }
             });
         };
+
         function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
@@ -922,8 +923,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
                             Salva Allenamento
                         </button>
-                        <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
-                          ← Torna al Menu
+                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
+                                onclick="window.setView('registrationForm', { type: 'Allenamento' })">
+                            Torna Indietro
                         </button>
                     </div>
                 </form>
@@ -947,14 +949,13 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
                 appState.currentSession.trainingContent = trainingContent;
                 
+                const sessionIdBeforeSave = appState.currentSession.id;
                 await saveTrainingWithoutScoreToFirestore();
                 
                 const modalBody = `
                     <p class="text-white mb-3">Allenamento tecnico salvato con successo!</p>
                     <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
                 `;
-                
-                const sessionIdBeforeSave = appState.currentSession.id;
                 
                 showModal("Allenamento Salvato!", modalBody, [
                     { text: "Vedi Riepilogo", handler: () => {
@@ -964,8 +965,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                                 window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
                             }, 500);
                         }, 300);
-                    }},
-                    { text: "Menu Principale", handler: () => window.setView('mainMenu') }
+                    }}
                 ]);
             });
         }
@@ -1007,6 +1007,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 showModal("Errore", "Impossibile salvare l'allenamento.", [{ text: "Ok", handler: () => {} }]);
             }
         }
+
         function initializeScoringGrid() {
             const format = appState.currentSession.formatoGara;
 
@@ -1168,6 +1169,56 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 </div>
             `;
 
+            // Riepilogo primo turno durante il secondo turno
+            let turn1SummaryHtml = '';
+            if (appState.currentTurn === 2 && appState.currentSession.turn1) {
+                const turn1Data = appState.currentSession.turn1;
+                const turn1Grid = turn1Data.grid;
+                
+                let cumulativeForTurn1 = 0;
+                const turn1Volleys = turn1Grid.map((row) => {
+                    const volleyResult = calculateVolley(row, cumulativeForTurn1);
+                    cumulativeForTurn1 = volleyResult.totale;
+                    return volleyResult;
+                });
+                
+                turn1SummaryHtml = `
+                    <div class="mt-6 bg-gray-900 p-4 rounded-xl border-2 border-primary-orange">
+                        <h3 class="text-xl font-bold mb-3 text-primary-orange">📋 Riepilogo Primo Turno</h3>
+                        <div class="grid-wrapper">
+                            <table class="score-grid w-full table-auto min-w-[400px] border-collapse">
+                                <thead>
+                                    <tr class="text-xs">
+                                        <th class="w-[15%]">Volée</th>
+                                        <th class="w-[45%]">Punteggi</th>
+                                        <th class="w-[15%]">Parz.</th>
+                                        <th class="w-[15%]">Tot.</th>
+                                        <th class="w-[10%]">X-10</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${turn1Volleys.map((volley, i) => `
+                                        <tr class="${i % 2 === 0 ? 'bg-gray-800' : 'bg-gray-700'} text-xs">
+                                            <td class="font-bold text-primary-orange">${i + 1}</td>
+                                            <td class="text-white">${volley.scores.join(' - ')}</td>
+                                            <td class="font-bold text-white">${volley.parziale}</td>
+                                            <td class="font-bold text-white">${volley.totale}</td>
+                                            <td class="text-primary-orange">${volley.X10}</td>
+                                        </tr>
+                                    `).join('')}
+                                    <tr class="bg-primary-orange text-black font-bold text-xs">
+                                        <td colspan="2" class="text-right pr-2">Totale T1</td>
+                                        <td>${turn1Data.summary.score}</td>
+                                        <td>${turn1Data.summary.X}-${turn1Data.summary.Ten}</td>
+                                        <td>9: ${turn1Data.summary.Nine}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
             const sessionType = appState.sessionType;
             const actionsHtml = `
                 <div class="mt-8 flex flex-col space-y-3">
@@ -1180,9 +1231,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                             Salva Turno
                         </button>
                     `}
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
-                          ← Torna al Menu
-                        </button>
                     <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('registrationForm', { type: '${sessionType}' })">
                         Torna Indietro
                     </button>
@@ -1194,6 +1242,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 <p class="text-sm mb-4">Distanza: ${session.distanza} | Formato: ${session.formatoGara}</p>
                 ${tableHtml}
                 ${keypadHtml}
+                ${turn1SummaryHtml}
                 ${actionsHtml}
             `;
         }
@@ -1227,6 +1276,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             const format = appState.currentSession.formatoGara;
 
             if (isFinal) {
+                // CASO FINALE: Salva e mostra riepilogo
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
@@ -1247,9 +1297,10 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     }}
                 ]);
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
+                // CASO PRIMO TURNO: Offri secondo turno o salva e vai a riepilogo
                 showModal("Turno Salvato!", modalBody, [
                     { text: "Secondo Turno", handler: () => startNextTurn() },
-                    { text: "Fine (Salva)", handler: () => {
+                    { text: "Fine e Vedi Riepilogo", handler: () => {
                         closeModal();
                         
                         const endTime = new Date();
@@ -1260,32 +1311,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         saveSessionToFirestore();
                         
                         setTimeout(() => {
-                            showModal("Sessione Salvata!", `<p class="text-white">Durata: ${durationToString(appState.currentSession.duration)}</p>`, [
-                                { text: "Vedi Riepilogo", handler: () => {
-                                    setTimeout(() => {
-                                        fetchSessions();
-                                        setTimeout(() => {
-                                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                                        }, 500);
-                                    }, 300);
-                                }}
-                            ]);
-                        }, 200);
-                    }}
-                ]);
-            } else {
-                const endTime = new Date();
-                appState.currentSession.endTime = getFormattedTime(endTime);
-                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                
-                const sessionIdBeforeSave = appState.currentSession.id;
-                saveSessionToFirestore();
-                
-                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                
-                showModal("Turno Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
-                        setTimeout(() => {
                             fetchSessions();
                             setTimeout(() => {
                                 window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
@@ -1293,87 +1318,110 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         }, 300);
                     }}
                 ]);
-            }
-        }
-
-        function startNextTurn() {
-            if (appState.currentTurn === 1) {
-                appState.currentTurn = 2;
-            }
-            window.setView('scoring');
-        }
-
-        function calculateDuration(startTimeStr, endTimeStr) {
-            const date = new Date().toISOString().split('T')[0];
-            const start = new Date(`${date}T${startTimeStr}`);
-            const end = new Date(`${date}T${endTimeStr}`);
-            
-            if (end < start) {
-                end.setDate(end.getDate() + 1);
-            }
-            
-            const diffMs = end - start;
-            return Math.round(diffMs / (1000 * 60));
-        }
-
-        function prepareTurnData(turn) {
-            if (!turn || !turn.grid) return null;
-            const serializedGrid = turn.grid.map(row => JSON.stringify(row));
-            return {
-                summary: turn.summary,
-                grid: serializedGrid
-            };
-        }
-
-        async function saveSessionToFirestore() {
-            try {
-                const session = appState.currentSession;
-                const results = calculateTotalSessionResults(session);
-
-                const turn1Data = prepareTurnData(session.turn1);
-                const turn2Data = session.turn2 ? prepareTurnData(session.turn2) : null;
+            } else {
+                // CASO SECONDO TURNO (dopo primo turno salvato): Salva e vai a riepilogo
+                const endTime = new Date();
+                appState.currentSession.endTime = getFormattedTime(endTime);
+                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
                 
-                const finalSessionData = {
-                    ...session,
-                    ...results,
-                    timestamp: serverTimestamp(),
-                    archerId: appState.loggedInArcher.id,
-                    arciere: appState.loggedInArcher.nome,
-                    turn1: turn1Data,
-                    turn2: turn2Data,
-                };
-
-                const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
-                console.log("Sessione salvata con ID:", docRef.id);
+                const sessionIdBeforeSave = appState.currentSession.id;
+                saveSessionToFirestore();
                 
-                appState.currentSession = null;
-                appState.currentTurn = 1;
-
-            } catch (e) {
-                console.error("Errore salvataggio:", e);
-                showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
-            }
+                modalBody += <p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>
+showModal("Turno Salvato!", modalBody, [
+                { text: "Vedi Riepilogo", handler: () => {
+                    setTimeout(() => {
+                        fetchSessions();
+                        setTimeout(() => {
+                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                        }, 500);
+                    }, 300);
+                }}
+            ]);
         }
+    }
 
-        function calculateTotalSessionResults(session) {
-            const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
-            const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+    function startNextTurn() {
+        if (appState.currentTurn === 1) {
+            appState.currentTurn = 2;
+        }
+        window.setView('scoring');
+    }
+
+    function calculateDuration(startTimeStr, endTimeStr) {
+        const date = new Date().toISOString().split('T')[0];
+        const start = new Date(`${date}T${startTimeStr}`);
+        const end = new Date(`${date}T${endTimeStr}`);
+        
+        if (end < start) {
+            end.setDate(end.getDate() + 1);
+        }
+        
+        const diffMs = end - start;
+        return Math.round(diffMs / (1000 * 60));
+    }
+
+    function prepareTurnData(turn) {
+        if (!turn || !turn.grid) return null;
+        const serializedGrid = turn.grid.map(row => JSON.stringify(row));
+        return {
+            summary: turn.summary,
+            grid: serializedGrid
+        };
+    }
+
+    async function saveSessionToFirestore() {
+        try {
+            const session = appState.currentSession;
+            const results = calculateTotalSessionResults(session);
+
+            const turn1Data = prepareTurnData(session.turn1);
+            const turn2Data = session.turn2 ? prepareTurnData(session.turn2) : null;
             
-            const totalScore = turn1Summary.score + turn2Summary.score;
-            const totalShots = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
-
-            return {
-                totalScore: totalScore,
-                totalX: turn1Summary.X + turn2Summary.X,
-                totalTen: turn1Summary.Ten + turn2Summary.Ten,
-                totalNine: turn1Summary.Nine + turn2Summary.Nine,
-                totalAverage: totalShots > 0 ? (totalScore / totalShots) : 0,
-                turn1Score: turn1Summary.score,
-                turn1Average: turn1Summary.average,
-                turn2Score: turn2Summary.score,
-                turn2Average: turn2Summary.average, 
+            const finalSessionData = {
+                ...session,
+                ...results,
+                timestamp: serverTimestamp(),
+                archerId: appState.loggedInArcher.id,
+                arciere: appState.loggedInArcher.nome,
+                turn1: turn1Data,
+                turn2: turn2Data,
             };
+
+            const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
+            console.log("Sessione salvata con ID:", docRef.id);
+            
+            appState.currentSession = null;
+            appState.currentTurn = 1;
+
+        } catch (e) {
+            console.error("Errore salvataggio:", e);
+            showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
         }
+    }
+
+    function calculateTotalSessionResults(session) {
+        const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+        const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+        
+        const totalScore = turn1Summary.score + turn2Summary.score;
+        const totalShots = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
+
+        return {
+            totalScore: totalScore,
+            totalX: turn1Summary.X + turn2Summary.X,
+            totalTen: turn1Summary.Ten + turn2Summary.Ten,
+            totalNine: turn1Summary.Nine + turn2Summary.Nine,
+            totalAverage: totalShots > 0 ? (totalScore / totalShots) : 0,
+            turn1Score: turn1Summary.score,
+            turn1Average: turn1Summary.average,
+            turn2Score: turn2Summary.score,
+            turn2Average: turn2Summary.average, 
+        };
+    }
+
+// PARTE 4C - Riepilogo Dati e Visualizzazione Dettagliata
+
         let unsubscribeSnapshot = null;
         let filterState = {
             distanza: '',
@@ -1575,9 +1623,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
-                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu
-                </button>
                         
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                             🗑️ Elimina Questa Sessione
@@ -1620,9 +1665,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
                     </div>
                     <div class="mt-8 space-y-3">
-                    <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu Principale
-                    </button>
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
+                            Torna al Riepilogo
+                        </button>
                         
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                             🗑️ Elimina Questa Sessione
@@ -1787,6 +1832,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             `;
             return tableHtml;
         }
+
         function renderChartsView() {
             const html = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
