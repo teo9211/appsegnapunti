@@ -119,7 +119,7 @@
             </div>
             <h1 class="text-4xl font-extrabold tracking-tight text-white">Archery Tracker</h1>
             <p class="text-sm mt-1 text-primary-orange">Il tuo diario di allenamenti e gare</p>
-            <div id="user-info" class="mt-2 text-sm text-white"></div>
+            <div id="user-info" class="mt-1 text-sm text-white"></div>
         </header>
 
         <div id="content-view"></div>
@@ -491,7 +491,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         ${appState.allArchers.length > 0 ? `
                             <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
                                 <h3 class="text-xl font-bold mb-4 text-primary-orange">Arcieri Registrati</h3>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">
                                     ${appState.allArchers.map(archer => `
                                         <button class="bg-gray-800 hover:bg-gray-700 p-4 rounded-lg text-left border-2 border-transparent hover:border-primary-orange transition-all"
                                                 onclick="window.selectArcher('${archer.id}')">
@@ -523,24 +523,24 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             const archer = appState.allArchers.find(a => a.id === archerId);
             if (!archer) return;
             
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
-                        ← Torna alla lista
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
-                    <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
-                    
-                    <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
-                        </div>
-                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
-                    </form>
-                </div>
-            `;
+const html = `
+    <div class="max-w-md mx-auto">
+        <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
+        <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
+        
+        <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+            <div>
+                <label class="block text-sm font-medium mb-1">Password</label>
+                <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
+            </div>
+            <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
+        </form>
+        
+        <button class="bg-gray-400 hover:bg-gray-500 text-black w-full p-3 rounded-lg text-lg font-bold mt-3" onclick="window.setView('login')">
+            ← Torna alla lista
+        </button>
+    </div>
+`;
             document.getElementById('content-view').innerHTML = html;
             
             document.getElementById('passwordForm').addEventListener('submit', (e) => {
@@ -659,14 +659,14 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             }
 
             const html = `
-                <div class="text-center space-y-4">
-                    <h2 class="text-2xl font-bold mb-6 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
+                <div class="text-center space-y-2">
+                    <h2 class="text-2xl font-bold mb-3 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
                     <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">🎯 Allenamento 🏋️</button>
                     <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Gara' })">🏆 Gara 🥇</button>
                     <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">🧾 Riepilogo Dati 🧾</button>
                     <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('charts')">📈 Grafici Andamento 📈</button>
                     
-                    <div class="mt-8 pt-4 border-t-2 border-gray-700">
+                    <div class="mt-4 pt-3 border-t-2 border-gray-700">
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
                             🗑️ Elimina Profilo
                         </button>
