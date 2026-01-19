@@ -458,9 +458,8 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     break;
             }
         };
-       javascript        
 
-         async function loadAllArchers() {
+        async function loadAllArchers() {
             try {
                 const archersRef = window.getArchersCollectionRef();
                 const querySnapshot = await getDocs(archersRef);
@@ -1326,20 +1325,20 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
                 
-                modalBody += <p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>
-showModal("Turno Salvato!", modalBody, [
-                { text: "Vedi Riepilogo", handler: () => {
-                    setTimeout(() => {
-                        fetchSessions();
+modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                
+                showModal("Turno Salvato!", modalBody, [
+                    { text: "Vedi Riepilogo", handler: () => {
                         setTimeout(() => {
-                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                        }, 500);
-                    }, 300);
-                }}
-            ]);
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
+                ]);
+            }
         }
-    }
-
     function startNextTurn() {
         if (appState.currentTurn === 1) {
             appState.currentTurn = 2;
@@ -1552,8 +1551,8 @@ showModal("Turno Salvato!", modalBody, [
                             const isTrainingWithoutScore = session.trainingWithoutScore === true;
                             return `
                             <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : isTrainingWithoutScore ? 'bg-blue-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
-                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
-                                <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
+    onclick="window.setView('detailedSummary', { sessionId: '${session.docId}' })">
+    <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
                                 <td>${session.type}${isTrainingWithoutScore ? ' 🎓' : ''}</td>
                                 <td class="font-extrabold text-white">${isTrainingWithoutScore ? '-' : (session.totalScore || 0)}</td>
                                 <td>${isTrainingWithoutScore ? '-' : (session.turn1Score || 0)}</td>
