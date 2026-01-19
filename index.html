@@ -461,7 +461,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     break;
             }
         };
-javascript  
         // FINE PARTE2
 // PARTE3 - Login, Registrazione, Menu
 
@@ -764,7 +763,6 @@ javascript
                 }
             });
         };
-javascript  
         // FINE PARTE3
  // PARTE4A - Form Registrazione Sessione, Allenamenti Tecnici, Segnapunti
 
@@ -1338,7 +1336,7 @@ javascript
                 const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
                 
-                modalBody += <p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>
+                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
 showModal("Turno Salvato!", modalBody, [
                 { text: "Vedi Riepilogo", handler: () => {
                     setTimeout(() => {
@@ -1430,7 +1428,6 @@ showModal("Turno Salvato!", modalBody, [
             turn2Average: turn2Summary.average, 
         };
     }
-javascript  
     // FINE PARTE4B
 // PARTE4C - Riepilogo Dati e Visualizzazione Dettagliata
 
