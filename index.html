@@ -136,7 +136,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
-    import { getFirestore, doc, addDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+    import { getFirestore, doc, addDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, setLogLevel, updateDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
     const MASTER_PASSWORD = "mecca";
     const appId = 'appsegnapunti'; 
@@ -2221,4 +2221,5 @@ showModal("Turno Salvato!", modalBody, [
 </script>
 </body>
 </html>
+
 
