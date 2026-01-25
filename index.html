@@ -456,6 +456,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     appState.detailedSession = sessionToView;
                     renderDetailedSummary();
                     break;
+                case 'editNotes':
+                    renderEditNotes(data.sessionId);
+                    break;
                 case 'charts':
                     renderChartsView();
                     break;
@@ -1431,7 +1434,6 @@ showModal("Turno Salvato!", modalBody, [
     }
     // FINE PARTE4B
 // PARTE4C - Riepilogo Dati e Visualizzazione Dettagliata
-
         let unsubscribeSnapshot = null;
         let filterState = {
             distanza: '',
@@ -1440,7 +1442,6 @@ showModal("Turno Salvato!", modalBody, [
             tipoLuogo: '',
             anno: '',
         };
-
         const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
 
         function fetchSessions() {
@@ -1452,7 +1453,7 @@ showModal("Turno Salvato!", modalBody, [
             if (unsubscribeSnapshot) {
                 unsubscribeSnapshot();
             }
-            
+
             const sessionsColRef = window.getSessionsCollectionRef();
             if (!sessionsColRef) {
                 console.error("Riferimento collezione non disponibile.");
@@ -1460,12 +1461,10 @@ showModal("Turno Salvato!", modalBody, [
             }
 
             let q = query(sessionsColRef);
-            
             if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
             if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
             if (filterState.type) q = query(q, where('type', '==', filterState.type));
             if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
-            
             if (filterState.anno) {
                 const startDate = `${filterState.anno}-01-01`;
                 const endDate = `${filterState.anno}-12-31`;
@@ -1477,7 +1476,6 @@ showModal("Turno Salvato!", modalBody, [
                 querySnapshot.forEach((doc) => {
                     sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
-                
                 sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
                 appState.sessionData = sessions;
                 renderDataSummaryTable();
@@ -1592,15 +1590,14 @@ showModal("Turno Salvato!", modalBody, [
                 window.setView('dataSummary');
                 return;
             }
-            
+
             const isTrainingWithoutScore = session.trainingWithoutScore === true;
             const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
-            
+
             if (isTrainingWithoutScore) {
                 const html = `
                     <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico del ${formatDate(session.data)}</h2>
                     <p class="text-xl mb-6 text-primary-orange">${session.luogo} (${session.tipoLuogo})</p>
-                    
                     <div class="space-y-6">
                         <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                             <h3 class="text-2xl font-bold mb-3 text-white">Informazioni Sessione</h3>
@@ -1613,14 +1610,12 @@ showModal("Turno Salvato!", modalBody, [
                                 <div><strong>Tipo Luogo:</strong> ${session.tipoLuogo}</div>
                             </div>
                         </div>
-                        
                         ${session.note ? `
                             <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                                 <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
                                 <p class="text-white whitespace-pre-wrap">${session.note}</p>
                             </div>
                         ` : ''}
-                        
                         <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-primary-orange">
                             <h3 class="text-2xl font-bold mb-3 text-white">Contenuto Allenamento</h3>
                             <div class="bg-gray-800 p-4 rounded-lg">
@@ -1628,12 +1623,16 @@ showModal("Turno Salvato!", modalBody, [
                             </div>
                         </div>
                     </div>
-                    
                     <div class="mt-8 space-y-3">
-                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
+                            📝 Modifica Note
+                        </button>
+                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                            🏠 Torna al Menu Principale
+                        </button>
+                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
-                        
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                             🗑️ Elimina Questa Sessione
                         </button>
@@ -1658,14 +1657,12 @@ showModal("Turno Salvato!", modalBody, [
                                 <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
                             </div>
                         </div>
-                        
                         ${session.note ? `
                             <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                                 <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
                                 <p class="text-white whitespace-pre-wrap">${session.note}</p>
                             </div>
                         ` : ''}
-                        
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             ${renderTurnSummaryCard(session.turn1, 'Primo Turno')}
                             ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
@@ -1675,10 +1672,15 @@ showModal("Turno Salvato!", modalBody, [
                         ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
                     </div>
                     <div class="mt-8 space-y-3">
-                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('dataSummary')">
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
+                            📝 Modifica Note
+                        </button>
+                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                            🏠 Torna al Menu Principale
+                        </button>
+                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
-                        
                         <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
                             🗑️ Elimina Questa Sessione
                         </button>
@@ -1695,17 +1697,15 @@ showModal("Turno Salvato!", modalBody, [
                 ]);
                 return;
             }
-            
+
             const html = `
                 <div class="max-w-md mx-auto">
                     <button class="text-primary-orange underline mb-4" onclick="window.setView('detailedSummary', { sessionId: '${sessionId}' })">
                         ← Torna alla Sessione
                     </button>
-                    
                     <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Sessione</h2>
                     <p class="text-center mb-4 text-white">Stai per eliminare la sessione del <strong class="text-primary-orange">${sessionDate}</strong></p>
                     <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione è irreversibile!</p>
-                    
                     <form id="deleteSessionForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
                         <div>
                             <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
@@ -1723,42 +1723,43 @@ showModal("Turno Salvato!", modalBody, [
                 </div>
             `;
             document.getElementById('content-view').innerHTML = html;
-            
+
             document.getElementById('deleteSessionForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const password = document.getElementById('delete-session-password').value;
-                
+
                 if (!password) {
                     showModal("Errore", "Inserisci la password per confermare.", [
                         { text: "Ok", handler: () => {} }
                     ]);
                     return;
                 }
-                
+
                 if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
                     showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [
                         { text: "Ok", handler: () => {} }
                     ]);
                     return;
                 }
-                
+
                 try {
                     const archerId = appState.loggedInArcher.id;
                     const sessionIdToDelete = sessionId;
                     console.log("Tentativo eliminazione sessione:", sessionIdToDelete);
-                    
+
                     const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
                     await deleteDoc(sessionDocRef);
-                    
+
                     console.log("Sessione eliminata con successo:", sessionIdToDelete);
-                    
+
                     appState.detailedSession = null;
+
                     showModal("Successo", "La sessione è stata eliminata con successo.", [
                         { text: "Ok", handler: () => {
                             window.setView('dataSummary');
                         }}
                     ]);
-                    
+
                 } catch (error) {
                     console.error("ERRORE CRITICO DI ELIMINAZIONE:", error);
                     showModal("Errore", `Impossibile eliminare la sessione: ${error.message}`, [
@@ -1771,7 +1772,6 @@ showModal("Turno Salvato!", modalBody, [
         function renderTurnSummaryCard(turn, title) {
             const summary = turn.summary;
             if (!summary) return '';
-            
             return `
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
                     <h4 class="text-xl font-bold mb-2 text-white">${title}</h4>
@@ -1791,7 +1791,6 @@ showModal("Turno Salvato!", modalBody, [
 
         function renderDetailedScoreGrid(turn, title) {
             const grid2D = deserializeGrid(turn); 
-            
             let cumulativeTotalForView = 0;
             const volleys = grid2D.map(row => {
                 const volleyResult = calculateVolley(row, cumulativeTotalForView);
@@ -1800,7 +1799,7 @@ showModal("Turno Salvato!", modalBody, [
             });
 
             if (!volleys || volleys.length === 0) return '';
-            
+
             const numCols = volleys[0].scores.length;
 
             const tableHtml = `
@@ -1843,6 +1842,107 @@ showModal("Turno Salvato!", modalBody, [
             return tableHtml;
         }
 
+        function renderEditNotes(sessionId) {
+            const session = appState.sessionData.find(s => String(s.id) === String(sessionId));
+            
+            if (!session) {
+                window.setView('dataSummary');
+                return;
+            }
+            
+            const currentNote = session.note || '';
+            const isTrainingWithoutScore = session.trainingWithoutScore === true;
+            const currentTrainingContent = session.trainingContent || '';
+            
+            const html = `
+                <div class="max-w-2xl mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                        ← Torna alla Sessione
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Modifica Note</h2>
+                    <p class="text-center mb-6 text-primary-orange">Sessione del ${formatDate(session.data)}</p>
+                    
+                    <form id="editNotesForm" class="space-y-6 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label for="session-note" class="block text-lg font-medium mb-2 text-white">
+                                Note Generali
+                            </label>
+                            <textarea id="session-note" name="note" 
+                                      class="input-style h-32" 
+                                      placeholder="Aggiungi note generali sulla sessione...">${currentNote}</textarea>
+                            <p class="text-xs text-primary-orange mt-1">Note visibili in tutte le sessioni</p>
+                        </div>
+                        
+                        ${isTrainingWithoutScore ? `
+                            <div>
+                                <label for="training-content" class="block text-lg font-medium mb-2 text-white">
+                                    Contenuto Allenamento Tecnico
+                                </label>
+                                <textarea id="training-content" name="trainingContent" 
+                                          class="input-style h-64" 
+                                          placeholder="Descrivi gli esercizi svolti, tecniche praticate, obiettivi raggiunti...">${currentTrainingContent}</textarea>
+                                <p class="text-xs text-primary-orange mt-1">Dettagli specifici dell'allenamento tecnico</p>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="flex gap-3">
+                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" 
+                                    onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                Annulla
+                            </button>
+                            <button type="submit" class="flex-1 btn-primary p-3 rounded-lg">
+                                💾 Salva Modifiche
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('editNotesForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const newNote = document.getElementById('session-note').value.trim();
+                const newTrainingContent = isTrainingWithoutScore ? 
+                    document.getElementById('training-content').value.trim() : null;
+                
+                try {
+                    const archerId = appState.loggedInArcher.id;
+                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", session.docId);
+                    
+                    const updateData = {
+                        note: newNote
+                    };
+                    
+                    if (isTrainingWithoutScore && newTrainingContent !== null) {
+                        updateData.trainingContent = newTrainingContent;
+                    }
+                    
+                    await updateDoc(sessionDocRef, updateData);
+                    
+                    console.log("Note aggiornate con successo");
+                    
+                    session.note = newNote;
+                    if (isTrainingWithoutScore) {
+                        session.trainingContent = newTrainingContent;
+                    }
+                    
+                    showModal("Successo", "Le note sono state aggiornate con successo!", [
+                        { text: "Ok", handler: () => {
+                            window.setView('detailedSummary', { sessionId: session.id });
+                        }}
+                    ]);
+                    
+                } catch (error) {
+                    console.error("Errore aggiornamento note:", error);
+                    showModal("Errore", `Impossibile aggiornare le note: ${error.message}`, [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        }
         // FINE PARTE4C
 // PARTE4D - FINALE - Grafici e Chiusura
 
@@ -2121,3 +2221,4 @@ showModal("Turno Salvato!", modalBody, [
 </script>
 </body>
 </html>
+
