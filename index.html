@@ -92,6 +92,27 @@
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
         }
+
+        .stats-card {
+            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+            border: 2px solid #fdb927;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+
+        .progress-bar {
+            background-color: #2c2c2c;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 20px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #fdb927 0%, #e5a400 100%);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
     </style>
     <script>
         tailwind.config = {
@@ -125,9 +146,9 @@
         <div id="content-view"></div>
 
         <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div id="modal-content" class="bg-secondary-dark p-6 rounded-xl shadow-2xl max-w-sm w-full border-2 border-primary-orange">
+            <div id="modal-content" class="bg-secondary-dark p-6 rounded-xl shadow-2xl max-w-sm w-full border-2 border-primary-orange max-h-[90vh] overflow-y-auto">
                 <h3 id="modal-title" class="text-2xl font-bold mb-4 text-white">Titolo</h3>
-                <p id="modal-body" class="mb-6 text-sm"></p>
+                <div id="modal-body" class="mb-6 text-sm"></div>
                 <div id="modal-actions" class="flex justify-end space-x-3"></div>
             </div>
         </div>
@@ -218,6 +239,8 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             firebaseUserId: firebaseUserId,
             auth: authInstance,
             allArchers: [],
+            userGoals: [],
+            volleyNotes: {},
         };
 
         const scoringState = {
@@ -226,6 +249,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             format: null,
             activeCell: { row: 1, col: 1 },
             startTime: null,
+            personalAverage: 0,
         };
 
         const TIPO_TARGA_OPTIONS = ['40', '60', '80', '120', 'Tripla', 'Tripla Vegas', 'Field', '3D', 'Altro'];
@@ -241,6 +265,11 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
         window.getSessionsCollectionRef = () => {
             if (!appState.loggedInArcher) return null;
             return collection(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions`);
+        };
+
+        window.getGoalsCollectionRef = () => {
+            if (!appState.loggedInArcher) return null;
+            return collection(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/goals`);
         };
         
         function pad(num) {
@@ -356,7 +385,13 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
 
         function showModal(title, body, actions = []) {
             document.getElementById('modal-title').textContent = title;
-            document.getElementById('modal-body').innerHTML = body;
+            
+            if (typeof body === 'string') {
+                document.getElementById('modal-body').innerHTML = body;
+            } else {
+                document.getElementById('modal-body').innerHTML = '';
+                document.getElementById('modal-body').appendChild(body);
+            }
             
             const actionsContainer = document.getElementById('modal-actions');
             actionsContainer.innerHTML = '';
@@ -431,6 +466,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 case 'registrationForm':
                     renderRegistrationForm(data.type);
                     break;
+                case 'quickScore':
+                    renderQuickScore();
+                    break;
                 case 'trainingNotes':
                     renderTrainingNotes();
                     break;
@@ -459,6 +497,12 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 case 'editNotes':
                     renderEditNotes(data.sessionId);
                     break;
+                case 'goals':
+                    renderGoals();
+                    break;
+                case 'compareSessionsView':
+                    renderCompareSessionsView();
+                    break;
                 case 'charts':
                     renderChartsView();
                     break;
@@ -466,32 +510,29 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
         };
         // FINE PARTE2
 // PARTE3 - Login, Registrazione, Menu
-
-        async function loadAllArchers() {
-            try {
-                const archersRef = window.getArchersCollectionRef();
-                const querySnapshot = await getDocs(archersRef);
-                
-                appState.allArchers = [];
-                querySnapshot.forEach((doc) => {
-                    appState.allArchers.push({ id: doc.id, ...doc.data() });
-                });
-                
-                appState.allArchers.sort((a, b) => a.nome.localeCompare(b.nome));
-                
-                console.log('Caricati', appState.allArchers.length, 'arcieri');
-            } catch (error) {
-                console.error("Errore caricamento arcieri:", error);
-            }
-        }
+        async function loadAllArchers() {
+            try {
+                const archersRef = window.getArchersCollectionRef();
+                const querySnapshot = await getDocs(archersRef);
+                
+                appState.allArchers = [];
+                querySnapshot.forEach((doc) => {
+                    appState.allArchers.push({ id: doc.id, ...doc.data() });
+                });
+                
+                appState.allArchers.sort((a, b) => a.nome.localeCompare(b.nome));
+                
+                console.log('Caricati', appState.allArchers.length, 'arcieri');
+            } catch (error) {
+                console.error("Errore caricamento arcieri:", error);
+            }
+        }
 
         function renderLogin() {
-            // Carica tutti gli arcieri
             loadAllArchers().then(() => {
                 const html = `
                     <div class="max-w-2xl mx-auto">
                         <h2 class="text-3xl font-bold mb-6 text-white text-center">Seleziona il tuo Profilo</h2>
-                        
                         ${appState.allArchers.length > 0 ? `
                             <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
                                 <h3 class="text-xl font-bold mb-4 text-primary-orange">Arcieri Registrati</h3>
@@ -510,7 +551,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                                 <p class="text-white">Nessun arciere registrato ancora.</p>
                             </div>
                         `}
-                        
                         <div class="bg-secondary-dark p-6 rounded-xl shadow-lg">
                             <h3 class="text-xl font-bold mb-4 text-primary-orange">Nuovo Arciere?</h3>
                             <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.setView('register')">
@@ -523,253 +563,286 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             });
         }
 
-        window.selectArcher = (archerId) => {
-            const archer = appState.allArchers.find(a => a.id === archerId);
-            if (!archer) return;
-            
-const html = `
-    <div class="max-w-md mx-auto">
-        <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
-        <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
-        
-        <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-            <div>
-                <label class="block text-sm font-medium mb-1">Password</label>
-                <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
-            </div>
-            <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
-        </form>
-        
-        <button class="bg-gray-400 hover:bg-gray-500 text-black w-full p-3 rounded-lg text-lg font-bold mt-3" onclick="window.setView('login')">
-            ← Torna alla lista
-        </button>
-    </div>
-`;
-            document.getElementById('content-view').innerHTML = html;
-            
-            document.getElementById('passwordForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const password = document.getElementById('archer-password').value;
-                
-                if (password === MASTER_PASSWORD || password === archer.password) {
-                    appState.loggedInArcher = archer;
-                    appState.firebaseUserId = archer.id;
-                    console.log('Login effettuato:', archer.nome);
-                    window.setView('mainMenu');
-                } else {
-                    showModal("Errore", "Password errata.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                }
-            });
-        };
+        window.selectArcher = (archerId) => {
+            const archer = appState.allArchers.find(a => a.id === archerId);
+            if (!archer) return;
+            
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <h2 class="text-3xl font-bold mb-2 text-white text-center">${archer.nome}</h2>
+                    <p class="text-center text-primary-orange mb-6">Inserisci la password per accedere</p>
+                    <form id="passwordForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" id="archer-password" class="input-style" required placeholder="Inserisci la password" autofocus>
+                        </div>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Accedi</button>
+                    </form>
+                    <button class="bg-gray-400 hover:bg-gray-500 text-black w-full p-3 rounded-lg text-lg font-bold mt-3" onclick="window.setView('login')">
+                        ← Torna alla lista
+                    </button>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('passwordForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const password = document.getElementById('archer-password').value;
+                
+                if (password === MASTER_PASSWORD || password === archer.password) {
+                    appState.loggedInArcher = archer;
+                    appState.firebaseUserId = archer.id;
+                    console.log('Login effettuato:', archer.nome);
+                    window.setView('mainMenu');
+                } else {
+                    showModal("Errore", "Password errata.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        };
 
-        function renderRegister() {
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
-                        ← Torna alla lista
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione Nuovo Arciere</h2>
-                    <form id="registerForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
-                            <input type="text" id="register-nome" class="input-style" required placeholder="Scegli un nome">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Password</label>
-                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password (min 4 caratteri)">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Conferma Password</label>
-                            <input type="password" id="register-password-confirm" class="input-style" required placeholder="Conferma la password">
-                        </div>
-                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Registrati</button>
-                    </form>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
+        function renderRegister() {
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('login')">
+                        ← Torna alla lista
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-6 text-white text-center">Registrazione Nuovo Arciere</h2>
+                    <form id="registerForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Nome Arciere</label>
+                            <input type="text" id="register-nome" class="input-style" required placeholder="Scegli un nome">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Password</label>
+                            <input type="password" id="register-password" class="input-style" required placeholder="Scegli una password (min 4 caratteri)">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Conferma Password</label>
+                            <input type="password" id="register-password-confirm" class="input-style" required placeholder="Conferma la password">
+                        </div>
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">Registrati</button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
 
-            document.getElementById('registerForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const nome = document.getElementById('register-nome').value.trim();
-                const password = document.getElementById('register-password').value;
-                const passwordConfirm = document.getElementById('register-password-confirm').value;
+            document.getElementById('registerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const nome = document.getElementById('register-nome').value.trim();
+                const password = document.getElementById('register-password').value;
+                const passwordConfirm = document.getElementById('register-password-confirm').value;
 
-                if (password !== passwordConfirm) {
-                    showModal("Errore", "Le password non coincidono.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
+                if (password !== passwordConfirm) {
+                    showModal("Errore", "Le password non coincidono.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
 
-                if (nome.length < 3) {
-                    showModal("Errore", "Il nome deve essere di almeno 3 caratteri.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
+                if (nome.length < 3) {
+                    showModal("Errore", "Il nome deve essere di almeno 3 caratteri.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
 
-                if (password.length < 4) {
-                    showModal("Errore", "La password deve essere di almeno 4 caratteri.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
+                if (password.length < 4) {
+                    showModal("Errore", "La password deve essere di almeno 4 caratteri.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
 
-                try {
-                    const archersRef = window.getArchersCollectionRef();
-                    const q = query(archersRef, where('nome', '==', nome));
-                    const querySnapshot = await getDocs(q);
+                try {
+                    const archersRef = window.getArchersCollectionRef();
+                    const q = query(archersRef, where('nome', '==', nome));
+                    const querySnapshot = await getDocs(q);
 
-                    if (!querySnapshot.empty) {
-                        showModal("Errore", "Questo nome arciere è già in uso. Scegline un altro.", [
-                            { text: "Ok", handler: () => {} }
-                        ]);
-                        return;
-                    }
+                    if (!querySnapshot.empty) {
+                        showModal("Errore", "Questo nome arciere è già in uso. Scegline un altro.", [
+                            { text: "Ok", handler: () => {} }
+                        ]);
+                        return;
+                    }
 
-                    const newArcher = {
-                        nome: nome,
-                        password: password,
-                        createdAt: serverTimestamp()
-                    };
+                    const newArcher = {
+                        nome: nome,
+                        password: password,
+                        createdAt: serverTimestamp()
+                    };
 
-                    const docRef = await addDoc(archersRef, newArcher);
-                    console.log("Arciere registrato con ID:", docRef.id);
+                    const docRef = await addDoc(archersRef, newArcher);
+                    console.log("Arciere registrato con ID:", docRef.id);
 
-                    showModal("Successo", `Benvenuto ${nome}! Registrazione completata.`, [
-                        { text: "Accedi", handler: () => {
-                            appState.loggedInArcher = { id: docRef.id, ...newArcher };
-                            appState.firebaseUserId = docRef.id;
-                            window.setView('mainMenu');
-                        }}
-                    ]);
+                    showModal("Successo", `Benvenuto ${nome}! Registrazione completata.`, [
+                        { text: "Accedi", handler: () => {
+                            appState.loggedInArcher = { id: docRef.id, ...newArcher };
+                            appState.firebaseUserId = docRef.id;
+                            window.setView('mainMenu');
+                        }}
+                    ]);
 
-                } catch (error) {
-                    console.error("Errore durante la registrazione:", error);
-                    showModal("Errore", "Si è verificato un errore. Riprova.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                }
-            });
-        }
+                } catch (error) {
+                    console.error("Errore durante la registrazione:", error);
+                    showModal("Errore", "Si è verificato un errore. Riprova.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        }
 
-        function renderMainMenu() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
+        function renderMainMenu() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
 
-            const html = `
-                <div class="text-center space-y-2">
-                    <h2 class="text-2xl font-bold mb-2 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">🎯 Allenamento 🏋️</button>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Gara' })">🏆 Gara 🥇</button>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">🧾 Riepilogo Dati 🧾</button>
-                    <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('charts')">📈 Grafici Andamento 📈</button>
-                    
-                    <div class="mt-2 pt-3 border-t-2 border-gray-700">
-                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
-                            🗑️ Elimina Profilo
-                        </button>
-                    </div>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
-        }
+            const html = `
+                <div class="text-center space-y-3">
+                    <h2 class="text-2xl font-bold mb-4 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
+                    
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-primary-orange mb-3">📋 Registra Sessione</h3>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">
+                            🎯 Allenamento 🏋️
+                        </button>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('registrationForm', { type: 'Gara' })">
+                            🏆 Gara 🥇
+                        </button>
+                    </div>
 
-        window.showDeleteProfileSection = () => {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Dati</h3>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">
+                            🧾 Riepilogo Dati
+                        </button>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('charts')">
+                            📈 Grafici Andamento
+                        </button>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('compareSessionsView')">
+                            ⚖️ Confronta Sessioni
+                        </button>
+                    </div>
 
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
-                        ← Torna al Menu
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Profilo</h2>
-                    <p class="text-center mb-4 text-white">Stai per eliminare il profilo di <strong class="text-primary-orange">${appState.loggedInArcher.nome}</strong></p>
-                    <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione eliminerà definitivamente il tuo profilo e TUTTE le sessioni associate!</p>
-                    
-                    <form id="deleteProfileForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
-                        <div>
-                            <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
-                            <input type="password" id="delete-profile-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>
-                        </div>
-                        <div class="flex gap-3">
-                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('mainMenu')">
-                                Annulla
-                            </button>
-                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
-                                Elimina Definitivamente
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
-            
-            document.getElementById('deleteProfileForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const password = document.getElementById('delete-profile-password').value;
-                
-                if (!password) {
-                    showModal("Errore", "Inserisci la password per confermare.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
-                
-                if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
-                    showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
-                
-                try {
-                    const archerId = appState.loggedInArcher.id;
-                    const archerName = appState.loggedInArcher.nome;
-                    
-                    const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
-                    const sessionsSnapshot = await getDocs(sessionsRef);
-                    
-                    const deletePromises = [];
-                    sessionsSnapshot.forEach((sessionDoc) => {
-                        deletePromises.push(deleteDoc(sessionDoc.ref));
-                    });
-                    
-                    await Promise.all(deletePromises);
-                    
-                    const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
-                    await deleteDoc(archerDocRef);
-                    
-                    console.log("Profilo eliminato:", archerName);
-                    
-                    appState.loggedInArcher = null;
-                    appState.currentSession = null;
-                    appState.sessionData = [];
-                    
-                    showModal("Successo", `Il profilo di ${archerName} è stato eliminato con successo.`, [
-                        { text: "Ok", handler: () => window.setView('login') }
-                    ]);
-                    
-                } catch (error) {
-                    console.error("Errore eliminazione profilo:", error);
-                    showModal("Errore", `Si è verificato un errore: ${error.message}`, [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                }
-            });
-        };
-        // FINE PARTE3
- // PARTE4A - Form Registrazione Sessione, Allenamenti Tecnici, Segnapunti
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-primary-orange mb-3">🎯 Obiettivi</h3>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('goals')">
+                            🏅 I Miei Obiettivi
+                        </button>
+                    </div>
+                    
+                    <div class="mt-6 pt-4 border-t-2 border-gray-700">
+                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
+                            🗑️ Elimina Profilo
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+        }
 
+        window.showDeleteProfileSection = () => {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            const html = `
+                <div class="max-w-md mx-auto">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
+                        ← Torna al Menu
+                    </button>
+                    
+                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Profilo</h2>
+                    <p class="text-center mb-4 text-white">Stai per eliminare il profilo di <strong class="text-primary-orange">${appState.loggedInArcher.nome}</strong></p>
+                    <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione eliminerà definitivamente il tuo profilo e TUTTE le sessioni associate!</p>
+                    
+                    <form id="deleteProfileForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
+                            <input type="password" id="delete-profile-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>
+                        </div>
+                        <div class="flex gap-3">
+                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('mainMenu')">
+                                Annulla
+                            </button>
+                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
+                                Elimina Definitivamente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.getElementById('content-view').innerHTML = html;
+            
+            document.getElementById('deleteProfileForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('delete-profile-password').value;
+                
+                if (!password) {
+                    showModal("Errore", "Inserisci la password per confermare.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
+                    showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                
+                try {
+                    const archerId = appState.loggedInArcher.id;
+                    const archerName = appState.loggedInArcher.nome;
+                    
+                    const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
+                    const sessionsSnapshot = await getDocs(sessionsRef);
+                    
+                    const deletePromises = [];
+                    sessionsSnapshot.forEach((sessionDoc) => {
+                        deletePromises.push(deleteDoc(sessionDoc.ref));
+                    });
+                    
+                    await Promise.all(deletePromises);
+                    
+                    const goalsRef = collection(db, `artifacts/${appId}/archers/${archerId}/goals`);
+                    const goalsSnapshot = await getDocs(goalsRef);
+                    
+                    const deleteGoalsPromises = [];
+                    goalsSnapshot.forEach((goalDoc) => {
+                        deleteGoalsPromises.push(deleteDoc(goalDoc.ref));
+                    });
+                    
+                    await Promise.all(deleteGoalsPromises);
+                    
+                    const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
+                    await deleteDoc(archerDocRef);
+                    
+                    console.log("Profilo eliminato:", archerName);
+                    
+                    appState.loggedInArcher = null;
+                    appState.currentSession = null;
+                    appState.sessionData = [];
+                    
+                    showModal("Successo", `Il profilo di ${archerName} è stato eliminato con successo.`, [
+                        { text: "Ok", handler: () => window.setView('login') }
+                    ]);
+                    
+                } catch (error) {
+                    console.error("Errore eliminazione profilo:", error);
+                    showModal("Errore", `Si è verificato un errore: ${error.message}`, [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                }
+            });
+        };
+        // FINE PARTE3
+// PARTE4A - Form Registrazione Sessione, Allenamenti Tecnici, Quick Score, Segnapunti
         function renderRegistrationForm(type) {
             if (!appState.loggedInArcher) {
                 window.setView('login');
@@ -778,12 +851,10 @@ const html = `
 
             appState.sessionType = type;
             scoringState.startTime = getFormattedTime(new Date());
-
             const session = appState.currentSession || {};
             const today = new Date().toISOString().split('T')[0];
             const now = new Date();
             const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-            
             const isTrainingWithoutScore = session.trainingWithoutScore || false;
 
             const formFields = [
@@ -792,7 +863,7 @@ const html = `
                 { id: 'luogo', label: 'Luogo', type: 'text', required: true, value: session.luogo || '', placeholder: 'Nome Luogo' },
                 { id: 'tipoLuogo', label: 'Tipo Luogo', type: 'select', options: TIPO_LUOGO_OPTIONS, required: true, value: session.tipoLuogo || '' },
             ];
-            
+
             const conditionalFields = [
                 { id: 'distanza', label: 'Distanza', type: 'select', options: DISTANZA_OPTIONS, required: true, value: session.distanza || '' },
                 { id: 'tipoTarga', label: 'Tipo Targa', type: 'select', options: TIPO_TARGA_OPTIONS, required: true, value: session.tipoTarga || '' },
@@ -814,7 +885,7 @@ const html = `
                             <p class="text-sm text-primary-orange mt-2 ml-8">Seleziona questa opzione per esercizi di tecnica, perfezionamento, ecc.</p>
                         </div>
                     ` : ''}
-                    
+
                     ${formFields.map(field => `
                         <div>
                             <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
@@ -830,7 +901,7 @@ const html = `
                             `}
                         </div>
                     `).join('')}
-                    
+
                     <div id="conditionalFields" style="display: ${isTrainingWithoutScore ? 'none' : 'block'}">
                         ${conditionalFields.map(field => `
                             <div>
@@ -842,7 +913,7 @@ const html = `
                             </div>
                         `).join('')}
                     </div>
-                    
+
                     <div>
                         <label for="note" class="block text-sm font-medium mb-1">Note</label>
                         <textarea id="note" name="note" class="input-style h-20" placeholder="Dettagli aggiuntivi...">${session.note || ''}</textarea>
@@ -852,10 +923,16 @@ const html = `
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg" id="submitBtn">
                             ${isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
                         </button>
+                        ${!isTrainingWithoutScore ? `
+                            <button type="button" class="btn-primary w-full p-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border-0" onclick="window.startQuickScore()">
+                                ⚡ Quick Score (Inserimento Rapido)
+                            </button>
+                        ` : ''}
                         <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">Torna Indietro</button>
                     </div>
                 </form>
             `;
+
             document.getElementById('content-view').innerHTML = html;
 
             document.getElementById('registrationForm').addEventListener('submit', (e) => {
@@ -870,7 +947,7 @@ const html = `
                 session.trainingWithoutScore = document.getElementById('trainingWithoutScore')?.checked || false;
 
                 appState.currentSession = session;
-                
+
                 if (session.trainingWithoutScore) {
                     window.setView('trainingNotes');
                 } else {
@@ -878,12 +955,12 @@ const html = `
                 }
             });
         }
-        
+
         window.toggleTrainingMode = (isChecked) => {
             const conditionalFields = document.getElementById('conditionalFields');
             const submitBtn = document.getElementById('submitBtn');
             const requiredInputs = conditionalFields.querySelectorAll('select[required]');
-            
+
             if (isChecked) {
                 conditionalFields.style.display = 'none';
                 submitBtn.textContent = 'Continua';
@@ -895,15 +972,197 @@ const html = `
             }
         };
 
+        window.startQuickScore = () => {
+            const formData = new FormData(document.getElementById('registrationForm'));
+            const session = Object.fromEntries(formData.entries());
+            
+            // Validazione campi obbligatori
+            if (!session.data || !session.ora || !session.luogo || !session.tipoLuogo || 
+                !session.distanza || !session.tipoTarga || !session.formatoGara) {
+                showModal("Errore", "Compila tutti i campi obbligatori prima di procedere.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            session.type = appState.sessionType;
+            session.arciere = appState.loggedInArcher.nome;
+            session.archerId = appState.loggedInArcher.id;
+            session.startTime = scoringState.startTime;
+            session.id = Date.now();
+            session.quickScore = true;
+
+            appState.currentSession = session;
+            window.setView('quickScore');
+        };
+
+        function renderQuickScore() {
+            if (!appState.loggedInArcher || !appState.currentSession) {
+                window.setView('login');
+                return;
+            }
+
+            const session = appState.currentSession;
+            const savedTurn1 = session.quickScoreTurn1 || '';
+            const savedTurn2 = session.quickScoreTurn2 || '';
+
+            const html = `
+                <h2 class="text-3xl font-bold mb-4 text-white">⚡ Quick Score</h2>
+                <p class="text-sm mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga} | ${session.formatoGara}</p>
+                
+                <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-white">Inserimento Rapido Punteggi</h3>
+                    <p class="text-sm text-primary-orange mb-4">Inserisci solo i punteggi totali per ogni turno</p>
+                    
+                    <form id="quickScoreForm" class="space-y-4">
+                        <div>
+                            <label for="turn1-score" class="block text-lg font-medium mb-2 text-white">
+                                Punteggio Turno 1 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" id="turn1-score" name="turn1Score" 
+                                   class="input-style text-2xl text-center font-bold" 
+                                   min="0" max="360" required
+                                   value="${savedTurn1}"
+                                   placeholder="Es: 285">
+                        </div>
+
+                        ${session.formatoGara !== '72 frecce (6x12)' ? `
+                            <div>
+                                <label for="turn2-score" class="block text-lg font-medium mb-2 text-white">
+                                    Punteggio Turno 2 (opzionale)
+                                </label>
+                                <input type="number" id="turn2-score" name="turn2Score" 
+                                       class="input-style text-2xl text-center font-bold" 
+                                       min="0" max="360"
+                                       value="${savedTurn2}"
+                                       placeholder="Es: 290">
+                            </div>
+                        ` : ''}
+
+                        <div class="mt-8 flex flex-col space-y-3">
+                            <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
+                                💾 Salva Quick Score
+                            </button>
+                            <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
+                                    onclick="window.setView('registrationForm', { type: '${session.type}' })">
+                                Torna Indietro
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-yellow-900 bg-opacity-30 p-4 rounded-xl border border-yellow-500">
+                    <p class="text-sm text-yellow-200">
+                        ℹ️ <strong>Nota:</strong> Con Quick Score non avrai la griglia dettagliata dei punteggi, 
+                        ma solo i totali per turno. Ideale per inserimenti veloci dopo la gara.
+                    </p>
+                </div>
+            `;
+
+            document.getElementById('content-view').innerHTML = html;
+
+            document.getElementById('quickScoreForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const turn1Score = parseInt(document.getElementById('turn1-score').value);
+                const turn2ScoreInput = document.getElementById('turn2-score');
+                const turn2Score = turn2ScoreInput ? parseInt(turn2ScoreInput.value) || 0 : 0;
+
+                if (!turn1Score || turn1Score < 0) {
+                    showModal("Errore", "Inserisci un punteggio valido per il Turno 1.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+
+                const endTime = new Date();
+                appState.currentSession.endTime = getFormattedTime(endTime);
+                appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+
+                // Salva i dati quick score
+                appState.currentSession.quickScoreTurn1 = turn1Score;
+                appState.currentSession.quickScoreTurn2 = turn2Score;
+                appState.currentSession.totalScore = turn1Score + turn2Score;
+                appState.currentSession.turn1Score = turn1Score;
+                appState.currentSession.turn2Score = turn2Score;
+
+                // Valori default per statistiche
+                appState.currentSession.totalX = 0;
+                appState.currentSession.totalTen = 0;
+                appState.currentSession.totalNine = 0;
+                appState.currentSession.totalAverage = 0;
+
+                const sessionIdBeforeSave = appState.currentSession.id;
+                await saveQuickScoreToFirestore();
+
+                const modalBody = `
+                    <p class="text-white mb-3">Quick Score salvato con successo!</p>
+                    <p class="text-sm text-primary-orange">Totale: ${turn1Score + turn2Score} punti</p>
+                    <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                `;
+
+                showModal("Quick Score Salvato!", modalBody, [
+                    { text: "Vedi Riepilogo", handler: () => {
+                        setTimeout(() => {
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
+                ]);
+            });
+        }
+
+        async function saveQuickScoreToFirestore() {
+            try {
+                const session = appState.currentSession;
+
+                const finalSessionData = {
+                    type: session.type,
+                    arciere: session.arciere,
+                    archerId: session.archerId,
+                    data: session.data,
+                    startTime: session.startTime,
+                    endTime: session.endTime,
+                    duration: session.duration,
+                    luogo: session.luogo,
+                    tipoLuogo: session.tipoLuogo,
+                    distanza: session.distanza,
+                    tipoTarga: session.tipoTarga,
+                    formatoGara: session.formatoGara,
+                    note: session.note || '',
+                    quickScore: true,
+                    quickScoreTurn1: session.quickScoreTurn1,
+                    quickScoreTurn2: session.quickScoreTurn2,
+                    totalScore: session.totalScore,
+                    turn1Score: session.turn1Score,
+                    turn2Score: session.turn2Score,
+                    totalX: 0,
+                    totalTen: 0,
+                    totalNine: 0,
+                    totalAverage: 0,
+                    timestamp: serverTimestamp(),
+                };
+
+                const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
+                console.log("Quick Score salvato con ID:", docRef.id);
+                appState.currentSession = null;
+            } catch (e) {
+                console.error("Errore salvataggio Quick Score:", e);
+                showModal("Errore", "Impossibile salvare il Quick Score.", [{ text: "Ok", handler: () => {} }]);
+            }
+        }
+
         function renderTrainingNotes() {
             if (!appState.loggedInArcher || !appState.currentSession) {
                 window.setView('login');
                 return;
             }
-            
+
             const session = appState.currentSession;
             const savedNotes = session.trainingContent || '';
-            
+
             const html = `
                 <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico</h2>
                 <p class="text-sm mb-6 text-primary-orange">Descrivi le attività svolte durante l'allenamento</p>
@@ -941,33 +1200,33 @@ const html = `
                     </div>
                 </form>
             `;
-            
+
             document.getElementById('content-view').innerHTML = html;
-            
+
             document.getElementById('trainingNotesForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const trainingContent = document.getElementById('trainingContent').value.trim();
-                
+
                 if (!trainingContent) {
                     showModal("Errore", "Inserisci una descrizione dell'allenamento.", [
                         { text: "Ok", handler: () => {} }
                     ]);
                     return;
                 }
-                
+
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
                 appState.currentSession.trainingContent = trainingContent;
-                
+
                 const sessionIdBeforeSave = appState.currentSession.id;
                 await saveTrainingWithoutScoreToFirestore();
-                
+
                 const modalBody = `
                     <p class="text-white mb-3">Allenamento tecnico salvato con successo!</p>
                     <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
                 `;
-                
+
                 showModal("Allenamento Salvato!", modalBody, [
                     { text: "Vedi Riepilogo", handler: () => {
                         setTimeout(() => {
@@ -980,11 +1239,11 @@ const html = `
                 ]);
             });
         }
-        
+
         async function saveTrainingWithoutScoreToFirestore() {
             try {
                 const session = appState.currentSession;
-                
+
                 const finalSessionData = {
                     type: session.type,
                     arciere: session.arciere,
@@ -1008,10 +1267,9 @@ const html = `
                     tipoTarga: session.tipoTarga || 'N/A',
                     formatoGara: session.formatoGara || 'N/A',
                 };
-                
+
                 const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
                 console.log("Allenamento tecnico salvato con ID:", docRef.id);
-                
                 appState.currentSession = null;
             } catch (e) {
                 console.error("Errore salvataggio allenamento:", e);
@@ -1019,11 +1277,9 @@ const html = `
             }
         }
         // FINE PARTE4A
-// PARTE4B - Griglia Punteggio e Salvataggio Sessioni
-
+// PARTE4B - Griglia Punteggio, Statistiche Live, Annotazioni Volée e Salvataggio Sessioni
         function initializeScoringGrid() {
             const format = appState.currentSession.formatoGara;
-
             if (format.includes('3x10')) {
                 scoringState.rows = 10;
                 scoringState.cols = 3;
@@ -1041,11 +1297,45 @@ const html = `
             const turnKey = `turn${appState.currentTurn}`;
             if (!appState.currentSession[turnKey] || !appState.currentSession[turnKey].grid) {
                 const grid = Array(scoringState.rows).fill(null).map(() => Array(scoringState.cols).fill(''));
-                appState.currentSession[turnKey] = { grid: grid, summary: null };
+                appState.currentSession[turnKey] = { grid: grid, summary: null, volleyNotes: {} };
             }
-            
+
             appState.scoringGrid = appState.currentSession[turnKey].grid;
+            appState.volleyNotes = appState.currentSession[turnKey].volleyNotes || {};
             scoringState.activeCell = { row: 1, col: 1 };
+
+            // Calcola media personale per statistiche live
+            calculatePersonalAverage();
+        }
+
+        async function calculatePersonalAverage() {
+            try {
+                const sessionsColRef = window.getSessionsCollectionRef();
+                if (!sessionsColRef) return;
+
+                const q = query(
+                    sessionsColRef,
+                    where('distanza', '==', appState.currentSession.distanza),
+                    where('tipoTarga', '==', appState.currentSession.tipoTarga)
+                );
+
+                const querySnapshot = await getDocs(q);
+                let totalScore = 0;
+                let count = 0;
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.totalAverage && data.totalAverage > 0 && !data.trainingWithoutScore && !data.quickScore) {
+                        totalScore += data.totalAverage;
+                        count++;
+                    }
+                });
+
+                scoringState.personalAverage = count > 0 ? (totalScore / count) : 0;
+            } catch (error) {
+                console.error("Errore calcolo media personale:", error);
+                scoringState.personalAverage = 0;
+            }
         }
 
         window.handleCellClick = (row, col) => {
@@ -1061,17 +1351,19 @@ const html = `
             if (rowIndex < 0 || rowIndex >= scoringState.rows || colIndex < 0 || colIndex >= scoringState.cols) {
                 return;
             }
-            
+
             if (value === 'CANC') {
                 if (appState.scoringGrid[rowIndex][colIndex] !== '') {
                     appState.scoringGrid[rowIndex][colIndex] = '';
                 } else {
                     let newCol = colIndex - 1;
                     let newRow = rowIndex;
+
                     if (newCol < 0) {
                         newRow = rowIndex - 1;
                         newCol = scoringState.cols - 1;
                     }
+
                     if (newRow >= 0) {
                         scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
                     }
@@ -1086,7 +1378,7 @@ const html = `
                 if (newCol >= scoringState.cols) {
                     newCol = 0;
                     newRow = rowIndex + 1;
-                    
+
                     const currentRow = appState.scoringGrid[rowIndex];
                     const nonEmptyScores = currentRow.filter(s => s !== '' && s !== undefined);
                     if (nonEmptyScores.length === scoringState.cols) {
@@ -1098,20 +1390,63 @@ const html = `
                     scoringState.activeCell = { row: newRow + 1, col: newCol + 1 };
                 }
             }
+
             renderScoringView();
+        };
+
+        window.addVolleyNote = (volleyNumber) => {
+            const currentNote = appState.volleyNotes[volleyNumber] || '';
+            
+            const noteForm = document.createElement('div');
+            noteForm.innerHTML = `
+                <textarea id="volley-note-input" class="input-style h-24 w-full" placeholder="Inserisci nota per volée ${volleyNumber}...">${currentNote}</textarea>
+            `;
+
+            showModal(
+                `📝 Nota Volée ${volleyNumber}`,
+                noteForm,
+                [
+                    { text: "Annulla", handler: () => {} },
+                    { text: "Salva", handler: () => {
+                        const noteValue = document.getElementById('volley-note-input').value.trim();
+                        if (noteValue) {
+                            appState.volleyNotes[volleyNumber] = noteValue;
+                        } else {
+                            delete appState.volleyNotes[volleyNumber];
+                        }
+                        const turnKey = `turn${appState.currentTurn}`;
+                        appState.currentSession[turnKey].volleyNotes = appState.volleyNotes;
+                        renderScoringView();
+                    }}
+                ]
+            );
         };
 
         function renderScoringView() {
             const session = appState.currentSession;
             const format = scoringState.format;
-            
-            let cumulativeTotalForView = 0;
+            const isTraining = session.type === 'Allenamento';
 
+            let cumulativeTotalForView = 0;
             const gridData = appState.scoringGrid.map((row) => {
                 const volleyResult = calculateVolley(row, cumulativeTotalForView);
                 cumulativeTotalForView = volleyResult.totale; 
                 return volleyResult;
             });
+
+            // Calcola statistiche live
+            const liveStats = calculateTurnScores(appState.scoringGrid);
+            const totalArrows = scoringState.rows * scoringState.cols;
+            const completedArrows = liveStats.frecceTirate;
+            const remainingArrows = totalArrows - completedArrows;
+            const currentAverage = liveStats.average;
+            const projectedScore = remainingArrows > 0 ? 
+                Math.round(liveStats.score + (remainingArrows * currentAverage)) : liveStats.score;
+            const percentageComplete = ((completedArrows / totalArrows) * 100).toFixed(0);
+
+            // Confronto con media personale
+            const avgDifference = scoringState.personalAverage > 0 ? 
+                (currentAverage - scoringState.personalAverage).toFixed(2) : null;
 
             const tableHtml = `
                 <div class="grid-wrapper">
@@ -1124,6 +1459,7 @@ const html = `
                                 <th class="w-[10%]">Tot.</th>
                                 <th class="w-[12%]">X-10</th>
                                 <th class="w-[8%]">9</th>
+                                ${isTraining ? '<th class="w-[8%]">📝</th>' : ''}
                             </tr>
                         </thead>
                         <tbody>
@@ -1131,7 +1467,8 @@ const html = `
                                 const row = gridData[i];
                                 const volleyNum = i + 1;
                                 const isComplete = appState.scoringGrid[i].every(s => s !== '' && s !== undefined);
-                                
+                                const hasNote = appState.volleyNotes[volleyNum];
+
                                 return `
                                     <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} text-xs sm:text-base ${isComplete ? 'text-white' : 'text-primary-orange'}">
                                         <td class="font-bold">${volleyNum}</td>
@@ -1149,7 +1486,19 @@ const html = `
                                         <td class="font-bold text-white">${row.totale || ''}</td>
                                         <td>${row.X10 || ''}</td>
                                         <td>${row.nine || ''}</td>
+                                        ${isTraining ? `
+                                            <td class="cursor-pointer hover:bg-primary-orange" onclick="window.addVolleyNote(${volleyNum})">
+                                                ${hasNote ? '📝✓' : '📝'}
+                                            </td>
+                                        ` : ''}
                                     </tr>
+                                    ${hasNote && isTraining ? `
+                                        <tr class="bg-blue-900 bg-opacity-20">
+                                            <td colspan="${scoringState.cols + 5}" class="text-xs text-left p-2 italic text-blue-200">
+                                                💬 ${appState.volleyNotes[volleyNum]}
+                                            </td>
+                                        </tr>
+                                    ` : ''}
                                 `;
                             }).join('')}
                             ${(() => {
@@ -1160,6 +1509,7 @@ const html = `
                                         <td class="font-extrabold">${totalResults.score}</td>
                                         <td>${totalResults.X}-${totalResults.Ten}</td> 
                                         <td>${totalResults.Nine}</td>
+                                        ${isTraining ? '<td></td>' : ''}
                                     </tr>
                                 `;
                             })()}
@@ -1167,6 +1517,52 @@ const html = `
                     </table>
                 </div>
             `;
+
+            // Statistiche Live Card
+            const liveStatsHtml = completedArrows > 0 ? `
+                <div class="stats-card mt-4">
+                    <h3 class="text-xl font-bold mb-3 text-white flex items-center">
+                        📊 Statistiche Live
+                        <span class="ml-2 text-sm font-normal text-primary-orange">(${percentageComplete}% completato)</span>
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-xs text-primary-orange">Punteggio Attuale</div>
+                            <div class="text-2xl font-bold text-white">${liveStats.score}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-xs text-primary-orange">Media Freccia</div>
+                            <div class="text-2xl font-bold text-white">${currentAverage.toFixed(2)}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-xs text-primary-orange">Proiezione Finale</div>
+                            <div class="text-2xl font-bold ${projectedScore >= liveStats.maxScore * 0.8 ? 'text-green-400' : 'text-white'}">${projectedScore}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-xs text-primary-orange">Frecce Rimanenti</div>
+                            <div class="text-2xl font-bold text-white">${remainingArrows}</div>
+                        </div>
+                    </div>
+
+                    ${avgDifference !== null && scoringState.personalAverage > 0 ? `
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="text-xs text-primary-orange mb-1">Confronto Media Personale</div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-white">Tua media: ${scoringState.personalAverage.toFixed(2)}</span>
+                                <span class="text-lg font-bold ${avgDifference >= 0 ? 'text-green-400' : 'text-red-400'}">
+                                    ${avgDifference >= 0 ? '↑' : '↓'} ${Math.abs(avgDifference)}
+                                </span>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="progress-bar mt-3">
+                        <div class="progress-fill" style="width: ${percentageComplete}%"></div>
+                    </div>
+                    <div class="text-xs text-center mt-1 text-primary-orange">${completedArrows} / ${totalArrows} frecce</div>
+                </div>
+            ` : '';
 
             const keypadHtml = `
                 <div class="mt-6">
@@ -1187,14 +1583,13 @@ const html = `
             if (appState.currentTurn === 2 && appState.currentSession.turn1) {
                 const turn1Data = appState.currentSession.turn1;
                 const turn1Grid = turn1Data.grid;
-                
                 let cumulativeForTurn1 = 0;
                 const turn1Volleys = turn1Grid.map((row) => {
                     const volleyResult = calculateVolley(row, cumulativeForTurn1);
                     cumulativeForTurn1 = volleyResult.totale;
                     return volleyResult;
                 });
-                
+
                 turn1SummaryHtml = `
                     <div class="mt-6 bg-gray-900 p-4 rounded-xl border-2 border-primary-orange">
                         <h3 class="text-xl font-bold mb-3 text-primary-orange">📋 Riepilogo Primo Turno</h3>
@@ -1254,6 +1649,7 @@ const html = `
                 <h2 class="text-3xl font-bold mb-4 text-white">${session.type} - Turno ${appState.currentTurn}</h2>
                 <p class="text-sm mb-4">Distanza: ${session.distanza} | Formato: ${session.formatoGara}</p>
                 ${tableHtml}
+                ${liveStatsHtml}
                 ${keypadHtml}
                 ${turn1SummaryHtml}
                 ${actionsHtml}
@@ -1273,10 +1669,11 @@ const html = `
                 confirmSave(isFinal, turnKey, turnResults);
             }
         };
-        
+
         function confirmSave(isFinal, turnKey, turnResults) {
             appState.currentSession[turnKey].summary = turnResults;
-            
+            appState.currentSession[turnKey].volleyNotes = appState.volleyNotes;
+
             let modalBody = `
                 <p class="text-lg font-bold mb-3 text-white">Riepilogo Turno ${appState.currentTurn}</p>
                 <ul class="space-y-1 text-sm">
@@ -1289,16 +1686,15 @@ const html = `
             const format = appState.currentSession.formatoGara;
 
             if (isFinal) {
-                // CASO FINALE: Salva e mostra riepilogo
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                
+
                 const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
-                
+
                 modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                
+
                 showModal("Turno Salvato!", modalBody, [
                     { text: "Vedi Riepilogo", handler: () => {
                         setTimeout(() => {
@@ -1310,19 +1706,17 @@ const html = `
                     }}
                 ]);
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
-                // CASO PRIMO TURNO: Offri secondo turno o salva e vai a riepilogo
                 showModal("Turno Salvato!", modalBody, [
                     { text: "Secondo Turno", handler: () => startNextTurn() },
                     { text: "Fine e Vedi Riepilogo", handler: () => {
                         closeModal();
-                        
                         const endTime = new Date();
                         appState.currentSession.endTime = getFormattedTime(endTime);
                         appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                        
+
                         const sessionIdBeforeSave = appState.currentSession.id;
                         saveSessionToFirestore();
-                        
+
                         setTimeout(() => {
                             fetchSessions();
                             setTimeout(() => {
@@ -1332,108 +1726,111 @@ const html = `
                     }}
                 ]);
             } else {
-                // CASO SECONDO TURNO (dopo primo turno salvato): Salva e vai a riepilogo
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                
+
                 const sessionIdBeforeSave = appState.currentSession.id;
                 saveSessionToFirestore();
-                
+
                 modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-showModal("Turno Salvato!", modalBody, [
-                { text: "Vedi Riepilogo", handler: () => {
-                    setTimeout(() => {
-                        fetchSessions();
+
+                showModal("Turno Salvato!", modalBody, [
+                    { text: "Vedi Riepilogo", handler: () => {
                         setTimeout(() => {
-                            window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                        }, 500);
-                    }, 300);
-                }}
-            ]);
+                            fetchSessions();
+                            setTimeout(() => {
+                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
+                            }, 500);
+                        }, 300);
+                    }}
+                ]);
+            }
         }
-    }
 
-    function startNextTurn() {
-        if (appState.currentTurn === 1) {
-            appState.currentTurn = 2;
+        function startNextTurn() {
+            if (appState.currentTurn === 1) {
+                appState.currentTurn = 2;
+            }
+            window.setView('scoring');
         }
-        window.setView('scoring');
-    }
 
-    function calculateDuration(startTimeStr, endTimeStr) {
-        const date = new Date().toISOString().split('T')[0];
-        const start = new Date(`${date}T${startTimeStr}`);
-        const end = new Date(`${date}T${endTimeStr}`);
-        
-        if (end < start) {
-            end.setDate(end.getDate() + 1);
+        function calculateDuration(startTimeStr, endTimeStr) {
+            const date = new Date().toISOString().split('T')[0];
+            const start = new Date(`${date}T${startTimeStr}`);
+            const end = new Date(`${date}T${endTimeStr}`);
+
+            if (end < start) {
+                end.setDate(end.getDate() + 1);
+            }
+
+            const diffMs = end - start;
+            return Math.round(diffMs / (1000 * 60));
         }
-        
-        const diffMs = end - start;
-        return Math.round(diffMs / (1000 * 60));
-    }
 
-    function prepareTurnData(turn) {
-        if (!turn || !turn.grid) return null;
-        const serializedGrid = turn.grid.map(row => JSON.stringify(row));
-        return {
-            summary: turn.summary,
-            grid: serializedGrid
-        };
-    }
+        function prepareTurnData(turn) {
+            if (!turn || !turn.grid) return null;
 
-    async function saveSessionToFirestore() {
-        try {
-            const session = appState.currentSession;
-            const results = calculateTotalSessionResults(session);
+            const serializedGrid = turn.grid.map(row => JSON.stringify(row));
 
-            const turn1Data = prepareTurnData(session.turn1);
-            const turn2Data = session.turn2 ? prepareTurnData(session.turn2) : null;
-            
-            const finalSessionData = {
-                ...session,
-                ...results,
-                timestamp: serverTimestamp(),
-                archerId: appState.loggedInArcher.id,
-                arciere: appState.loggedInArcher.nome,
-                turn1: turn1Data,
-                turn2: turn2Data,
+            return {
+                summary: turn.summary,
+                grid: serializedGrid,
+                volleyNotes: turn.volleyNotes || {}
             };
-
-            const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
-            console.log("Sessione salvata con ID:", docRef.id);
-            
-            appState.currentSession = null;
-            appState.currentTurn = 1;
-
-        } catch (e) {
-            console.error("Errore salvataggio:", e);
-            showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
         }
-    }
 
-    function calculateTotalSessionResults(session) {
-        const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
-        const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
-        
-        const totalScore = turn1Summary.score + turn2Summary.score;
-        const totalShots = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
+        async function saveSessionToFirestore() {
+            try {
+                const session = appState.currentSession;
+                const results = calculateTotalSessionResults(session);
 
-        return {
-            totalScore: totalScore,
-            totalX: turn1Summary.X + turn2Summary.X,
-            totalTen: turn1Summary.Ten + turn2Summary.Ten,
-            totalNine: turn1Summary.Nine + turn2Summary.Nine,
-            totalAverage: totalShots > 0 ? (totalScore / totalShots) : 0,
-            turn1Score: turn1Summary.score,
-            turn1Average: turn1Summary.average,
-            turn2Score: turn2Summary.score,
-            turn2Average: turn2Summary.average, 
-        };
-    }
-    // FINE PARTE4B
-// PARTE4C - Riepilogo Dati e Visualizzazione Dettagliata
+                const turn1Data = prepareTurnData(session.turn1);
+                const turn2Data = session.turn2 ? prepareTurnData(session.turn2) : null;
+
+                const finalSessionData = {
+                    ...session,
+                    ...results,
+                    timestamp: serverTimestamp(),
+                    archerId: appState.loggedInArcher.id,
+                    arciere: appState.loggedInArcher.nome,
+                    turn1: turn1Data,
+                    turn2: turn2Data,
+                };
+
+                const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
+                console.log("Sessione salvata con ID:", docRef.id);
+
+                appState.currentSession = null;
+                appState.currentTurn = 1;
+                appState.volleyNotes = {};
+            } catch (e) {
+                console.error("Errore salvataggio:", e);
+                showModal("Errore", "Impossibile salvare la sessione.", [{ text: "Ok", handler: () => {} }]);
+            }
+        }
+
+        function calculateTotalSessionResults(session) {
+            const turn1Summary = session.turn1?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+            const turn2Summary = session.turn2?.summary || { score: 0, X: 0, Ten: 0, Nine: 0, frecceTirate: 0, average: 0 };
+
+            const totalScore = turn1Summary.score + turn2Summary.score;
+            const totalShots = turn1Summary.frecceTirate + turn2Summary.frecceTirate;
+
+            return {
+                totalScore: totalScore,
+                totalX: turn1Summary.X + turn2Summary.X,
+                totalTen: turn1Summary.Ten + turn2Summary.Ten,
+                totalNine: turn1Summary.Nine + turn2Summary.Nine,
+                totalAverage: totalShots > 0 ? (totalScore / totalShots) : 0,
+                turn1Score: turn1Summary.score,
+                turn1Average: turn1Summary.average,
+                turn2Score: turn2Summary.score,
+                turn2Average: turn2Summary.average, 
+            };
+        }
+        // FINE PARTE4B
+ // PARTE4C - Riepilogo Dati e Visualizzazione Dettagliata
         let unsubscribeSnapshot = null;
         let filterState = {
             distanza: '',
@@ -1562,17 +1959,18 @@ showModal("Turno Salvato!", modalBody, [
                             <tr><td colspan="11" class="p-4 text-center">Nessuna sessione trovata.</td></tr>
                         ` : appState.sessionData.map(session => {
                             const isTrainingWithoutScore = session.trainingWithoutScore === true;
+                            const isQuickScore = session.quickScore === true;
                             return `
-                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : isTrainingWithoutScore ? 'bg-blue-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
+                            <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : isTrainingWithoutScore ? 'bg-blue-900 bg-opacity-30' : isQuickScore ? 'bg-purple-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
                                 onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
                                 <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
-                                <td>${session.type}${isTrainingWithoutScore ? ' 🎓' : ''}</td>
+                                <td>${session.type}${isTrainingWithoutScore ? ' 🎓' : isQuickScore ? ' ⚡' : ''}</td>
                                 <td class="font-extrabold text-white">${isTrainingWithoutScore ? '-' : (session.totalScore || 0)}</td>
                                 <td>${isTrainingWithoutScore ? '-' : (session.turn1Score || 0)}</td>
                                 <td>${isTrainingWithoutScore ? '-' : (session.turn2Score || 0)}</td>
-                                <td>${isTrainingWithoutScore ? '-' : (session.totalX || 0)}</td>
-                                <td>${isTrainingWithoutScore ? '-' : (session.totalTen || 0)}</td>
-                                <td>${isTrainingWithoutScore ? '-' : (session.totalNine || 0)}</td>
+                                <td>${isTrainingWithoutScore || isQuickScore ? '-' : (session.totalX || 0)}</td>
+                                <td>${isTrainingWithoutScore || isQuickScore ? '-' : (session.totalTen || 0)}</td>
+                                <td>${isTrainingWithoutScore || isQuickScore ? '-' : (session.totalNine || 0)}</td>
                                 <td>${session.luogo}</td>
                                 <td>${session.distanza || '-'}</td>
                                 <td>${session.tipoTarga || '-'}</td>
@@ -1592,6 +1990,7 @@ showModal("Turno Salvato!", modalBody, [
             }
 
             const isTrainingWithoutScore = session.trainingWithoutScore === true;
+            const isQuickScore = session.quickScore === true;
             const hasTurn2 = session.turn2 && session.turn2.summary && session.turn2.summary.score > 0;
 
             if (isTrainingWithoutScore) {
@@ -1639,6 +2038,68 @@ showModal("Turno Salvato!", modalBody, [
                     </div>
                 `;
                 document.getElementById('content-view').innerHTML = html;
+            } else if (isQuickScore) {
+                const html = `
+                    <h2 class="text-3xl font-bold mb-4 text-white">⚡ ${session.type} del ${formatDate(session.data)} (Quick Score)</h2>
+                    <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
+                    <div class="space-y-6">
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                            <h3 class="text-2xl font-bold mb-3 text-white">Statistiche Generali</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
+                                <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo})</div>
+                                <div><strong>Formato:</strong> ${session.formatoGara}</div>
+                                <div><strong>Modalità:</strong> Quick Score ⚡</div>
+                            </div>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-purple-500">
+                            <h3 class="text-2xl font-bold mb-3 text-white">Punteggi</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div class="bg-gray-800 p-4 rounded-lg text-center">
+                                    <div class="text-xs text-primary-orange mb-1">Turno 1</div>
+                                    <div class="text-3xl font-bold text-white">${session.quickScoreTurn1 || 0}</div>
+                                </div>
+                                ${session.quickScoreTurn2 > 0 ? `
+                                    <div class="bg-gray-800 p-4 rounded-lg text-center">
+                                        <div class="text-xs text-primary-orange mb-1">Turno 2</div>
+                                        <div class="text-3xl font-bold text-white">${session.quickScoreTurn2}</div>
+                                    </div>
+                                ` : ''}
+                                <div class="bg-primary-orange p-4 rounded-lg text-center">
+                                    <div class="text-xs text-black mb-1">TOTALE</div>
+                                    <div class="text-3xl font-bold text-black">${session.totalScore}</div>
+                                </div>
+                            </div>
+                        </div>
+                        ${session.note ? `
+                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                                <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
+                                <p class="text-white whitespace-pre-wrap">${session.note}</p>
+                            </div>
+                        ` : ''}
+                        <div class="bg-yellow-900 bg-opacity-30 p-4 rounded-xl border border-yellow-500">
+                            <p class="text-sm text-yellow-200">
+                                ℹ️ Questa sessione è stata registrata con Quick Score. 
+                                Non sono disponibili dettagli per singola freccia o volée.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-8 space-y-3">
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
+                            📝 Modifica Note
+                        </button>
+                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                            🏠 Torna al Menu Principale
+                        </button>
+                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
+                            Torna al Riepilogo
+                        </button>
+                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-3 rounded-lg font-bold shadow-lg" onclick="window.showDeleteSessionSection('${session.docId}', '${formatDate(session.data)}')">
+                            🗑️ Elimina Questa Sessione
+                        </button>
+                    </div>
+                `;
+                document.getElementById('content-view').innerHTML = html;
             } else {
                 const html = `
                     <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
@@ -1668,8 +2129,8 @@ showModal("Turno Salvato!", modalBody, [
                             ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
                         </div>
                         <h3 class="text-2xl font-bold mb-3 mt-8 text-white">Segnapunti Dettagliato</h3>
-                        ${renderDetailedScoreGrid(session.turn1, 'Primo Turno')}
-                        ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno') : ''}
+                        ${renderDetailedScoreGrid(session.turn1, 'Primo Turno', session.type === 'Allenamento')}
+                        ${hasTurn2 ? renderDetailedScoreGrid(session.turn2, 'Secondo Turno', session.type === 'Allenamento') : ''}
                     </div>
                     <div class="mt-8 space-y-3">
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
@@ -1729,42 +2190,26 @@ showModal("Turno Salvato!", modalBody, [
                 const password = document.getElementById('delete-session-password').value;
 
                 if (!password) {
-                    showModal("Errore", "Inserisci la password per confermare.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
+                    showModal("Errore", "Inserisci la password per confermare.", [{ text: "Ok", handler: () => {} }]);
                     return;
                 }
 
                 if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
-                    showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
+                    showModal("Errore", "Password errata. Impossibile eliminare la sessione.", [{ text: "Ok", handler: () => {} }]);
                     return;
                 }
 
                 try {
                     const archerId = appState.loggedInArcher.id;
-                    const sessionIdToDelete = sessionId;
-                    console.log("Tentativo eliminazione sessione:", sessionIdToDelete);
-
-                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionIdToDelete);
+                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", sessionId);
                     await deleteDoc(sessionDocRef);
-
-                    console.log("Sessione eliminata con successo:", sessionIdToDelete);
-
                     appState.detailedSession = null;
-
                     showModal("Successo", "La sessione è stata eliminata con successo.", [
-                        { text: "Ok", handler: () => {
-                            window.setView('dataSummary');
-                        }}
+                        { text: "Ok", handler: () => { window.setView('dataSummary'); }}
                     ]);
-
                 } catch (error) {
-                    console.error("ERRORE CRITICO DI ELIMINAZIONE:", error);
-                    showModal("Errore", `Impossibile eliminare la sessione: ${error.message}`, [
-                        { text: "Chiudi", handler: () => {} }
-                    ]);
+                    console.error("Errore eliminazione:", error);
+                    showModal("Errore", `Impossibile eliminare: ${error.message}`, [{ text: "Ok", handler: () => {} }]);
                 }
             });
         };
@@ -1789,7 +2234,7 @@ showModal("Turno Salvato!", modalBody, [
             return turn.grid.map(rowStr => JSON.parse(rowStr));
         }
 
-        function renderDetailedScoreGrid(turn, title) {
+        function renderDetailedScoreGrid(turn, title, isTraining = false) {
             const grid2D = deserializeGrid(turn); 
             let cumulativeTotalForView = 0;
             const volleys = grid2D.map(row => {
@@ -1801,6 +2246,7 @@ showModal("Turno Salvato!", modalBody, [
             if (!volleys || volleys.length === 0) return '';
 
             const numCols = volleys[0].scores.length;
+            const volleyNotes = turn.volleyNotes || {};
 
             const tableHtml = `
                 <div class="mt-4">
@@ -1818,16 +2264,26 @@ showModal("Turno Salvato!", modalBody, [
                                 </tr>
                             </thead>
                             <tbody>
-                                ${volleys.map((row, i) => `
+                                ${volleys.map((row, i) => {
+                                    const volleyNum = i + 1;
+                                    const hasNote = volleyNotes[volleyNum];
+                                    return `
                                     <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} hover:bg-gray-700 text-xs sm:text-sm">
-                                        <td class="font-bold">${i + 1}</td>
+                                        <td class="font-bold">${volleyNum}${hasNote ? ' 📝' : ''}</td>
                                         ${row.scores.map(score => `<td>${score || ''}</td>`).join('')}
                                         <td class="font-bold text-white">${row.parziale}</td>
                                         <td class="font-bold text-white">${row.totale}</td>
                                         <td>${row.X10}</td>
                                         <td>${row.nine}</td>
                                     </tr>
-                                `).join('')}
+                                    ${hasNote ? `
+                                        <tr class="bg-blue-900 bg-opacity-20">
+                                            <td colspan="${numCols + 5}" class="text-xs text-left p-2 italic text-blue-200">
+                                                💬 ${volleyNotes[volleyNum]}
+                                            </td>
+                                        </tr>
+                                    ` : ''}
+                                `}).join('')}
                                 <tr class="bg-primary-orange text-black font-extrabold text-xs sm:text-sm">
                                     <td colspan="${1 + numCols + 1}" class="text-right pr-4">Totale</td>
                                     <td>${turn.summary.score}</td>
@@ -1861,89 +2317,82 @@ showModal("Turno Salvato!", modalBody, [
                     </button>
                     
                     <h2 class="text-3xl font-bold mb-4 text-white text-center">Modifica Note</h2>
-                    <p class="text-center mb-6 text-primary-orange">Sessione del ${formatDate(session.data)}</p>
+<p class="text-center mb-6 text-primary-orange">Sessione del ${formatDate(session.data)}</p>
+ <form id="editNotesForm" class="space-y-6 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                    <div>
+                        <label for="session-note" class="block text-lg font-medium mb-2 text-white">
+                            Note Generali
+                        </label>
+                        <textarea id="session-note" name="note" 
+                                  class="input-style h-32" 
+                                  placeholder="Aggiungi note generali sulla sessione...">${currentNote}</textarea>
+                        <p class="text-xs text-primary-orange mt-1">Note visibili in tutte le sessioni</p>
+                    </div>
                     
-                    <form id="editNotesForm" class="space-y-6 bg-secondary-dark p-6 rounded-xl shadow-lg">
+                    ${isTrainingWithoutScore ? `
                         <div>
-                            <label for="session-note" class="block text-lg font-medium mb-2 text-white">
-                                Note Generali
+                            <label for="training-content" class="block text-lg font-medium mb-2 text-white">
+                                Contenuto Allenamento Tecnico
                             </label>
-                            <textarea id="session-note" name="note" 
-                                      class="input-style h-32" 
-                                      placeholder="Aggiungi note generali sulla sessione...">${currentNote}</textarea>
-                            <p class="text-xs text-primary-orange mt-1">Note visibili in tutte le sessioni</p>
+                            <textarea id="training-content" name="trainingContent" 
+                                      class="input-style h-64" 
+                                      placeholder="Descrivi gli esercizi svolti, tecniche praticate, obiettivi raggiunti...">${currentTrainingContent}</textarea>
+                            <p class="text-xs text-primary-orange mt-1">Dettagli specifici dell'allenamento tecnico</p>
                         </div>
-                        
-                        ${isTrainingWithoutScore ? `
-                            <div>
-                                <label for="training-content" class="block text-lg font-medium mb-2 text-white">
-                                    Contenuto Allenamento Tecnico
-                                </label>
-                                <textarea id="training-content" name="trainingContent" 
-                                          class="input-style h-64" 
-                                          placeholder="Descrivi gli esercizi svolti, tecniche praticate, obiettivi raggiunti...">${currentTrainingContent}</textarea>
-                                <p class="text-xs text-primary-orange mt-1">Dettagli specifici dell'allenamento tecnico</p>
-                            </div>
-                        ` : ''}
-                        
-                        <div class="flex gap-3">
-                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" 
-                                    onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
-                                Annulla
-                            </button>
-                            <button type="submit" class="flex-1 btn-primary p-3 rounded-lg">
-                                💾 Salva Modifiche
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
+                    ` : ''}
+                    
+                    <div class="flex gap-3">
+                        <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" 
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                            Annulla
+                        </button>
+                        <button type="submit" class="flex-1 btn-primary p-3 rounded-lg">
+                            💾 Salva Modifiche
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+        
+        document.getElementById('content-view').innerHTML = html;
+        
+        document.getElementById('editNotesForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
             
-            document.getElementById('content-view').innerHTML = html;
+            const newNote = document.getElementById('session-note').value.trim();
+            const newTrainingContent = isTrainingWithoutScore ? 
+                document.getElementById('training-content').value.trim() : null;
             
-            document.getElementById('editNotesForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
+            try {
+                const archerId = appState.loggedInArcher.id;
+                const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", session.docId);
                 
-                const newNote = document.getElementById('session-note').value.trim();
-                const newTrainingContent = isTrainingWithoutScore ? 
-                    document.getElementById('training-content').value.trim() : null;
+                const updateData = { note: newNote };
                 
-                try {
-                    const archerId = appState.loggedInArcher.id;
-                    const sessionDocRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", session.docId);
-                    
-                    const updateData = {
-                        note: newNote
-                    };
-                    
-                    if (isTrainingWithoutScore && newTrainingContent !== null) {
-                        updateData.trainingContent = newTrainingContent;
-                    }
-                    
-                    await updateDoc(sessionDocRef, updateData);
-                    
-                    console.log("Note aggiornate con successo");
-                    
-                    session.note = newNote;
-                    if (isTrainingWithoutScore) {
-                        session.trainingContent = newTrainingContent;
-                    }
-                    
-                    showModal("Successo", "Le note sono state aggiornate con successo!", [
-                        { text: "Ok", handler: () => {
-                            window.setView('detailedSummary', { sessionId: session.id });
-                        }}
-                    ]);
-                    
-                } catch (error) {
-                    console.error("Errore aggiornamento note:", error);
-                    showModal("Errore", `Impossibile aggiornare le note: ${error.message}`, [
-                        { text: "Ok", handler: () => {} }
-                    ]);
+                if (isTrainingWithoutScore && newTrainingContent !== null) {
+                    updateData.trainingContent = newTrainingContent;
                 }
-            });
-        }
-        // FINE PARTE4C
+                
+                await updateDoc(sessionDocRef, updateData);
+                
+                session.note = newNote;
+                if (isTrainingWithoutScore) {
+                    session.trainingContent = newTrainingContent;
+                }
+                
+                showModal("Successo", "Le note sono state aggiornate con successo!", [
+                    { text: "Ok", handler: () => { window.setView('detailedSummary', { sessionId: session.id }); }}
+                ]);
+                
+            } catch (error) {
+                console.error("Errore aggiornamento note:", error);
+                showModal("Errore", `Impossibile aggiornare le note: ${error.message}`, [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            }
+        });
+    }
+    // FINE PARTE4C
 // PARTE4D - FINALE - Grafici e Chiusura
 
         function renderChartsView() {
@@ -2214,12 +2663,724 @@ showModal("Turno Salvato!", modalBody, [
                 }
             });
         }
+        // FINE PARTE4D
+ // PARTE4E - Obiettivi e Traguardi
+        async function loadGoals() {
+            try {
+                const goalsRef = window.getGoalsCollectionRef();
+                if (!goalsRef) return;
 
+                const querySnapshot = await getDocs(goalsRef);
+                appState.userGoals = [];
+                
+                querySnapshot.forEach((doc) => {
+                    appState.userGoals.push({ docId: doc.id, ...doc.data() });
+                });
+
+                appState.userGoals.sort((a, b) => {
+                    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                    return new Date(b.createdAt?.toDate?.() || 0) - new Date(a.createdAt?.toDate?.() || 0);
+                });
+
+                console.log('Caricati', appState.userGoals.length, 'obiettivi');
+            } catch (error) {
+                console.error("Errore caricamento obiettivi:", error);
+            }
+        }
+
+        function renderGoals() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            loadGoals().then(() => {
+                const activeGoals = appState.userGoals.filter(g => !g.completed);
+                const completedGoals = appState.userGoals.filter(g => g.completed);
+
+                const html = `
+                    <h2 class="text-3xl font-bold mb-6 text-white">🏅 I Miei Obiettivi</h2>
+
+                    <button class="btn-primary w-full p-3 rounded-lg mb-6" onclick="window.showAddGoalModal()">
+                        ➕ Nuovo Obiettivo
+                    </button>
+
+                    ${activeGoals.length > 0 ? `
+                        <div class="mb-6">
+                            <h3 class="text-xl font-bold mb-4 text-primary-orange">🎯 Obiettivi Attivi</h3>
+                            <div class="space-y-4">
+                                ${activeGoals.map(goal => renderGoalCard(goal)).join('')}
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6 text-center">
+                            <p class="text-white">Nessun obiettivo attivo. Creane uno per iniziare!</p>
+                        </div>
+                    `}
+
+                    ${completedGoals.length > 0 ? `
+                        <div class="mb-6">
+                            <h3 class="text-xl font-bold mb-4 text-green-400">✅ Obiettivi Completati</h3>
+                            <div class="space-y-4">
+                                ${completedGoals.map(goal => renderGoalCard(goal)).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                `;
+
+                document.getElementById('content-view').innerHTML = html;
+            });
+        }
+
+        function renderGoalCard(goal) {
+            const progress = calculateGoalProgress(goal);
+            const isCompleted = goal.completed;
+            const progressPercentage = Math.min(100, (progress.current / progress.target) * 100);
+
+            return `
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 ${isCompleted ? 'border-green-500' : 'border-primary-orange'}">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                            <h4 class="text-lg font-bold ${isCompleted ? 'text-green-400 line-through' : 'text-white'}">${goal.title}</h4>
+                            <p class="text-sm text-primary-orange mt-1">${goal.description}</p>
+                        </div>
+                        ${!isCompleted ? `
+                            <button class="text-red-500 hover:text-red-700 ml-2" onclick="window.deleteGoal('${goal.docId}')">
+                                🗑️
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+                        <div class="bg-gray-800 p-2 rounded">
+                            <span class="text-primary-orange">Tipo:</span> ${goal.type === 'score' ? '🎯 Punteggio' : goal.type === 'sessions' ? '📅 Sessioni' : '🎓 Allenamenti'}
+                        </div>
+                        <div class="bg-gray-800 p-2 rounded">
+                            <span class="text-primary-orange">Periodo:</span> ${goal.period === 'weekly' ? 'Settimanale' : 'Mensile'}
+                        </div>
+                    </div>
+
+                    ${goal.type === 'score' ? `
+                        <div class="text-sm mb-2">
+                            <span class="text-primary-orange">Condizioni:</span> ${goal.distanza} | ${goal.tipoTarga}
+                        </div>
+                    ` : ''}
+
+                    <div class="mb-2">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-white">Progresso</span>
+                            <span class="font-bold ${isCompleted ? 'text-green-400' : 'text-primary-orange'}">
+                                ${progress.current} / ${progress.target} ${goal.type === 'score' ? 'punti' : goal.type === 'sessions' ? 'sessioni' : 'allenamenti'}
+                            </span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${isCompleted ? 'bg-green-500' : ''}" style="width: ${progressPercentage}%"></div>
+                        </div>
+                        <div class="text-xs text-center mt-1 text-primary-orange">${progressPercentage.toFixed(0)}%</div>
+                    </div>
+
+                    ${!isCompleted && progressPercentage >= 100 ? `
+                        <button class="btn-primary w-full p-2 rounded-lg mt-3 bg-green-600 hover:bg-green-700 text-white" onclick="window.completeGoal('${goal.docId}')">
+                            ✅ Segna come Completato
+                        </button>
+                    ` : ''}
+
+                    ${isCompleted && goal.completedAt ? `
+                        <div class="text-xs text-center text-green-400 mt-2">
+                            Completato il ${formatDate(goal.completedAt)}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function calculateGoalProgress(goal) {
+            const now = new Date();
+            let startDate, endDate;
+
+            if (goal.period === 'weekly') {
+                const dayOfWeek = now.getDay();
+                const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                startDate = new Date(now.setDate(diff));
+                startDate.setHours(0, 0, 0, 0);
+                endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + 6);
+                endDate.setHours(23, 59, 59, 999);
+            } else {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            }
+
+            const startDateStr = startDate.toISOString().split('T')[0];
+            const endDateStr = endDate.toISOString().split('T')[0];
+
+            const relevantSessions = appState.sessionData.filter(session => {
+                if (session.data < startDateStr || session.data > endDateStr) return false;
+                if (session.trainingWithoutScore) {
+                    return goal.type === 'training';
+                }
+                if (goal.type === 'sessions') return true;
+                if (goal.type === 'training') return session.type === 'Allenamento';
+                if (goal.type === 'score') {
+                    return session.distanza === goal.distanza && 
+                           session.tipoTarga === goal.tipoTarga;
+                }
+                return false;
+            });
+
+            let current = 0;
+            if (goal.type === 'score') {
+                const bestSession = relevantSessions.reduce((max, s) => 
+                    (s.totalScore || 0) > max ? (s.totalScore || 0) : max, 0);
+                current = bestSession;
+            } else {
+                current = relevantSessions.length;
+            }
+
+            return {
+                current: current,
+                target: goal.targetValue
+            };
+        }
+
+        window.showAddGoalModal = () => {
+            const modalContent = document.createElement('div');
+            modalContent.innerHTML = `
+                <form id="addGoalForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-white">Titolo Obiettivo</label>
+                        <input type="text" id="goal-title" class="input-style" required placeholder="Es: Raggiungere 540/600">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-white">Descrizione</label>
+                        <textarea id="goal-description" class="input-style h-20" placeholder="Descrizione dettagliata (opzionale)"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-white">Tipo Obiettivo</label>
+                        <select id="goal-type" class="input-style" required onchange="window.toggleGoalFields()">
+                            <option value="">Seleziona tipo</option>
+                            <option value="score">🎯 Punteggio Target</option>
+                            <option value="sessions">📅 Numero Sessioni</option>
+                            <option value="training">🎓 Numero Allenamenti</option>
+                        </select>
+                    </div>
+
+                    <div id="score-fields" style="display: none;">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-white">Distanza</label>
+                                <select id="goal-distanza" class="input-style">
+                                    <option value="">Seleziona</option>
+                                    ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-white">Tipo Targa</label>
+                                <select id="goal-targa" class="input-style">
+                                    <option value="">Seleziona</option>
+                                    ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-white">Valore Target</label>
+                        <input type="number" id="goal-target" class="input-style" required min="1" placeholder="Es: 540">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-white">Periodo</label>
+                        <select id="goal-period" class="input-style" required>
+                            <option value="">Seleziona periodo</option>
+                            <option value="weekly">📅 Settimanale</option>
+                            <option value="monthly">📆 Mensile</option>
+                        </select>
+                    </div>
+                </form>
+            `;
+
+            showModal(
+                "Nuovo Obiettivo",
+                modalContent,
+                [
+                    { text: "Annulla", handler: () => {} },
+                    { text: "Crea", handler: () => saveNewGoal() }
+                ]
+            );
+        };
+
+        window.toggleGoalFields = () => {
+            const type = document.getElementById('goal-type').value;
+            const scoreFields = document.getElementById('score-fields');
+            
+            if (type === 'score') {
+                scoreFields.style.display = 'block';
+                document.getElementById('goal-distanza').required = true;
+                document.getElementById('goal-targa').required = true;
+            } else {
+                scoreFields.style.display = 'none';
+                document.getElementById('goal-distanza').required = false;
+                document.getElementById('goal-targa').required = false;
+            }
+        };
+
+        async function saveNewGoal() {
+            const title = document.getElementById('goal-title').value.trim();
+            const description = document.getElementById('goal-description').value.trim();
+            const type = document.getElementById('goal-type').value;
+            const targetValue = parseInt(document.getElementById('goal-target').value);
+            const period = document.getElementById('goal-period').value;
+
+            if (!title || !type || !targetValue || !period) {
+                showModal("Errore", "Compila tutti i campi obbligatori.", [
+                    { text: "Ok", handler: () => window.showAddGoalModal() }
+                ]);
+                return;
+            }
+
+            const newGoal = {
+                title: title,
+                description: description,
+                type: type,
+                targetValue: targetValue,
+                period: period,
+                completed: false,
+                createdAt: serverTimestamp()
+            };
+
+            if (type === 'score') {
+                const distanza = document.getElementById('goal-distanza').value;
+                const targa = document.getElementById('goal-targa').value;
+
+                if (!distanza || !targa) {
+                    showModal("Errore", "Seleziona distanza e tipo targa per l'obiettivo di punteggio.", [
+                        { text: "Ok", handler: () => window.showAddGoalModal() }
+                    ]);
+                    return;
+                }
+
+                newGoal.distanza = distanza;
+                newGoal.tipoTarga = targa;
+            }
+
+            try {
+                const goalsRef = window.getGoalsCollectionRef();
+                await addDoc(goalsRef, newGoal);
+                
+                showModal("Successo", "Obiettivo creato con successo!", [
+                    { text: "Ok", handler: () => window.setView('goals') }
+                ]);
+            } catch (error) {
+                console.error("Errore creazione obiettivo:", error);
+                showModal("Errore", "Impossibile creare l'obiettivo.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            }
+        }
+
+        window.completeGoal = async (goalId) => {
+            try {
+                const archerId = appState.loggedInArcher.id;
+                const goalDocRef = doc(db, "artifacts", appId, "archers", archerId, "goals", goalId);
+                
+                const today = new Date().toISOString().split('T')[0];
+                
+                await updateDoc(goalDocRef, {
+                    completed: true,
+                    completedAt: today
+                });
+
+                showModal("🎉 Congratulazioni!", "Obiettivo completato! Ottimo lavoro!", [
+                    { text: "Grazie!", handler: () => window.setView('goals') }
+                ]);
+            } catch (error) {
+                console.error("Errore completamento obiettivo:", error);
+                showModal("Errore", "Impossibile completare l'obiettivo.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            }
+        };
+
+        window.deleteGoal = async (goalId) => {
+            showModal(
+                "Conferma Eliminazione",
+                "Sei sicuro di voler eliminare questo obiettivo?",
+                [
+                    { text: "Annulla", handler: () => {} },
+                    { text: "Elimina", handler: async () => {
+                        try {
+                            const archerId = appState.loggedInArcher.id;
+                            const goalDocRef = doc(db, "artifacts", appId, "archers", archerId, "goals", goalId);
+                            await deleteDoc(goalDocRef);
+                            
+                            window.setView('goals');
+                        } catch (error) {
+                            console.error("Errore eliminazione obiettivo:", error);
+                            showModal("Errore", "Impossibile eliminare l'obiettivo.", [
+                                { text: "Ok", handler: () => {} }
+                            ]);
+                        }
+                    }}
+                ]
+            );
+        };
+        // FINE PARTE4E
+// PARTE4F - Confronto Sessioni
+        function renderCompareSessionsView() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            fetchSessions();
+
+            const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">⚖️ Confronta Sessioni</h2>
+                <p class="text-sm mb-6 text-primary-orange">Seleziona 2 o 3 sessioni da confrontare (esclusi allenamenti tecnici)</p>
+
+                <div id="sessions-selection-area" class="mb-6">
+                    ${renderSessionsSelectionList()}
+                </div>
+
+                <div id="selected-sessions-preview" class="mb-6">
+                    ${renderSelectedSessionsPreview()}
+                </div>
+
+                <div class="flex gap-3">
+                    <button class="btn-primary flex-1 p-3 rounded-lg" onclick="window.compareSelectedSessions()" id="compare-btn" disabled>
+                        📊 Confronta Sessioni
+                    </button>
+                    <button class="btn-primary flex-1 p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                </div>
+
+                <div id="comparison-results" class="mt-6"></div>
+            `;
+
+            document.getElementById('content-view').innerHTML = html;
+        }
+
+        function renderSessionsSelectionList() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+
+            if (validSessions.length < 2) {
+                return `
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg text-center">
+                        <p class="text-white">Hai bisogno di almeno 2 sessioni con punteggio per usare questa funzionalità.</p>
+                        <p class="text-sm text-primary-orange mt-2">Registra altre sessioni per iniziare!</p>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg">
+                    <h3 class="text-xl font-bold mb-4 text-white">Seleziona Sessioni (max 3)</h3>
+                    <div class="space-y-2 max-h-96 overflow-y-auto">
+                        ${validSessions.map(session => `
+                            <div class="bg-gray-800 p-3 rounded-lg flex items-center hover:bg-gray-700 cursor-pointer transition-all border-2 border-transparent hover:border-primary-orange"
+                                 onclick="window.toggleSessionSelection('${session.id}')"
+                                 id="session-select-${session.id}">
+                                <input type="checkbox" 
+                                       class="w-5 h-5 mr-3" 
+                                       id="checkbox-${session.id}"
+                                       onclick="event.stopPropagation(); window.toggleSessionSelection('${session.id}')">
+                                <div class="flex-1">
+                                    <div class="font-bold text-white">
+                                        ${formatDate(session.data)} - ${session.type}${session.quickScore ? ' ⚡' : ''}
+                                    </div>
+                                    <div class="text-sm text-primary-orange">
+                                        ${session.distanza} | ${session.tipoTarga} | Tot: ${session.totalScore}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSelectedSessionsPreview() {
+            if (!window.selectedSessionsForComparison || window.selectedSessionsForComparison.length === 0) {
+                return '';
+            }
+
+            const selectedSessions = window.selectedSessionsForComparison.map(id => 
+                appState.sessionData.find(s => String(s.id) === String(id))
+            ).filter(s => s);
+
+            return `
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-3 text-white">Sessioni Selezionate (${selectedSessions.length}/3)</h3>
+                    <div class="space-y-2">
+                        ${selectedSessions.map(session => `
+                            <div class="bg-gray-800 p-2 rounded flex justify-between items-center">
+                                <span class="text-white text-sm">${formatDate(session.data)} - ${session.type} (${session.totalScore} punti)</span>
+                                <button class="text-red-500 hover:text-red-700" onclick="window.toggleSessionSelection('${session.id}')">✖</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        window.selectedSessionsForComparison = window.selectedSessionsForComparison || [];
+
+        window.toggleSessionSelection = (sessionId) => {
+            const index = window.selectedSessionsForComparison.indexOf(sessionId);
+            const checkbox = document.getElementById(`checkbox-${sessionId}`);
+            const sessionDiv = document.getElementById(`session-select-${sessionId}`);
+
+            if (index > -1) {
+                window.selectedSessionsForComparison.splice(index, 1);
+                if (checkbox) checkbox.checked = false;
+                if (sessionDiv) sessionDiv.classList.remove('border-primary-orange', 'bg-gray-700');
+            } else {
+                if (window.selectedSessionsForComparison.length >= 3) {
+                    showModal("Limite Raggiunto", "Puoi confrontare massimo 3 sessioni alla volta.", [
+                        { text: "Ok", handler: () => {} }
+                    ]);
+                    return;
+                }
+                window.selectedSessionsForComparison.push(sessionId);
+                if (checkbox) checkbox.checked = true;
+                if (sessionDiv) sessionDiv.classList.add('border-primary-orange', 'bg-gray-700');
+            }
+
+            const previewArea = document.getElementById('selected-sessions-preview');
+            if (previewArea) {
+                previewArea.innerHTML = renderSelectedSessionsPreview();
+            }
+
+            const compareBtn = document.getElementById('compare-btn');
+            if (compareBtn) {
+                compareBtn.disabled = window.selectedSessionsForComparison.length < 2;
+            }
+        };
+
+        window.compareSelectedSessions = () => {
+            if (window.selectedSessionsForComparison.length < 2) {
+                showModal("Errore", "Seleziona almeno 2 sessioni da confrontare.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            const selectedSessions = window.selectedSessionsForComparison.map(id => 
+                appState.sessionData.find(s => String(s.id) === String(id))
+            ).filter(s => s);
+
+            const resultsArea = document.getElementById('comparison-results');
+            if (resultsArea) {
+                resultsArea.innerHTML = renderComparisonResults(selectedSessions);
+            }
+        };
+
+        function renderComparisonResults(sessions) {
+            const colors = ['bg-blue-600', 'bg-green-600', 'bg-purple-600'];
+            const borderColors = ['border-blue-500', 'border-green-500', 'border-purple-500'];
+
+            const maxScore = Math.max(...sessions.map(s => s.totalScore || 0));
+            const maxX = Math.max(...sessions.map(s => s.totalX || 0));
+            const maxTen = Math.max(...sessions.map(s => s.totalTen || 0));
+            const maxAvg = Math.max(...sessions.map(s => s.totalAverage || 0));
+
+            return `
+                <div class="bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-primary-orange">
+                    <h3 class="text-2xl font-bold mb-6 text-white text-center">📊 Risultati Confronto</h3>
+
+                    <!-- Confronto Punteggi Totali -->
+                    <div class="mb-6">
+                        <h4 class="text-lg font-bold mb-3 text-primary-orange">Punteggi Totali</h4>
+                        <div class="space-y-3">
+                            ${sessions.map((session, index) => {
+                                const percentage = (session.totalScore / maxScore) * 100;
+                                return `
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-white">${formatDate(session.data)} ${session.quickScore ? '⚡' : ''}</span>
+                                            <span class="font-bold ${session.totalScore === maxScore ? 'text-green-400' : 'text-white'}">${session.totalScore}</span>
+                                        </div>
+                                        <div class="bg-gray-700 rounded-full h-6 overflow-hidden">
+                                            <div class="${colors[index]} h-full flex items-center justify-end pr-2 text-white text-xs font-bold" 
+                                                 style="width: ${percentage}%">
+                                                ${percentage.toFixed(0)}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Tabella Comparativa Dettagliata -->
+                    <div class="mb-6 overflow-x-auto">
+                        <h4 class="text-lg font-bold mb-3 text-primary-orange">Statistiche Dettagliate</h4>
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b-2 border-primary-orange">
+                                    <th class="text-left p-2 text-white">Metrica</th>
+                                    ${sessions.map((session, index) => `
+                                        <th class="p-2 text-center ${borderColors[index]} border-l-2">
+                                            ${formatDate(session.data)}
+                                        </th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody class="text-white">
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Tipo</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${s.type}</td>
+                                    `).join('')}
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Distanza</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${s.distanza}</td>
+                                    `).join('')}
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Targa</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${s.tipoTarga}</td>
+                                    `).join('')}
+                                </tr>
+                                <tr class="border-b border-gray-700 bg-gray-800">
+                                    <td class="p-2 font-bold">Punteggio Totale</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2 ${s.totalScore === maxScore ? 'text-green-400 font-bold' : ''}">${s.totalScore}</td>
+                                    `).join('')}
+                                </tr>
+                                ${!sessions.some(s => s.quickScore) ? `
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2 font-bold">Media Freccia</td>
+                                        ${sessions.map((s, i) => `
+                                            <td class="p-2 text-center ${borderColors[i]} border-l-2 ${s.totalAverage === maxAvg ? 'text-green-400 font-bold' : ''}">${s.totalAverage ? s.totalAverage.toFixed(2) : '-'}</td>
+                                        `).join('')}
+                                    </tr>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2 font-bold">X</td>
+                                        ${sessions.map((s, i) => `
+                                            <td class="p-2 text-center ${borderColors[i]} border-l-2 ${s.totalX === maxX ? 'text-green-400 font-bold' : ''}">${s.totalX || 0}</td>
+                                        `).join('')}
+                                    </tr>
+                                    <tr class="border-b border-gray-700">
+                                        <td class="p-2 font-bold">10</td>
+                                        ${sessions.map((s, i) => `
+                                            <td class="p-2 text-center ${borderColors[i]} border-l-2 ${s.totalTen === maxTen ? 'text-green-400 font-bold' : ''}">${s.totalTen || 0}</td>
+                                        `).join('')}
+                                    </tr>
+                                ` : ''}
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Turno 1</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${s.turn1Score || 0}</td>
+                                    `).join('')}
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Turno 2</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${s.turn2Score || 0}</td>
+                                    `).join('')}
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Durata</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${durationToString(s.duration)}</td>
+                                    `).join('')}
+                                </tr>
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 font-bold">Luogo</td>
+                                    ${sessions.map((s, i) => `
+                                        <td class="p-2 text-center ${borderColors[i]} border-l-2">${s.luogo}</td>
+                                    `).join('')}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Differenze e Insights -->
+                    <div class="bg-gray-800 p-4 rounded-lg">
+                        <h4 class="text-lg font-bold mb-3 text-primary-orange">💡 Insights</h4>
+                        <div class="space-y-2 text-sm text-white">
+                            ${generateInsights(sessions)}
+                        </div>
+                    </div>
+
+                    <!-- Azioni -->
+                    <div class="mt-6 flex gap-3">
+                        <button class="btn-primary flex-1 p-3 rounded-lg" onclick="window.resetComparison()">
+                            🔄 Nuovo Confronto
+                        </button>
+                        <button class="btn-primary flex-1 p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
+                                onclick="window.viewSessionDetails('${sessions[0].id}')">
+                            👁️ Vedi Dettagli
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateInsights(sessions) {
+            const insights = [];
+            
+            const bestSession = sessions.reduce((max, s) => (s.totalScore || 0) > (max.totalScore || 0) ? s : max);
+            insights.push(`✅ <strong>Miglior punteggio:</strong> ${formatDate(bestSession.data)} con ${bestSession.totalScore} punti`);
+
+            const scores = sessions.map(s => s.totalScore || 0);
+            const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+            const variance = scores.reduce((sum, score) => sum + Math.pow(score - avgScore, 2), 0) / scores.length;
+            const stdDev = Math.sqrt(variance);
+            
+            insights.push(`📊 <strong>Punteggio medio:</strong> ${avgScore.toFixed(2)} punti`);
+            insights.push(`📈 <strong>Deviazione standard:</strong> ${stdDev.toFixed(2)} (${stdDev < 10 ? 'Prestazioni molto costanti!' : stdDev < 20 ? 'Buona costanza' : 'Prestazioni variabili'})`);
+
+            const maxDiff = Math.max(...scores) - Math.min(...scores);
+            insights.push(`⚖️ <strong>Differenza max-min:</strong> ${maxDiff} punti`);
+
+            if (!sessions.some(s => s.quickScore)) {
+                const avgArrow = sessions.map(s => s.totalAverage || 0);
+                const bestAvg = Math.max(...avgArrow);
+                const bestAvgSession = sessions.find(s => s.totalAverage === bestAvg);
+                insights.push(`🎯 <strong>Miglior media freccia:</strong> ${formatDate(bestAvgSession.data)} con ${bestAvg.toFixed(2)}`);
+            }
+
+            const indoorSessions = sessions.filter(s => s.tipoLuogo === 'Indoor');
+            const outdoorSessions = sessions.filter(s => s.tipoLuogo === 'Outdoor');
+            
+            if (indoorSessions.length > 0 && outdoorSessions.length > 0) {
+                const indoorAvg = indoorSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / indoorSessions.length;
+                const outdoorAvg = outdoorSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / outdoorSessions.length;
+                const diff = indoorAvg - outdoorAvg;
+                
+                if (Math.abs(diff) > 10) {
+                    insights.push(`🏠 <strong>Indoor vs Outdoor:</strong> ${diff > 0 ? 'Indoor migliore' : 'Outdoor migliore'} di ${Math.abs(diff).toFixed(0)} punti in media`);
+                }
+            }
+
+            return insights.map(insight => `<div>• ${insight}</div>`).join('');
+        }
+
+        window.resetComparison = () => {
+            window.selectedSessionsForComparison = [];
+            renderCompareSessionsView();
+        };
+
+        window.viewSessionDetails = (sessionId) => {
+            window.setView('detailedSummary', { sessionId: sessionId });
+        };
+        // FINE PARTE4F   
         // Inizializza l'applicazione al caricamento dell'autenticazione
         window.setView('login');
     };
 </script>
 </body>
 </html>
-
-
