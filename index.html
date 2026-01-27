@@ -241,6 +241,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             allArchers: [],
             userGoals: [],
             volleyNotes: {},
+            statistics: {},
         };
 
         const scoringState = {
@@ -503,6 +504,18 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 case 'compareSessionsView':
                     renderCompareSessionsView();
                     break;
+                case 'dashboard':
+                    renderDashboard();
+                    break;
+                case 'multipleCharts':
+                    renderMultipleCharts();
+                    break;
+                case 'exportData':
+                    renderExportData();
+                    break;
+                case 'calendar':
+                    renderCalendar();
+                    break;
                 case 'charts':
                     renderChartsView();
                     break;
@@ -715,12 +728,18 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     </div>
 
                     <div class="mb-6">
-                        <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Dati</h3>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dataSummary')">
+                        <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Statistiche</h3>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dashboard')">
+                            🎯 Dashboard Statistiche
+                        </button>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('dataSummary')">
                             🧾 Riepilogo Dati
                         </button>
                         <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('charts')">
-                            📈 Grafici Andamento
+                            📈 Grafico Andamento
+                        </button>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('multipleCharts')">
+                            📊 Grafici Multipli
                         </button>
                         <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('compareSessionsView')">
                             ⚖️ Confronta Sessioni
@@ -728,9 +747,19 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     </div>
 
                     <div class="mb-6">
-                        <h3 class="text-lg font-bold text-primary-orange mb-3">🎯 Obiettivi</h3>
+                        <h3 class="text-lg font-bold text-primary-orange mb-3">🎯 Obiettivi e Pianificazione</h3>
                         <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('goals')">
                             🏅 I Miei Obiettivi
+                        </button>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('calendar')">
+                            📅 Calendario Sessioni
+                        </button>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-primary-orange mb-3">💾 Gestione Dati</h3>
+                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('exportData')">
+                            📥 Esporta & Backup
                         </button>
                     </div>
                     
@@ -1649,8 +1678,8 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 <h2 class="text-3xl font-bold mb-4 text-white">${session.type} - Turno ${appState.currentTurn}</h2>
                 <p class="text-sm mb-4">Distanza: ${session.distanza} | Formato: ${session.formatoGara}</p>
                 ${tableHtml}
-                ${liveStatsHtml}
                 ${keypadHtml}
+                ${liveStatsHtml}
                 ${turn1SummaryHtml}
                 ${actionsHtml}
             `;
@@ -3378,6 +3407,1747 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             window.setView('detailedSummary', { sessionId: sessionId });
         };
         // FINE PARTE4F   
+// PARTE4G - Dashboard Statistiche Personalizzate
+        function renderDashboard() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            fetchSessions();
+
+            setTimeout(() => {
+                calculateAllStatistics();
+                renderDashboardContent();
+            }, 300);
+        }
+
+        function calculateAllStatistics() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+
+            if (validSessions.length === 0) {
+                appState.statistics = { hasData: false };
+                return;
+            }
+
+            // Statistiche Generali
+            const totalSessions = validSessions.length;
+            const totalScore = validSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0);
+            const avgScore = totalScore / totalSessions;
+
+            const allScores = validSessions.map(s => s.totalScore || 0);
+            const maxScore = Math.max(...allScores);
+            const minScore = Math.min(...allScores);
+            const bestSession = validSessions.find(s => s.totalScore === maxScore);
+
+            // Calcolo deviazione standard
+            const variance = allScores.reduce((sum, score) => sum + Math.pow(score - avgScore, 2), 0) / totalSessions;
+            const stdDev = Math.sqrt(variance);
+
+            // Statistiche per Distanza
+            const byDistance = {};
+            DISTANZA_OPTIONS.forEach(dist => {
+                const sessions = validSessions.filter(s => s.distanza === dist);
+                if (sessions.length > 0) {
+                    byDistance[dist] = {
+                        count: sessions.length,
+                        avgScore: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                        maxScore: Math.max(...sessions.map(s => s.totalScore || 0))
+                    };
+                }
+            });
+
+            // Statistiche per Tipo Targa
+            const byTarget = {};
+            TIPO_TARGA_OPTIONS.forEach(target => {
+                const sessions = validSessions.filter(s => s.tipoTarga === target);
+                if (sessions.length > 0) {
+                    byTarget[target] = {
+                        count: sessions.length,
+                        avgScore: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                        maxScore: Math.max(...sessions.map(s => s.totalScore || 0))
+                    };
+                }
+            });
+
+            // Indoor vs Outdoor
+            const indoorSessions = validSessions.filter(s => s.tipoLuogo === 'Indoor');
+            const outdoorSessions = validSessions.filter(s => s.tipoLuogo === 'Outdoor');
+
+            const indoorStats = indoorSessions.length > 0 ? {
+                count: indoorSessions.length,
+                avgScore: indoorSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / indoorSessions.length,
+                maxScore: Math.max(...indoorSessions.map(s => s.totalScore || 0))
+            } : null;
+
+            const outdoorStats = outdoorSessions.length > 0 ? {
+                count: outdoorSessions.length,
+                avgScore: outdoorSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / outdoorSessions.length,
+                maxScore: Math.max(...outdoorSessions.map(s => s.totalScore || 0))
+            } : null;
+
+            // Percentuali X, 10, 9
+            const sessionsWithDetails = validSessions.filter(s => !s.quickScore);
+            const totalArrows = sessionsWithDetails.reduce((sum, s) => {
+                const format = s.formatoGara;
+                if (format.includes('3x10')) return sum + 30;
+                if (format.includes('6x6')) return sum + 36;
+                if (format.includes('6x12')) return sum + 72;
+                return sum;
+            }, 0);
+
+            const totalX = sessionsWithDetails.reduce((sum, s) => sum + (s.totalX || 0), 0);
+            const totalTen = sessionsWithDetails.reduce((sum, s) => sum + (s.totalTen || 0), 0);
+            const totalNine = sessionsWithDetails.reduce((sum, s) => sum + (s.totalNine || 0), 0);
+
+            const percentX = totalArrows > 0 ? (totalX / totalArrows * 100) : 0;
+            const percentTen = totalArrows > 0 ? (totalTen / totalArrows * 100) : 0;
+            const percentNine = totalArrows > 0 ? (totalNine / totalArrows * 100) : 0;
+
+            // Analisi Fasce Orarie
+            const timeSlots = {
+                morning: { name: 'Mattino (6-12)', sessions: [], scores: [] },
+                afternoon: { name: 'Pomeriggio (12-18)', sessions: [], scores: [] },
+                evening: { name: 'Sera (18-24)', sessions: [], scores: [] },
+                night: { name: 'Notte (0-6)', sessions: [], scores: [] }
+            };
+
+            validSessions.forEach(s => {
+                if (!s.startTime) return;
+                const hour = parseInt(s.startTime.split(':')[0]);
+                
+                if (hour >= 6 && hour < 12) {
+                    timeSlots.morning.sessions.push(s);
+                    timeSlots.morning.scores.push(s.totalScore || 0);
+                } else if (hour >= 12 && hour < 18) {
+                    timeSlots.afternoon.sessions.push(s);
+                    timeSlots.afternoon.scores.push(s.totalScore || 0);
+                } else if (hour >= 18 && hour < 24) {
+                    timeSlots.evening.sessions.push(s);
+                    timeSlots.evening.scores.push(s.totalScore || 0);
+                } else {
+                    timeSlots.night.sessions.push(s);
+                    timeSlots.night.scores.push(s.totalScore || 0);
+                }
+            });
+
+            Object.keys(timeSlots).forEach(slot => {
+                const data = timeSlots[slot];
+                if (data.scores.length > 0) {
+                    data.avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+                    data.count = data.sessions.length;
+                } else {
+                    data.avgScore = 0;
+                    data.count = 0;
+                }
+            });
+
+            // Trend Miglioramento (ultime 10 sessioni vs prime 10)
+            let trend = null;
+            if (validSessions.length >= 10) {
+                const first10 = validSessions.slice(0, 10);
+                const last10 = validSessions.slice(-10);
+                
+                const avgFirst = first10.reduce((sum, s) => sum + (s.totalScore || 0), 0) / 10;
+                const avgLast = last10.reduce((sum, s) => sum + (s.totalScore || 0), 0) / 10;
+                
+                trend = {
+                    improvement: avgLast - avgFirst,
+                    percentChange: ((avgLast - avgFirst) / avgFirst * 100)
+                };
+            }
+
+            // Correlazione Durata-Prestazione
+            const sessionsWithDuration = validSessions.filter(s => s.duration && s.duration > 0);
+            let durationCorrelation = null;
+            
+            if (sessionsWithDuration.length >= 5) {
+                const shortSessions = sessionsWithDuration.filter(s => s.duration <= 60);
+                const mediumSessions = sessionsWithDuration.filter(s => s.duration > 60 && s.duration <= 120);
+                const longSessions = sessionsWithDuration.filter(s => s.duration > 120);
+
+                durationCorrelation = {
+                    short: shortSessions.length > 0 ? {
+                        count: shortSessions.length,
+                        avg: shortSessions.reduce((sum, s) => sum + s.totalScore, 0) / shortSessions.length
+                    } : null,
+                    medium: mediumSessions.length > 0 ? {
+                        count: mediumSessions.length,
+                        avg: mediumSessions.reduce((sum, s) => sum + s.totalScore, 0) / mediumSessions.length
+                    } : null,
+                    long: longSessions.length > 0 ? {
+                        count: longSessions.length,
+                        avg: longSessions.reduce((sum, s) => sum + s.totalScore, 0) / longSessions.length
+                    } : null
+                };
+            }
+
+            appState.statistics = {
+                hasData: true,
+                general: {
+                    totalSessions,
+                    avgScore,
+                    maxScore,
+                    minScore,
+                    stdDev,
+                    bestSession
+                },
+                byDistance,
+                byTarget,
+                indoor: indoorStats,
+                outdoor: outdoorStats,
+                accuracy: {
+                    percentX,
+                    percentTen,
+                    percentNine,
+                    totalX,
+                    totalTen,
+                    totalNine
+                },
+                timeSlots,
+                trend,
+                durationCorrelation
+            };
+        }
+
+        function renderDashboardContent() {
+            const stats = appState.statistics;
+
+            if (!stats || !stats.hasData) {
+                document.getElementById('content-view').innerHTML = `
+                    <h2 class="text-3xl font-bold mb-6 text-white">🎯 Dashboard Statistiche</h2>
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg text-center">
+                        <p class="text-white text-lg">Non ci sono abbastanza dati per generare statistiche.</p>
+                        <p class="text-sm text-primary-orange mt-2">Registra almeno una sessione con punteggio per iniziare!</p>
+                    </div>
+                    <button class="btn-primary w-full p-3 rounded-lg mt-6" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                `;
+                return;
+            }
+
+            const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">🎯 Dashboard Statistiche</h2>
+
+                <!-- Statistiche Generali -->
+                <div class="stats-card mb-6">
+                    <h3 class="text-2xl font-bold mb-4 text-white">📊 Panoramica Generale</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Sessioni Totali</div>
+                            <div class="text-3xl font-bold text-white">${stats.general.totalSessions}</div>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Media Punteggio</div>
+                            <div class="text-3xl font-bold text-white">${stats.general.avgScore.toFixed(1)}</div>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Record Personale</div>
+                            <div class="text-3xl font-bold text-green-400">${stats.general.maxScore}</div>
+                        </div>
+                        <div class="bg-gray-800 p-4 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Consistenza</div>
+                            <div class="text-xl font-bold ${stats.general.stdDev < 15 ? 'text-green-400' : stats.general.stdDev < 25 ? 'text-yellow-400' : 'text-red-400'}">
+                                ±${stats.general.stdDev.toFixed(1)}
+                            </div>
+                        </div>
+                    </div>
+                    ${stats.general.bestSession ? `
+                        <div class="bg-green-900 bg-opacity-30 p-3 rounded-lg mt-4 border border-green-500">
+                            <p class="text-sm text-green-400">
+                                🏆 <strong>Miglior prestazione:</strong> ${stats.general.maxScore} punti 
+                                il ${formatDate(stats.general.bestSession.data)} 
+                                (${stats.general.bestSession.distanza} - ${stats.general.bestSession.tipoTarga})
+                            </p>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Accuratezza -->
+                ${stats.accuracy.totalX > 0 || stats.accuracy.totalTen > 0 ? `
+                    <div class="stats-card mb-6">
+                        <h3 class="text-2xl font-bold mb-4 text-white">🎯 Accuratezza</h3>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="bg-gray-800 p-4 rounded-lg">
+                                <div class="text-center mb-2">
+                                    <div class="text-4xl font-bold text-yellow-400">${stats.accuracy.percentX.toFixed(1)}%</div>
+                                    <div class="text-xs text-primary-orange">X</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-yellow-400" style="width: ${stats.accuracy.percentX}%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-4 rounded-lg">
+                                <div class="text-center mb-2">
+                                    <div class="text-4xl font-bold text-green-400">${stats.accuracy.percentTen.toFixed(1)}%</div>
+                                    <div class="text-xs text-primary-orange">10</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-green-400" style="width: ${stats.accuracy.percentTen}%"></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-4 rounded-lg">
+                                <div class="text-center mb-2">
+                                    <div class="text-4xl font-bold text-blue-400">${stats.accuracy.percentNine.toFixed(1)}%</div>
+                                    <div class="text-xs text-primary-orange">9</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-blue-400" style="width: ${stats.accuracy.percentNine}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-center text-gray-400 mt-2">
+                            Totali: X=${stats.accuracy.totalX}, 10=${stats.accuracy.totalTen}, 9=${stats.accuracy.totalNine}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Prestazioni per Distanza -->
+                ${Object.keys(stats.byDistance).length > 0 ? `
+                    <div class="stats-card mb-6">
+                        <h3 class="text-2xl font-bold mb-4 text-white">📏 Prestazioni per Distanza</h3>
+                        <div class="space-y-3">
+                            ${Object.entries(stats.byDistance).map(([dist, data]) => {
+                                const maxPossible = 360; // Assumiamo max 360
+                                const percentage = (data.avgScore / maxPossible) * 100;
+                                return `
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-white font-bold">${dist}</span>
+                                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} media | ${data.maxScore} max | ${data.count} sessioni</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Prestazioni per Tipo Targa -->
+                ${Object.keys(stats.byTarget).length > 0 ? `
+                    <div class="stats-card mb-6">
+                        <h3 class="text-2xl font-bold mb-4 text-white">🎯 Prestazioni per Tipo Targa</h3>
+                        <div class="space-y-3">
+                            ${Object.entries(stats.byTarget).map(([target, data]) => {
+                                const maxPossible = 360;
+                                const percentage = (data.avgScore / maxPossible) * 100;
+                                return `
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-white font-bold">${target}</span>
+                                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} media | ${data.maxScore} max | ${data.count} sessioni</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Indoor vs Outdoor -->
+                ${stats.indoor && stats.outdoor ? `
+                    <div class="stats-card mb-6">
+                        <h3 class="text-2xl font-bold mb-4 text-white">🏠 Indoor vs 🌳 Outdoor</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-blue-900 bg-opacity-30 p-4 rounded-lg border border-blue-500">
+                                <h4 class="text-lg font-bold text-blue-400 mb-2">🏠 Indoor</h4>
+                                <div class="text-3xl font-bold text-white mb-1">${stats.indoor.avgScore.toFixed(1)}</div>
+                                <div class="text-xs text-blue-300">Media | Max: ${stats.indoor.maxScore} | ${stats.indoor.count} sessioni</div>
+                            </div>
+                            <div class="bg-green-900 bg-opacity-30 p-4 rounded-lg border border-green-500">
+                                <h4 class="text-lg font-bold text-green-400 mb-2">🌳 Outdoor</h4>
+                                <div class="text-3xl font-bold text-white mb-1">${stats.outdoor.avgScore.toFixed(1)}</div>
+                                <div class="text-xs text-green-300">Media | Max: ${stats.outdoor.maxScore} | ${stats.outdoor.count} sessioni</div>
+                            </div>
+                        </div>
+                        ${Math.abs(stats.indoor.avgScore - stats.outdoor.avgScore) > 10 ? `
+                            <div class="mt-3 p-2 bg-gray-800 rounded text-sm text-center">
+                                <span class="text-primary-orange">
+                                    💡 Performa meglio ${stats.indoor.avgScore > stats.outdoor.avgScore ? 'Indoor' : 'Outdoor'} 
+                                    di ${Math.abs(stats.indoor.avgScore - stats.outdoor.avgScore).toFixed(1)} punti in media
+                                </span>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : ''}
+
+                <!-- Analisi Fasce Orarie -->
+                <div class="stats-card mb-6">
+                    <h3 class="text-2xl font-bold mb-4 text-white">🕐 Prestazioni per Fascia Oraria</h3>
+                    <div class="space-y-3">
+                        ${Object.entries(stats.timeSlots)
+                            .filter(([_, data]) => data.count > 0)
+                            .sort((a, b) => b[1].avgScore - a[1].avgScore)
+                            .map(([slot, data], index) => {
+                                const maxAvg = Math.max(...Object.values(stats.timeSlots).map(s => s.avgScore));
+                                const percentage = (data.avgScore / maxAvg) * 100;
+                                return `
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-white font-bold">${index === 0 ? '⭐ ' : ''}${data.name}</span>
+                                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} media | ${data.count} sessioni</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill ${index === 0 ? 'bg-green-500' : ''}" style="width: ${percentage}%"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                    </div>
+                    ${(() => {
+                        const bestSlot = Object.entries(stats.timeSlots)
+                            .filter(([_, data]) => data.count > 0)
+                            .sort((a, b) => b[1].avgScore - a[1].avgScore)[0];
+                        return bestSlot ? `
+                            <div class="mt-3 p-2 bg-green-900 bg-opacity-30 rounded text-sm text-center border border-green-500">
+                                <span class="text-green-400">
+                                    💡 Tendi a tirare meglio ${bestSlot[1].name.toLowerCase()}
+                                </span>
+                            </div>
+                        ` : '';
+                    })()}
+                </div>
+
+                <!-- Trend Miglioramento -->
+                ${stats.trend ? `
+                    <div class="stats-card mb-6">
+                        <h3 class="text-2xl font-bold mb-4 text-white">📈 Trend di Miglioramento</h3>
+                        <div class="bg-gray-800 p-4 rounded-lg">
+                            <div class="text-center">
+                                <div class="text-sm text-primary-orange mb-2">Prime 10 sessioni vs Ultime 10 sessioni</div>
+                                <div class="text-5xl font-bold ${stats.trend.improvement >= 0 ? 'text-green-400' : 'text-red-400'} mb-2">
+                                    ${stats.trend.improvement >= 0 ? '↑' : '↓'} ${Math.abs(stats.trend.improvement).toFixed(1)}
+                                </div>
+                                <div class="text-xl ${stats.trend.improvement >= 0 ? 'text-green-400' : 'text-red-400'}">
+                                    ${stats.trend.improvement >= 0 ? '+' : ''}${stats.trend.percentChange.toFixed(1)}%
+                                </div>
+                                <div class="text-xs text-gray-400 mt-2">
+                                    ${stats.trend.improvement >= 0 ? '🎉 Stai migliorando!' : '⚠️ Necessario più allenamento'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Correlazione Durata-Prestazione -->
+                ${stats.durationCorrelation ? `
+                    <div class="stats-card mb-6">
+                        <h3 class="text-2xl font-bold mb-4 text-white">⏱️ Durata Sessione vs Prestazione</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            ${stats.durationCorrelation.short ? `
+                                <div class="bg-gray-800 p-3 rounded-lg text-center">
+                                    <div class="text-xs text-primary-orange mb-1">≤ 1 ora</div>
+                                    <div class="text-2xl font-bold text-white">${stats.durationCorrelation.short.avg.toFixed(1)}</div>
+                                    <div class="text-xs text-gray-400">${stats.durationCorrelation.short.count} sessioni</div>
+                                </div>
+                            ` : ''}
+                            ${stats.durationCorrelation.medium ? `
+                                <div class="bg-gray-800 p-3 rounded-lg text-center">
+                                    <div class="text-xs text-primary-orange mb-1">1-2 ore</div>
+                                    <div class="text-2xl font-bold text-white">${stats.durationCorrelation.medium.avg.toFixed(1)}</div>
+                                    <div class="text-xs text-gray-400">${stats.durationCorrelation.medium.count} sessioni</div>
+                                </div>
+                            ` : ''}
+                            ${stats.durationCorrelation.long ? `
+                                <div class="bg-gray-800 p-3 rounded-lg text-center">
+                                    <div class="text-xs text-primary-orange mb-1">> 2 ore</div>
+                                    <div class="text-2xl font-bold text-white">${stats.durationCorrelation.long.avg.toFixed(1)}</div>
+                                    <div class="text-xs text-gray-400">${stats.durationCorrelation.long.count} sessioni</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('mainMenu')">
+                    Torna al Menu
+                </button>
+            `;
+
+            document.getElementById('content-view').innerHTML = html;
+        }
+        // FINE PARTE4G
+// PARTE4H - Grafici Multipli
+        function renderMultipleCharts() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            fetchSessions();
+
+            setTimeout(() => {
+                const html = `
+                    <h2 class="text-3xl font-bold mb-6 text-white">📊 Grafici Multipli</h2>
+
+                    <!-- Grafico a Torta - Distribuzione Punteggi -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🥧 Distribuzione Punteggi (X/10/9/8...)</h3>
+                        <div style="height: 300px;">
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Grafico a Barre - Confronto Distanze -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📊 Media Punteggi per Distanza</h3>
+                        <div style="height: 300px;">
+                            <canvas id="barChartDistance"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Grafico a Barre - Confronto Targhe -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🎯 Media Punteggi per Tipo Targa</h3>
+                        <div style="height: 300px;">
+                            <canvas id="barChartTarget"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Heatmap Giorni/Orari -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🗓️ Heatmap Prestazioni: Giorni della Settimana</h3>
+                        <div id="heatmapDays"></div>
+                    </div>
+
+                    <!-- Heatmap Orari -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🕐 Heatmap Prestazioni: Fasce Orarie</h3>
+                        <div id="heatmapHours"></div>
+                    </div>
+
+                    <!-- Grafico Consistenza -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📉 Consistenza (Deviazione Standard)</h3>
+                        <div style="height: 300px;">
+                            <canvas id="consistencyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                `;
+
+                document.getElementById('content-view').innerHTML = html;
+
+                drawPieChart();
+                drawBarChartDistance();
+                drawBarChartTarget();
+                drawHeatmapDays();
+                drawHeatmapHours();
+                drawConsistencyChart();
+            }, 300);
+        }
+
+        function drawPieChart() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore && !s.quickScore);
+            
+            if (validSessions.length === 0) {
+                document.getElementById('pieChart').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile (esclusi Quick Score)</p>';
+                return;
+            }
+
+            // Conta tutte le frecce per punteggio
+            const scoreCounts = { X: 0, '10': 0, '9': 0, '8': 0, '7': 0, '6': 0, '5': 0, '4': 0, '3': 0, '2': 0, '1': 0, 'M': 0 };
+
+            validSessions.forEach(session => {
+                [session.turn1, session.turn2].forEach(turn => {
+                    if (!turn || !turn.grid) return;
+                    
+                    const grid = turn.grid.map(rowStr => JSON.parse(rowStr));
+                    grid.forEach(row => {
+                        row.forEach(score => {
+                            if (score && scoreCounts.hasOwnProperty(score)) {
+                                scoreCounts[score]++;
+                            } else if (score === '10') {
+                                scoreCounts['10']++;
+                            }
+                        });
+                    });
+                });
+            });
+
+            const labels = Object.keys(scoreCounts).filter(key => scoreCounts[key] > 0);
+            const data = labels.map(key => scoreCounts[key]);
+
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#FFD700', // X - oro
+                            '#FDB927', // 10 - arancione
+                            '#4CAF50', // 9 - verde
+                            '#2196F3', // 8 - blu
+                            '#9C27B0', // 7 - viola
+                            '#FF9800', // 6 - arancione scuro
+                            '#F44336', // 5 - rosso
+                            '#795548', // 4 - marrone
+                            '#607D8B', // 3 - grigio
+                            '#9E9E9E', // 2 - grigio chiaro
+                            '#FFFFFF', // 1 - bianco
+                            '#000000'  // M - nero
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#1a1a1a'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#fdb927',
+                                font: { size: 14 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} frecce (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawBarChartDistance() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+
+            const byDistance = {};
+            DISTANZA_OPTIONS.forEach(dist => {
+                const sessions = validSessions.filter(s => s.distanza === dist);
+                if (sessions.length > 0) {
+                    byDistance[dist] = sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length;
+                }
+            });
+
+            if (Object.keys(byDistance).length === 0) {
+                document.getElementById('barChartDistance').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile</p>';
+                return;
+            }
+
+            const labels = Object.keys(byDistance);
+            const data = Object.values(byDistance);
+
+            const ctx = document.getElementById('barChartDistance').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Media Punteggio',
+                        data: data,
+                        backgroundColor: 'rgba(253, 185, 39, 0.7)',
+                        borderColor: 'rgb(253, 185, 39)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Punteggio Medio',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        },
+                        x: {
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fdb927' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Media: ${context.parsed.y.toFixed(1)} punti`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawBarChartTarget() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+
+            const byTarget = {};
+            TIPO_TARGA_OPTIONS.forEach(target => {
+                const sessions = validSessions.filter(s => s.tipoTarga === target);
+                if (sessions.length > 0) {
+                    byTarget[target] = sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length;
+                }
+            });
+
+            if (Object.keys(byTarget).length === 0) {
+                document.getElementById('barChartTarget').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile</p>';
+                return;
+            }
+
+            const labels = Object.keys(byTarget);
+            const data = Object.values(byTarget);
+
+            const ctx = document.getElementById('barChartTarget').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Media Punteggio',
+                        data: data,
+                        backgroundColor: 'rgba(76, 175, 80, 0.7)',
+                        borderColor: 'rgb(76, 175, 80)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Punteggio Medio',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        },
+                        x: {
+                            ticks: { color: '#fdb927', maxRotation: 45, minRotation: 45 },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fdb927' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Media: ${context.parsed.y.toFixed(1)} punti`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawHeatmapDays() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+
+            const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+            const dayData = Array(7).fill(null).map(() => ({ count: 0, totalScore: 0 }));
+
+            validSessions.forEach(session => {
+                const date = new Date(session.data);
+                const dayIndex = date.getDay();
+                dayData[dayIndex].count++;
+                dayData[dayIndex].totalScore += session.totalScore || 0;
+            });
+
+            const html = `
+                <div class="grid grid-cols-7 gap-2">
+                    ${dayData.map((data, index) => {
+                        const avgScore = data.count > 0 ? data.totalScore / data.count : 0;
+                        const maxAvg = Math.max(...dayData.map(d => d.count > 0 ? d.totalScore / d.count : 0));
+                        const intensity = maxAvg > 0 ? (avgScore / maxAvg) : 0;
+                        
+                        const bgColor = intensity > 0.8 ? 'bg-green-600' :
+                                       intensity > 0.6 ? 'bg-green-500' :
+                                       intensity > 0.4 ? 'bg-yellow-500' :
+                                       intensity > 0.2 ? 'bg-orange-500' :
+                                       intensity > 0 ? 'bg-red-500' : 'bg-gray-700';
+                        
+                        return `
+                            <div class="${bgColor} p-3 rounded-lg text-center ${data.count > 0 ? 'cursor-pointer hover:opacity-80' : ''}"
+                                 title="${dayNames[index]}: ${data.count} sessioni, media ${avgScore.toFixed(1)}">
+                                <div class="text-xs font-bold text-white mb-1">${dayNames[index].substring(0, 3)}</div>
+                                <div class="text-lg font-bold text-white">${data.count > 0 ? avgScore.toFixed(0) : '-'}</div>
+                                <div class="text-xs text-white opacity-75">${data.count} sess.</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="mt-3 text-xs text-center text-gray-400">
+                    🟢 Migliori prestazioni | 🔴 Prestazioni inferiori
+                </div>
+            `;
+
+            document.getElementById('heatmapDays').innerHTML = html;
+        }
+
+        function drawHeatmapHours() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore && s.startTime);
+
+            const hourData = Array(24).fill(null).map(() => ({ count: 0, totalScore: 0 }));
+
+            validSessions.forEach(session => {
+                const hour = parseInt(session.startTime.split(':')[0]);
+                hourData[hour].count++;
+                hourData[hour].totalScore += session.totalScore || 0;
+            });
+
+            const maxAvg = Math.max(...hourData.map(d => d.count > 0 ? d.totalScore / d.count : 0));
+
+            const html = `
+                <div class="grid grid-cols-8 sm:grid-cols-12 gap-2">
+                    ${hourData.map((data, hour) => {
+                        const avgScore = data.count > 0 ? data.totalScore / data.count : 0;
+                        const intensity = maxAvg > 0 ? (avgScore / maxAvg) : 0;
+                        
+                        const bgColor = intensity > 0.8 ? 'bg-green-600' :
+                                       intensity > 0.6 ? 'bg-green-500' :
+                                       intensity > 0.4 ? 'bg-yellow-500' :
+                                       intensity > 0.2 ? 'bg-orange-500' :
+                                       intensity > 0 ? 'bg-red-500' : 'bg-gray-700';
+                        
+                        return `
+                            <div class="${bgColor} p-2 rounded-lg text-center ${data.count > 0 ? 'cursor-pointer hover:opacity-80' : ''}"
+                                 title="Ore ${hour}:00 - ${data.count} sessioni, media ${avgScore.toFixed(1)}">
+                                <div class="text-xs font-bold text-white">${hour}h</div>
+                                <div class="text-sm font-bold text-white">${data.count > 0 ? avgScore.toFixed(0) : '-'}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="mt-3 text-xs text-center text-gray-400">
+                    🟢 Migliori prestazioni | 🔴 Prestazioni inferiori
+                </div>
+            `;
+
+            document.getElementById('heatmapHours').innerHTML = html;
+        }
+
+        function drawConsistencyChart() {
+            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+
+            if (validSessions.length < 5) {
+                document.getElementById('consistencyChart').parentElement.innerHTML = '<p class="text-center text-white">Servono almeno 5 sessioni per il grafico consistenza</p>';
+                return;
+            }
+
+            // Calcola deviazione standard per finestre mobili di 5 sessioni
+            const windowSize = 5;
+            const labels = [];
+            const stdDevs = [];
+
+            for (let i = windowSize - 1; i < validSessions.length; i++) {
+                const window = validSessions.slice(i - windowSize + 1, i + 1);
+                const scores = window.map(s => s.totalScore || 0);
+                const avg = scores.reduce((a, b) => a + b, 0) / windowSize;
+                const variance = scores.reduce((sum, score) => sum + Math.pow(score - avg, 2), 0) / windowSize;
+                const stdDev = Math.sqrt(variance);
+
+                labels.push(`#${i + 1}`);
+                stdDevs.push(stdDev);
+            }
+
+            const ctx = document.getElementById('consistencyChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Deviazione Standard (ultime 5 sessioni)',
+                        data: stdDevs,
+                        backgroundColor: 'rgba(33, 150, 243, 0.3)',
+                        borderColor: 'rgb(33, 150, 243)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Deviazione Standard (minore = più costante)',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Progressione Sessioni',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927', maxRotation: 0 },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fdb927' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    const quality = value < 10 ? '🟢 Ottima' : value < 20 ? '🟡 Buona' : '🔴 Variabile';
+                                    return `Consistenza: ${value.toFixed(2)} ${quality}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        // FINE PARTE4H
+// PARTE4I - Export, Backup e Condivisione Dati
+        function renderExportData() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            fetchSessions();
+
+            setTimeout(() => {
+                const html = `
+                    <h2 class="text-3xl font-bold mb-6 text-white">📥 Esporta & Backup</h2>
+
+                    <!-- Esportazione CSV -->
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📊 Esporta in CSV</h3>
+                        <p class="text-sm text-white mb-4">Esporta tutte le tue sessioni in formato CSV per analisi con Excel o altri strumenti.</p>
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.exportToCSV()">
+                            📄 Scarica CSV
+                        </button>
+                    </div>
+
+                    <!-- Esportazione JSON (Backup Completo) -->
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">💾 Backup Completo (JSON)</h3>
+                        <p class="text-sm text-white mb-4">Scarica un backup completo di tutti i tuoi dati in formato JSON. Include sessioni, obiettivi e statistiche.</p>
+                        <button class="btn-primary w-full p-3 rounded-lg" onclick="window.exportFullBackup()">
+                            💾 Scarica Backup Completo
+                        </button>
+                    </div>
+
+                    <!-- Stampa Report -->
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🖨️ Stampa Report</h3>
+                        <p class="text-sm text-white mb-4">Genera un report stampabile delle tue sessioni.</p>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-white">Periodo Report</label>
+                                <select id="report-period" class="input-style">
+                                    <option value="all">Tutte le sessioni</option>
+                                    <option value="month">Ultimo mese</option>
+                                    <option value="3months">Ultimi 3 mesi</option>
+                                    <option value="6months">Ultimi 6 mesi</option>
+                                    <option value="year">Ultimo anno</option>
+                                </select>
+                            </div>
+                            <button class="btn-primary w-full p-3 rounded-lg" onclick="window.generatePrintReport()">
+                                🖨️ Genera e Stampa Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Condividi Singola Sessione -->
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📤 Condividi Sessione</h3>
+                        <p class="text-sm text-white mb-4">Crea un'immagine condivisibile di una sessione specifica.</p>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium mb-1 text-white">Seleziona Sessione</label>
+                                <select id="share-session-select" class="input-style">
+                                    <option value="">Scegli una sessione...</option>
+                                    ${appState.sessionData.slice(-20).reverse().map(session => `
+                                        <option value="${session.id}">
+                                            ${formatDate(session.data)} - ${session.type} (${session.totalScore} pts)
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <button class="btn-primary w-full p-3 rounded-lg" onclick="window.shareSession()">
+                                📸 Crea Immagine Condivisibile
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Importa Backup -->
+                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6 border-2 border-yellow-500">
+                        <h3 class="text-xl font-bold mb-4 text-yellow-400">📥 Importa Backup</h3>
+                        <p class="text-sm text-white mb-4">⚠️ Attenzione: Questa funzione è in sviluppo. L'importazione potrebbe sovrascrivere dati esistenti.</p>
+                        <input type="file" id="import-file" accept=".json" class="input-style mb-3" disabled>
+                        <button class="btn-primary w-full p-3 rounded-lg opacity-50 cursor-not-allowed" disabled>
+                            📥 Importa Backup (Presto Disponibile)
+                        </button>
+                    </div>
+
+                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                `;
+
+                document.getElementById('content-view').innerHTML = html;
+            }, 300);
+        }
+
+        window.exportToCSV = () => {
+            const sessions = appState.sessionData;
+
+            if (sessions.length === 0) {
+                showModal("Nessun Dato", "Non ci sono sessioni da esportare.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            // Intestazioni CSV
+            const headers = [
+                'Data', 'Tipo', 'Luogo', 'Tipo Luogo', 'Distanza', 'Tipo Targa', 'Formato',
+                'Punteggio Totale', 'Turno 1', 'Turno 2', 'X Totali', '10 Totali', '9 Totali',
+                'Media Freccia', 'Durata (min)', 'Ora Inizio', 'Ora Fine', 'Note',
+                'Allenamento Tecnico', 'Quick Score'
+            ];
+
+            // Dati
+            const rows = sessions.map(s => [
+                formatDate(s.data),
+                s.type || '',
+                s.luogo || '',
+                s.tipoLuogo || '',
+                s.distanza || '',
+                s.tipoTarga || '',
+                s.formatoGara || '',
+                s.totalScore || 0,
+                s.turn1Score || 0,
+                s.turn2Score || 0,
+                s.totalX || 0,
+                s.totalTen || 0,
+                s.totalNine || 0,
+                s.totalAverage ? s.totalAverage.toFixed(2) : 0,
+                s.duration || 0,
+                s.startTime || '',
+                s.endTime || '',
+                (s.note || '').replace(/"/g, '""'),
+                s.trainingWithoutScore ? 'Sì' : 'No',
+                s.quickScore ? 'Sì' : 'No'
+            ]);
+
+            // Costruisci CSV
+            let csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+            rows.forEach(row => {
+                csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+            });
+
+            // Download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `archery_sessions_${appState.loggedInArcher.nome}_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showModal("Successo", "File CSV scaricato con successo!", [
+                { text: "Ok", handler: () => {} }
+            ]);
+        };
+
+        window.exportFullBackup = async () => {
+            try {
+                // Raccogli tutti i dati
+                const sessionsData = appState.sessionData;
+                
+                // Carica obiettivi
+                await loadGoals();
+                const goalsData = appState.userGoals;
+
+                const backupData = {
+                    exportDate: new Date().toISOString(),
+                    archerName: appState.loggedInArcher.nome,
+                    version: '1.0',
+                    sessions: sessionsData,
+                    goals: goalsData,
+                    totalSessions: sessionsData.length,
+                    totalGoals: goalsData.length
+                };
+
+                // Converti in JSON
+                const jsonContent = JSON.stringify(backupData, null, 2);
+
+                // Download
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', `archery_backup_${appState.loggedInArcher.nome}_${new Date().toISOString().split('T')[0]}.json`);
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showModal("Backup Completato", `Backup completo scaricato con successo!<br><br>📊 ${sessionsData.length} sessioni<br>🎯 ${goalsData.length} obiettivi`, [
+                    { text: "Ok", handler: () => {} }
+                ]);
+
+            } catch (error) {
+                console.error("Errore backup:", error);
+                showModal("Errore", "Impossibile creare il backup.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            }
+        };
+
+        window.generatePrintReport = () => {
+            const period = document.getElementById('report-period').value;
+            let filteredSessions = [...appState.sessionData];
+
+            // Filtra per periodo
+            if (period !== 'all') {
+                const now = new Date();
+                const cutoffDate = new Date();
+
+                switch (period) {
+                    case 'month':
+                        cutoffDate.setMonth(now.getMonth() - 1);
+                        break;
+                    case '3months':
+                        cutoffDate.setMonth(now.getMonth() - 3);
+                        break;
+                    case '6months':
+                        cutoffDate.setMonth(now.getMonth() - 6);
+                        break;
+                    case 'year':
+                        cutoffDate.setFullYear(now.getFullYear() - 1);
+                        break;
+                }
+
+                filteredSessions = filteredSessions.filter(s => {
+                    const sessionDate = new Date(s.data);
+                    return sessionDate >= cutoffDate;
+                });
+            }
+
+            if (filteredSessions.length === 0) {
+                showModal("Nessun Dato", "Nessuna sessione trovata per il periodo selezionato.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            // Calcola statistiche
+            const validSessions = filteredSessions.filter(s => !s.trainingWithoutScore);
+            const totalScore = validSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0);
+            const avgScore = validSessions.length > 0 ? totalScore / validSessions.length : 0;
+            const maxScore = validSessions.length > 0 ? Math.max(...validSessions.map(s => s.totalScore || 0)) : 0;
+
+            // Crea finestra di stampa
+            const printWindow = window.open('', '', 'width=800,height=600');
+            
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Report Archery - ${appState.loggedInArcher.nome}</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            padding: 20px;
+                            color: #000;
+                        }
+                        h1, h2 { color: #fdb927; }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 20px 0;
+                        }
+                        th, td {
+                            border: 1px solid #ddd;
+                            padding: 8px;
+                            text-align: left;
+                        }
+                        th {
+                            background-color: #fdb927;
+                            color: white;
+                        }
+                        .stats-box {
+                            background: #f5f5f5;
+                            border: 2px solid #fdb927;
+                            padding: 15px;
+                            margin: 20px 0;
+                            border-radius: 8px;
+                        }
+                        .stats-grid {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 15px;
+                        }
+                        .stat-item {
+                            text-align: center;
+                        }
+                        .stat-value {
+                            font-size: 24px;
+                            font-weight: bold;
+                            color: #fdb927;
+                        }
+                        @media print {
+                            button { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>🏹 Report Archery - ${appState.loggedInArcher.nome}</h1>
+                    <p><strong>Data Report:</strong> ${formatDate(new Date().toISOString().split('T')[0])}</p>
+                    <p><strong>Periodo:</strong> ${period === 'all' ? 'Tutte le sessioni' : 
+                        period === 'month' ? 'Ultimo mese' :
+                        period === '3months' ? 'Ultimi 3 mesi' :
+                        period === '6months' ? 'Ultimi 6 mesi' : 'Ultimo anno'}</p>
+
+                    <div class="stats-box">
+                        <h2>📊 Statistiche Riepilogo</h2>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">${filteredSessions.length}</div>
+                                <div>Sessioni Totali</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${avgScore.toFixed(1)}</div>
+                                <div>Media Punteggio</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${maxScore}</div>
+                                <div>Record Personale</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2>📋 Dettaglio Sessioni</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Distanza</th>
+                                <th>Targa</th>
+                                <th>Punteggio</th>
+                                <th>T1</th>
+                                <th>T2</th>
+                                <th>Luogo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filteredSessions.map(s => `
+                                <tr>
+                                    <td>${formatDate(s.data)}</td>
+                                    <td>${s.type}${s.trainingWithoutScore ? ' 🎓' : s.quickScore ? ' ⚡' : ''}</td>
+                                    <td>${s.distanza || '-'}</td>
+                                    <td>${s.tipoTarga || '-'}</td>
+                                    <td><strong>${s.trainingWithoutScore ? '-' : s.totalScore || 0}</strong></td>
+                                    <td>${s.trainingWithoutScore ? '-' : s.turn1Score || 0}</td>
+                                    <td>${s.trainingWithoutScore ? '-' : s.turn2Score || 0}</td>
+                                    <td>${s.luogo}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 30px; text-align: center;">
+                        <button onclick="window.print()" style="padding: 10px 20px; background: #fdb927; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                            🖨️ Stampa Report
+                        </button>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+        };
+
+        window.shareSession = () => {
+            const sessionId = document.getElementById('share-session-select').value;
+
+            if (!sessionId) {
+                showModal("Errore", "Seleziona una sessione da condividere.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            const session = appState.sessionData.find(s => String(s.id) === String(sessionId));
+
+            if (!session) {
+                showModal("Errore", "Sessione non trovata.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            // Crea canvas per l'immagine
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 600;
+            const ctx = canvas.getContext('2d');
+
+            // Sfondo
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Titolo
+            ctx.fillStyle = '#fdb927';
+            ctx.font = 'bold 40px Inter, Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🏹 Archery Tracker', canvas.width / 2, 60);
+
+            // Nome arciere
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 28px Inter, Arial';
+            ctx.fillText(appState.loggedInArcher.nome, canvas.width / 2, 110);
+
+            // Tipo e data
+            ctx.font = '24px Inter, Arial';
+            ctx.fillStyle = '#fdb927';
+            ctx.fillText(`${session.type} - ${formatDate(session.data)}`, canvas.width / 2, 160);
+
+            // Punteggio principale
+            if (!session.trainingWithoutScore) {
+                ctx.font = 'bold 80px Inter, Arial';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(session.totalScore, canvas.width / 2, 260);
+
+                ctx.font = '20px Inter, Arial';
+                ctx.fillStyle = '#fdb927';
+                ctx.fillText('Punteggio Totale', canvas.width / 2, 290);
+            } else {
+                ctx.font = 'bold 32px Inter, Arial';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText('Allenamento Tecnico', canvas.width / 2, 240);
+            }
+
+            // Dettagli
+            ctx.textAlign = 'left';
+            ctx.font = '20px Inter, Arial';
+            ctx.fillStyle = '#ffffff';
+            
+            let yPos = 350;
+            const leftX = 100;
+            const rightX = 450;
+
+            if (!session.trainingWithoutScore) {
+                ctx.fillText(`📏 ${session.distanza}`, leftX, yPos);
+                ctx.fillText(`🎯 ${session.tipoTarga}`, rightX, yPos);
+                yPos += 40;
+
+                if (!session.quickScore) {
+                    ctx.fillText(`X: ${session.totalX || 0}`, leftX, yPos);
+                    ctx.fillText(`10: ${session.totalTen || 0}`, rightX, yPos);
+                    yPos += 40;
+
+                    ctx.fillText(`Media: ${session.totalAverage ? session.totalAverage.toFixed(2) : 0}`, leftX, yPos);
+                }
+            }
+
+            ctx.fillText(`📍 ${session.luogo}`, leftX, yPos + 40);
+            ctx.fillText(`${session.tipoLuogo}`, rightX, yPos + 40);
+
+            // Footer
+            ctx.textAlign = 'center';
+            ctx.font = '16px Inter, Arial';
+            ctx.fillStyle = '#666666';
+            ctx.fillText('Generato da Archery Tracker', canvas.width / 2, canvas.height - 30);
+
+            // Converti in immagine e scarica
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `archery_session_${formatDate(session.data)}.png`;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                showModal("Successo", "Immagine creata e scaricata! Ora puoi condividerla sui social o via messaggio.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            });
+        };
+        // FINE PARTE4I
+// PARTE4J - Calendario Sessioni
+        function renderCalendar() {
+            if (!appState.loggedInArcher) {
+                window.setView('login');
+                return;
+            }
+
+            fetchSessions();
+
+            setTimeout(() => {
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+
+                const html = `
+                    <h2 class="text-3xl font-bold mb-6 text-white">📅 Calendario Sessioni</h2>
+
+                    <!-- Controlli Calendario -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <div class="flex justify-between items-center">
+                            <button class="btn-primary p-2 rounded-lg" onclick="window.changeCalendarMonth(-1)">
+                                ◀ Precedente
+                            </button>
+                            <div class="text-center">
+                                <h3 class="text-2xl font-bold text-white" id="calendar-month-year"></h3>
+                            </div>
+                            <button class="btn-primary p-2 rounded-lg" onclick="window.changeCalendarMonth(1)">
+                                Successivo ▶
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Legenda -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h4 class="text-sm font-bold mb-2 text-white">Legenda:</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-orange-500 rounded mr-2"></div>
+                                <span class="text-white">Gara</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                                <span class="text-white">Allenamento</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-purple-500 rounded mr-2"></div>
+                                <span class="text-white">Allenamento Tecnico</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 bg-green-500 rounded mr-2"></div>
+                                <span class="text-white">Oggi</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calendario -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6" id="calendar-grid">
+                        <!-- Il calendario verrà inserito qui -->
+                    </div>
+
+                    <!-- Riepilogo Sessioni del Mese -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6" id="month-summary">
+                        <!-- Il riepilogo verrà inserito qui -->
+                    </div>
+
+                    <!-- Statistiche Mensili -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6" id="month-stats">
+                        <!-- Le statistiche verranno inserite qui -->
+                    </div>
+
+                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                `;
+
+                document.getElementById('content-view').innerHTML = html;
+
+                // Inizializza stato calendario
+                window.calendarState = {
+                    currentMonth: currentMonth,
+                    currentYear: currentYear
+                };
+
+                renderCalendarGrid();
+            }, 300);
+        }
+
+        window.changeCalendarMonth = (delta) => {
+            window.calendarState.currentMonth += delta;
+
+            if (window.calendarState.currentMonth > 11) {
+                window.calendarState.currentMonth = 0;
+                window.calendarState.currentYear++;
+            } else if (window.calendarState.currentMonth < 0) {
+                window.calendarState.currentMonth = 11;
+                window.calendarState.currentYear--;
+            }
+
+            renderCalendarGrid();
+        };
+
+        function renderCalendarGrid() {
+            const { currentMonth, currentYear } = window.calendarState;
+
+            // Nome mese
+            const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                              'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+            
+            document.getElementById('calendar-month-year').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+            // Calcola giorni del mese
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay(); // 0 = Domenica
+
+            // Filtra sessioni del mese
+            const monthSessions = appState.sessionData.filter(session => {
+                const sessionDate = new Date(session.data);
+                return sessionDate.getMonth() === currentMonth && 
+                       sessionDate.getFullYear() === currentYear;
+            });
+
+            // Crea mappa sessioni per giorno
+            const sessionsByDay = {};
+            monthSessions.forEach(session => {
+                const day = new Date(session.data).getDate();
+                if (!sessionsByDay[day]) {
+                    sessionsByDay[day] = [];
+                }
+                sessionsByDay[day].push(session);
+            });
+
+            // Costruisci griglia calendario
+            let calendarHTML = `
+                <div class="grid grid-cols-7 gap-1 mb-2">
+                    ${['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'].map(day => 
+                        `<div class="text-center font-bold text-primary-orange text-sm p-2">${day}</div>`
+                    ).join('')}
+                </div>
+                <div class="grid grid-cols-7 gap-1">
+            `;
+
+            // Celle vuote prima del primo giorno
+            for (let i = 0; i < startingDayOfWeek; i++) {
+                calendarHTML += `<div class="bg-gray-800 rounded p-2 h-20"></div>`;
+            }
+
+            // Giorni del mese
+            const today = new Date();
+            const isCurrentMonth = today.getMonth() === currentMonth && today.getFullYear() === currentYear;
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const isToday = isCurrentMonth && today.getDate() === day;
+                const sessions = sessionsByDay[day] || [];
+                
+                let cellClass = 'bg-gray-800 rounded p-2 h-20 relative';
+                if (isToday) {
+                    cellClass += ' border-2 border-green-500';
+                }
+
+                let sessionIndicators = '';
+                if (sessions.length > 0) {
+                    // Mostra fino a 3 indicatori
+                    sessionIndicators = sessions.slice(0, 3).map(s => {
+                        let color = 'bg-blue-500'; // Default allenamento
+                        if (s.type === 'Gara') color = 'bg-orange-500';
+                        if (s.trainingWithoutScore) color = 'bg-purple-500';
+                        
+                        return `<div class="${color} h-1 w-full rounded mb-1" title="${s.type} - ${s.totalScore || 'N/A'} pts"></div>`;
+                    }).join('');
+
+                    if (sessions.length > 3) {
+                        sessionIndicators += `<div class="text-xs text-primary-orange text-center">+${sessions.length - 3}</div>`;
+                    }
+                }
+
+                calendarHTML += `
+                    <div class="${cellClass} cursor-pointer hover:bg-gray-700 transition-all" 
+                         onclick="window.showDayDetails(${day})"
+                         title="${sessions.length > 0 ? `${sessions.length} sessione/i` : 'Nessuna sessione'}">
+                        <div class="text-white font-bold text-sm mb-1">${day}</div>
+                        ${sessionIndicators}
+                    </div>
+                `;
+            }
+
+            calendarHTML += `</div>`;
+
+            document.getElementById('calendar-grid').innerHTML = calendarHTML;
+
+            // Riepilogo sessioni
+            renderMonthSummary(monthSessions);
+
+            // Statistiche mensili
+            renderMonthStats(monthSessions);
+        }
+
+        window.showDayDetails = (day) => {
+            const { currentMonth, currentYear } = window.calendarState;
+            const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            const daySessions = appState.sessionData.filter(s => s.data === dateStr);
+
+            if (daySessions.length === 0) {
+                showModal(
+                    `📅 ${day} ${['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                              'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'][currentMonth]}`,
+                    "Nessuna sessione registrata in questo giorno.",
+                    [{ text: "Ok", handler: () => {} }]
+                );
+                return;
+            }
+
+            const modalContent = document.createElement('div');
+            modalContent.innerHTML = `
+                <div class="space-y-3">
+                    ${daySessions.map(session => `
+                        <div class="bg-gray-800 p-3 rounded-lg cursor-pointer hover:bg-gray-700"
+                             onclick="window.setView('detailedSummary', { sessionId: '${session.id}' }); window.closeModal();">
+                            <div class="font-bold text-white">${session.type}${session.trainingWithoutScore ? ' 🎓' : session.quickScore ? ' ⚡' : ''}</div>
+                            <div class="text-sm text-primary-orange">
+                                ${session.trainingWithoutScore ? 'Allenamento Tecnico' : `${session.totalScore} punti`} | 
+                                ${session.distanza || '-'} | ${session.tipoTarga || '-'}
+                            </div>
+                            <div class="text-xs text-gray-400 mt-1">${session.luogo} (${session.tipoLuogo})</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            showModal(
+                `📅 ${day} ${['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                          'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'][currentMonth]} - ${daySessions.length} Sessione/i`,
+                modalContent,
+                [{ text: "Chiudi", handler: () => {} }]
+            );
+        };
+
+        window.closeModal = closeModal;
+
+        function renderMonthSummary(sessions) {
+            if (sessions.length === 0) {
+                document.getElementById('month-summary').innerHTML = `
+                    <h4 class="text-lg font-bold mb-3 text-white">📋 Sessioni del Mese</h4>
+                    <p class="text-center text-gray-400">Nessuna sessione registrata in questo mese.</p>
+                `;
+                return;
+            }
+
+            const sortedSessions = [...sessions].sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            const html = `
+                <h4 class="text-lg font-bold mb-3 text-white">📋 Sessioni del Mese (${sessions.length})</h4>
+                <div class="space-y-2 max-h-64 overflow-y-auto">
+                    ${sortedSessions.map(session => {
+                        let bgColor = 'bg-gray-800';
+                        if (session.type === 'Gara') bgColor = 'bg-orange-900 bg-opacity-30';
+                        if (session.trainingWithoutScore) bgColor = 'bg-purple-900 bg-opacity-30';
+
+                        return `
+                            <div class="${bgColor} p-3 rounded-lg cursor-pointer hover:opacity-80"
+                                 onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="font-bold text-white">${formatDate(session.data)}</span>
+                                        <span class="text-sm text-primary-orange ml-2">${session.type}${session.trainingWithoutScore ? ' 🎓' : session.quickScore ? ' ⚡' : ''}</span>
+                                    </div>
+                                    <div class="font-bold text-white text-lg">
+                                        ${session.trainingWithoutScore ? '-' : session.totalScore}
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">
+                                    ${session.distanza || '-'} | ${session.tipoTarga || '-'} | ${session.luogo}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            document.getElementById('month-summary').innerHTML = html;
+        }
+
+        function renderMonthStats(sessions) {
+            const validSessions = sessions.filter(s => !s.trainingWithoutScore);
+
+            if (validSessions.length === 0) {
+                document.getElementById('month-stats').innerHTML = `
+                    <h4 class="text-lg font-bold mb-3 text-white">📊 Statistiche Mensili</h4>
+                    <p class="text-center text-gray-400">Nessuna sessione con punteggio in questo mese.</p>
+                `;
+                return;
+            }
+
+            const totalScore = validSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0);
+            const avgScore = totalScore / validSessions.length;
+            const maxScore = Math.max(...validSessions.map(s => s.totalScore || 0));
+            const bestSession = validSessions.find(s => s.totalScore === maxScore);
+
+            const allenamenti = sessions.filter(s => s.type === 'Allenamento').length;
+            const gare = sessions.filter(s => s.type === 'Gara').length;
+            const tecnici = sessions.filter(s => s.trainingWithoutScore).length;
+
+            const html = `
+                <h4 class="text-lg font-bold mb-3 text-white">📊 Statistiche Mensili</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="bg-gray-800 p-3 rounded-lg text-center">
+                        <div class="text-xs text-primary-orange mb-1">Sessioni Totali</div>
+                        <div class="text-2xl font-bold text-white">${sessions.length}</div>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded-lg text-center">
+                        <div class="text-xs text-primary-orange mb-1">Media Punteggio</div>
+                        <div class="text-2xl font-bold text-white">${avgScore.toFixed(1)}</div>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded-lg text-center">
+                        <div class="text-xs text-primary-orange mb-1">Miglior Punteggio</div>
+                        <div class="text-2xl font-bold text-green-400">${maxScore}</div>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded-lg text-center">
+                        <div class="text-xs text-primary-orange mb-1">A / G / T</div>
+                        <div class="text-xl font-bold text-white">${allenamenti} / ${gare} / ${tecnici}</div>
+                    </div>
+                </div>
+                ${bestSession ? `
+                    <div class="mt-4 bg-green-900 bg-opacity-30 p-3 rounded-lg border border-green-500">
+                        <p class="text-sm text-green-400 text-center">
+                            🏆 Miglior prestazione: ${maxScore} punti il ${formatDate(bestSession.data)}
+                        </p>
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('month-stats').innerHTML = html;
+        }
+        // FINE PARTE4J
         // Inizializza l'applicazione al caricamento dell'autenticazione
         window.setView('login');
     };
