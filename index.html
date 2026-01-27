@@ -4546,54 +4546,54 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         label: 'Deviazione Standard (ultime 5 sessioni)',
                         data: stdDevs,
                         backgroundColor: 'rgba(33, 150, 243, 0.3)',
-                        borderColor: 'rgb(33,150, 243)',
-borderWidth: 2,
-fill: true,
-tension: 0.4
-}]
-},
-options: {
-responsive: true,
-maintainAspectRatio: false,
-scales: {
-y: {
-beginAtZero: true,
-title: {
-display: true,
-text: 'Deviazione Standard (minore = più costante)',
-color: '#fdb927'
-},
-ticks: { color: '#fdb927' },
-grid: { color: 'rgba(74, 74, 74, 0.5)' }
-},
-x: {
-title: {
-display: true,
-text: 'Progressione Sessioni',
-color: '#fdb927'
-},
-ticks: { color: '#fdb927', maxRotation: 0 },
-grid: { color: 'rgba(74, 74, 74, 0.5)' }
-}
-},
-plugins: {
-legend: {
-labels: { color: '#fdb927' }
-},
-tooltip: {
-callbacks: {
-label: function(context) {
-const value = context.parsed.y;
-const quality = value < 10 ? '🟢 Ottima' : value < 20 ? '🟡 Buona' : '🔴 Variabile';
-return Consistenza: ${value.toFixed(2)} ${quality};
-}
-}
-}
-}
-}
-});
-}
-// FINE PARTE4H
+                        borderColor: 'rgb(33, 150, 243)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Deviazione Standard (minore = più costante)',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Progressione Sessioni',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927', maxRotation: 0 },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fdb927' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    const quality = value < 10 ? '🟢 Ottima' : value < 20 ? '🟡 Buona' : '🔴 Variabile';
+                                    return `Consistenza: ${value.toFixed(2)} ${quality}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        // FINE PARTE4H
 // PARTE4I - Export, Backup e Condivisione Dati
         function renderExportData() {
             if (!appState.loggedInArcher) {
