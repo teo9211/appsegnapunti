@@ -3895,23 +3895,67 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         </div>
                     </div>
 
-                    <!-- Grafico a Barre - Confronto Distanze -->
+                    <!-- Grafico a Barre - Confronto Distanze ALLENAMENTI -->
                     <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📊 Media Punteggi per Distanza</h3>
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏋️ Media Punteggi per Distanza - ALLENAMENTI</h3>
+                        <div class="mb-3">
+                            <label class="inline-flex items-center mr-4">
+                                <input type="radio" name="training-turns-distance" value="all" checked onchange="drawBarChartDistanceTraining()">
+                                <span class="ml-2 text-white text-sm">Tutti</span>
+                            </label>
+                            <label class="inline-flex items-center mr-4">
+                                <input type="radio" name="training-turns-distance" value="1" onchange="drawBarChartDistanceTraining()">
+                                <span class="ml-2 text-white text-sm">Solo 1 Turno</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="training-turns-distance" value="2" onchange="drawBarChartDistanceTraining()">
+                                <span class="ml-2 text-white text-sm">Solo 2 Turni</span>
+                            </label>
+                        </div>
                         <div style="height: 300px;">
-                            <canvas id="barChartDistance"></canvas>
+                            <canvas id="barChartDistanceTraining"></canvas>
                         </div>
                     </div>
 
-                    <!-- Grafico a Barre - Confronto Targhe -->
+                    <!-- Grafico a Barre - Confronto Distanze GARE -->
                     <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🎯 Media Punteggi per Tipo Targa</h3>
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏆 Media Punteggi per Distanza - GARE</h3>
                         <div style="height: 300px;">
-                            <canvas id="barChartTarget"></canvas>
+                            <canvas id="barChartDistanceRace"></canvas>
                         </div>
                     </div>
 
-                    <!-- Heatmap Giorni/Orari -->
+                    <!-- Grafico a Barre - Confronto Targhe ALLENAMENTI -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏋️ Media Punteggi per Tipo Targa - ALLENAMENTI</h3>
+                        <div class="mb-3">
+                            <label class="inline-flex items-center mr-4">
+                                <input type="radio" name="training-turns-target" value="all" checked onchange="drawBarChartTargetTraining()">
+                                <span class="ml-2 text-white text-sm">Tutti</span>
+                            </label>
+                            <label class="inline-flex items-center mr-4">
+                                <input type="radio" name="training-turns-target" value="1" onchange="drawBarChartTargetTraining()">
+                                <span class="ml-2 text-white text-sm">Solo 1 Turno</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="training-turns-target" value="2" onchange="drawBarChartTargetTraining()">
+                                <span class="ml-2 text-white text-sm">Solo 2 Turni</span>
+                            </label>
+                        </div>
+                        <div style="height: 300px;">
+                            <canvas id="barChartTargetTraining"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Grafico a Barre - Confronto Targhe GARE -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏆 Media Punteggi per Tipo Targa - GARE</h3>
+                        <div style="height: 300px;">
+                            <canvas id="barChartTargetRace"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Heatmap Giorni -->
                     <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
                         <h3 class="text-xl font-bold mb-4 text-primary-orange">🗓️ Heatmap Prestazioni: Giorni della Settimana</h3>
                         <div id="heatmapDays"></div>
@@ -3926,6 +3970,10 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     <!-- Grafico Consistenza -->
                     <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
                         <h3 class="text-xl font-bold mb-4 text-primary-orange">📉 Consistenza (Deviazione Standard)</h3>
+                        <p class="text-sm text-gray-400 mb-3">
+                            La deviazione standard misura quanto variano i tuoi punteggi: 
+                            🟢 < 15 (molto costante) | 🟡 15-25 (buono) | 🔴 > 25 (variabile)
+                        </p>
                         <div style="height: 300px;">
                             <canvas id="consistencyChart"></canvas>
                         </div>
@@ -3939,8 +3987,10 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 document.getElementById('content-view').innerHTML = html;
 
                 drawPieChart();
-                drawBarChartDistance();
-                drawBarChartTarget();
+                drawBarChartDistanceTraining();
+                drawBarChartDistanceRace();
+                drawBarChartTargetTraining();
+                drawBarChartTargetRace();
                 drawHeatmapDays();
                 drawHeatmapHours();
                 drawConsistencyChart();
@@ -4030,35 +4080,59 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             });
         }
 
-        function drawBarChartDistance() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+        // Variabile globale per tenere traccia dei chart instances
+        window.chartInstances = window.chartInstances || {};
+
+        function drawBarChartDistanceTraining() {
+            const turnFilter = document.querySelector('input[name="training-turns-distance"]:checked')?.value || 'all';
+            
+            let trainingSessions = appState.sessionData.filter(s => 
+                !s.trainingWithoutScore && s.type === 'Allenamento'
+            );
+
+            // Applica filtro turni
+            if (turnFilter === '1') {
+                trainingSessions = trainingSessions.filter(s => !s.turn2Score || s.turn2Score === 0);
+            } else if (turnFilter === '2') {
+                trainingSessions = trainingSessions.filter(s => s.turn2Score && s.turn2Score > 0);
+            }
 
             const byDistance = {};
             DISTANZA_OPTIONS.forEach(dist => {
-                const sessions = validSessions.filter(s => s.distanza === dist);
+                const sessions = trainingSessions.filter(s => s.distanza === dist);
                 if (sessions.length > 0) {
-                    byDistance[dist] = sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length;
+                    byDistance[dist] = {
+                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                        count: sessions.length
+                    };
                 }
             });
 
+            const canvas = document.getElementById('barChartDistanceTraining');
+            
             if (Object.keys(byDistance).length === 0) {
-                document.getElementById('barChartDistance').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile</p>';
+                canvas.parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile per il filtro selezionato</p>';
                 return;
             }
 
             const labels = Object.keys(byDistance);
-            const data = Object.values(byDistance);
+            const data = Object.values(byDistance).map(d => d.avg);
 
-            const ctx = document.getElementById('barChartDistance').getContext('2d');
-            new Chart(ctx, {
+            // Distruggi chart precedente se exists
+            if (window.chartInstances.barChartDistanceTraining) {
+                window.chartInstances.barChartDistanceTraining.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+            window.chartInstances.barChartDistanceTraining = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Media Punteggio',
+                        label: 'Media Punteggio Allenamenti',
                         data: data,
-                        backgroundColor: 'rgba(253, 185, 39, 0.7)',
-                        borderColor: 'rgb(253, 185, 39)',
+                        backgroundColor: 'rgba(33, 150, 243, 0.7)',
+                        borderColor: 'rgb(33, 150, 243)',
                         borderWidth: 2
                     }]
                 },
@@ -4088,7 +4162,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `Media: ${context.parsed.y.toFixed(1)} punti`;
+                                    const dist = context.label;
+                                    const count = byDistance[dist].count;
+                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
                                 }
                             }
                         }
@@ -4097,32 +4173,132 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             });
         }
 
-        function drawBarChartTarget() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+        function drawBarChartDistanceRace() {
+            const raceSessions = appState.sessionData.filter(s => 
+                !s.trainingWithoutScore && s.type === 'Gara'
+            );
 
-            const byTarget = {};
-            TIPO_TARGA_OPTIONS.forEach(target => {
-                const sessions = validSessions.filter(s => s.tipoTarga === target);
+            const byDistance = {};
+            DISTANZA_OPTIONS.forEach(dist => {
+                const sessions = raceSessions.filter(s => s.distanza === dist);
                 if (sessions.length > 0) {
-                    byTarget[target] = sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length;
+                    byDistance[dist] = {
+                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                        count: sessions.length
+                    };
                 }
             });
 
-            if (Object.keys(byTarget).length === 0) {
-                document.getElementById('barChartTarget').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile</p>';
+            const canvas = document.getElementById('barChartDistanceRace');
+
+            if (Object.keys(byDistance).length === 0) {
+                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessuna gara registrata</p></div>';
                 return;
             }
 
-            const labels = Object.keys(byTarget);
-            const data = Object.values(byTarget);
+            const labels = Object.keys(byDistance);
+            const data = Object.values(byDistance).map(d => d.avg);
 
-            const ctx = document.getElementById('barChartTarget').getContext('2d');
-            new Chart(ctx, {
+            if (window.chartInstances.barChartDistanceRace) {
+                window.chartInstances.barChartDistanceRace.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+            window.chartInstances.barChartDistanceRace = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Media Punteggio',
+                        label: 'Media Punteggio Gare',
+                        data: data,
+                        backgroundColor: 'rgba(255, 152, 0, 0.7)',
+                        borderColor: 'rgb(255, 152, 0)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Punteggio Medio',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        },
+                        x: {
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fdb927' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dist = context.label;
+                                    const count = byDistance[dist].count;
+                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} gare)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawBarChartTargetTraining() {
+            const turnFilter = document.querySelector('input[name="training-turns-target"]:checked')?.value || 'all';
+            
+            let trainingSessions = appState.sessionData.filter(s => 
+                !s.trainingWithoutScore && s.type === 'Allenamento'
+            );
+
+            // Applica filtro turni
+            if (turnFilter === '1') {
+                trainingSessions = trainingSessions.filter(s => !s.turn2Score || s.turn2Score === 0);
+            } else if (turnFilter === '2') {
+                trainingSessions = trainingSessions.filter(s => s.turn2Score && s.turn2Score > 0);
+            }
+
+            const byTarget = {};
+            TIPO_TARGA_OPTIONS.forEach(target => {
+                const sessions = trainingSessions.filter(s => s.tipoTarga === target);
+                if (sessions.length > 0) {
+                    byTarget[target] = {
+                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                        count: sessions.length
+                    };
+                }
+            });
+
+            const canvas = document.getElementById('barChartTargetTraining');
+
+            if (Object.keys(byTarget).length === 0) {
+                canvas.parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile per il filtro selezionato</p>';
+                return;
+            }
+
+            const labels = Object.keys(byTarget);
+            const data = Object.values(byTarget).map(d => d.avg);
+
+            if (window.chartInstances.barChartTargetTraining) {
+                window.chartInstances.barChartTargetTraining.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+            window.chartInstances.barChartTargetTraining = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Media Punteggio Allenamenti',
                         data: data,
                         backgroundColor: 'rgba(76, 175, 80, 0.7)',
                         borderColor: 'rgb(76, 175, 80)',
@@ -4155,7 +4331,89 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `Media: ${context.parsed.y.toFixed(1)} punti`;
+                                    const target = context.label;
+                                    const count = byTarget[target].count;
+                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawBarChartTargetRace() {
+            const raceSessions = appState.sessionData.filter(s => 
+                !s.trainingWithoutScore && s.type === 'Gara'
+            );
+
+            const byTarget = {};
+            TIPO_TARGA_OPTIONS.forEach(target => {
+                const sessions = raceSessions.filter(s => s.tipoTarga === target);
+                if (sessions.length > 0) {
+                    byTarget[target] = {
+                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                        count: sessions.length
+                    };
+                }
+            });
+
+            const canvas = document.getElementById('barChartTargetRace');
+
+            if (Object.keys(byTarget).length === 0) {
+                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessuna gara registrata</p></div>';
+                return;
+            }
+
+            const labels = Object.keys(byTarget);
+            const data = Object.values(byTarget).map(d => d.avg);
+
+            if (window.chartInstances.barChartTargetRace) {
+                window.chartInstances.barChartTargetRace.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+            window.chartInstances.barChartTargetRace = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Media Punteggio Gare',
+                        data: data,
+                        backgroundColor: 'rgba(156, 39, 176, 0.7)',
+                        borderColor: 'rgb(156, 39, 176)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Punteggio Medio',
+                                color: '#fdb927'
+                            },
+                            ticks: { color: '#fdb927' },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        },
+                        x: {
+                            ticks: { color: '#fdb927', maxRotation: 45, minRotation: 45 },
+                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fdb927' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const target = context.label;
+                                    const count = byTarget[target].count;
+                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} gare)`;
                                 }
                             }
                         }
@@ -4275,7 +4533,12 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             }
 
             const ctx = document.getElementById('consistencyChart').getContext('2d');
-            new Chart(ctx, {
+
+            if (window.chartInstances.consistencyChart) {
+                window.chartInstances.consistencyChart.destroy();
+            }
+
+            window.chartInstances.consistencyChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -4283,54 +4546,54 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         label: 'Deviazione Standard (ultime 5 sessioni)',
                         data: stdDevs,
                         backgroundColor: 'rgba(33, 150, 243, 0.3)',
-                        borderColor: 'rgb(33, 150, 243)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Deviazione Standard (minore = più costante)',
-                                color: '#fdb927'
-                            },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Progressione Sessioni',
-                                color: '#fdb927'
-                            },
-                            ticks: { color: '#fdb927', maxRotation: 0 },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fdb927' }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.parsed.y;
-                                    const quality = value < 10 ? '🟢 Ottima' : value < 20 ? '🟡 Buona' : '🔴 Variabile';
-                                    return `Consistenza: ${value.toFixed(2)} ${quality}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        // FINE PARTE4H
+                        borderColor: 'rgb(33,150, 243)',
+borderWidth: 2,
+fill: true,
+tension: 0.4
+}]
+},
+options: {
+responsive: true,
+maintainAspectRatio: false,
+scales: {
+y: {
+beginAtZero: true,
+title: {
+display: true,
+text: 'Deviazione Standard (minore = più costante)',
+color: '#fdb927'
+},
+ticks: { color: '#fdb927' },
+grid: { color: 'rgba(74, 74, 74, 0.5)' }
+},
+x: {
+title: {
+display: true,
+text: 'Progressione Sessioni',
+color: '#fdb927'
+},
+ticks: { color: '#fdb927', maxRotation: 0 },
+grid: { color: 'rgba(74, 74, 74, 0.5)' }
+}
+},
+plugins: {
+legend: {
+labels: { color: '#fdb927' }
+},
+tooltip: {
+callbacks: {
+label: function(context) {
+const value = context.parsed.y;
+const quality = value < 10 ? '🟢 Ottima' : value < 20 ? '🟡 Buona' : '🔴 Variabile';
+return Consistenza: ${value.toFixed(2)} ${quality};
+}
+}
+}
+}
+}
+});
+}
+// FINE PARTE4H
 // PARTE4I - Export, Backup e Condivisione Dati
         function renderExportData() {
             if (!appState.loggedInArcher) {
