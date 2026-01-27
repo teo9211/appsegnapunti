@@ -931,11 +931,11 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         </div>
                     `).join('')}
 
-                    <div id="conditionalFields" style="display: ${isTrainingWithoutScore ? 'none' : 'block'}">
+                    <div id="conditionalFields" style="display: ${type === 'Allenamento' && isTrainingWithoutScore ? 'none' : 'block'}">
                         ${conditionalFields.map(field => `
                             <div>
                                 <label for="${field.id}" class="block text-sm font-medium mb-1">${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}</label>
-                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required && !isTrainingWithoutScore ? 'required' : ''}>
+                                <select id="${field.id}" name="${field.id}" class="input-style" ${field.required && !(type === 'Allenamento' && isTrainingWithoutScore) ? 'required' : ''}>
                                     <option value="" disabled ${!field.value ? 'selected' : ''}>Seleziona ${field.label}</option>
                                     ${field.options.map(opt => `<option value="${opt}" ${field.value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                                 </select>
@@ -950,9 +950,9 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
 
                     <div class="mt-8 flex flex-col space-y-3">
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg" id="submitBtn">
-                            ${isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
+                            ${type === 'Allenamento' && isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
                         </button>
-                        ${!isTrainingWithoutScore ? `
+                        ${(type === 'Allenamento' && !isTrainingWithoutScore) || type === 'Gara' ? `
                             <button type="button" class="btn-primary w-full p-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border-0" onclick="window.startQuickScore()">
                                 ⚡ Quick Score (Inserimento Rapido)
                             </button>
