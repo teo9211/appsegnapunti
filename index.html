@@ -4089,18 +4089,39 @@ function drawBarChartDistanceTraining() {
         !s.trainingWithoutScore && s.type === 'Allenamento'
     );
 
-    // Applica filtro turni - VERSIONE DEFINITIVA
+    // Applica filtro turni - CON CONTROLLO VOLÉE COMPLETE
     if (turnFilter === '1') {
-        // Solo 1 turno: turn2 deve essere null O turn2Score deve essere 0
+        // Solo 1 turno: turn2 deve essere null O vuoto
         trainingSessions = trainingSessions.filter(s => {
             return s.turn2 === null || s.turn2 === undefined || 
-                   (s.turn2Score === 0 && (s.turn2 === null || !s.turn2?.summary || s.turn2.summary.score === 0));
+                   !s.turn2.summary || s.turn2.summary.score === 0;
         });
     } else if (turnFilter === '2') {
-        // Solo 2 turni: turn2 NON deve essere null E turn2Score > 0
+        // Solo 2 turni COMPLETI: verifica che ci siano tutte le volée
         trainingSessions = trainingSessions.filter(s => {
-            return s.turn2 !== null && s.turn2 !== undefined && 
-                   s.turn2.summary && s.turn2.summary.score > 0;
+            // Deve esistere turn2 con dati validi
+            if (!s.turn2 || !s.turn2.summary || !s.turn2.summary.score || s.turn2.summary.score === 0) {
+                return false;
+            }
+            
+            // Verifica formato e volée complete
+            const formato = s.formatoGara;
+            let requiredVolleys = 0;
+            
+            if (formato === '30 frecce (3x10)') {
+                requiredVolleys = 10; // 10 volée per turno
+            } else if (formato === '36 frecce (6x6)') {
+                requiredVolleys = 6; // 6 volée per turno
+            } else if (formato === '72 frecce (6x12)') {
+                requiredVolleys = 12; // 12 volée (ma questo è 1 turno solo)
+                return false; // Escludi 72 frecce dal filtro "2 turni"
+            }
+            
+            // Controlla se entrambi i turni hanno tutte le volée
+            const turn1Volleys = s.turn1?.summary?.volleys?.length || 0;
+            const turn2Volleys = s.turn2?.summary?.volleys?.length || 0;
+            
+            return turn1Volleys === requiredVolleys && turn2Volleys === requiredVolleys;
         });
     }
 
@@ -4189,18 +4210,39 @@ function drawBarChartTargetTraining() {
         !s.trainingWithoutScore && s.type === 'Allenamento'
     );
 
-    // Applica filtro turni - VERSIONE DEFINITIVA
+    // Applica filtro turni - CON CONTROLLO VOLÉE COMPLETE
     if (turnFilter === '1') {
-        // Solo 1 turno: turn2 deve essere null O turn2Score deve essere 0
+        // Solo 1 turno: turn2 deve essere null O vuoto
         trainingSessions = trainingSessions.filter(s => {
             return s.turn2 === null || s.turn2 === undefined || 
-                   (s.turn2Score === 0 && (s.turn2 === null || !s.turn2?.summary || s.turn2.summary.score === 0));
+                   !s.turn2.summary || s.turn2.summary.score === 0;
         });
     } else if (turnFilter === '2') {
-        // Solo 2 turni: turn2 NON deve essere null E turn2Score > 0
+        // Solo 2 turni COMPLETI: verifica che ci siano tutte le volée
         trainingSessions = trainingSessions.filter(s => {
-            return s.turn2 !== null && s.turn2 !== undefined && 
-                   s.turn2.summary && s.turn2.summary.score > 0;
+            // Deve esistere turn2 con dati validi
+            if (!s.turn2 || !s.turn2.summary || !s.turn2.summary.score || s.turn2.summary.score === 0) {
+                return false;
+            }
+            
+            // Verifica formato e volée complete
+            const formato = s.formatoGara;
+            let requiredVolleys = 0;
+            
+            if (formato === '30 frecce (3x10)') {
+                requiredVolleys = 10; // 10 volée per turno
+            } else if (formato === '36 frecce (6x6)') {
+                requiredVolleys = 6; // 6 volée per turno
+            } else if (formato === '72 frecce (6x12)') {
+                requiredVolleys = 12; // 12 volée (ma questo è 1 turno solo)
+                return false; // Escludi 72 frecce dal filtro "2 turni"
+            }
+            
+            // Controlla se entrambi i turni hanno tutte le volée
+            const turn1Volleys = s.turn1?.summary?.volleys?.length || 0;
+            const turn2Volleys = s.turn2?.summary?.volleys?.length || 0;
+            
+            return turn1Volleys === requiredVolleys && turn2Volleys === requiredVolleys;
         });
     }
 
