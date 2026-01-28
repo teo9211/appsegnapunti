@@ -4082,99 +4082,204 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
         // Variabile globale per tenere traccia dei chart instances
         window.chartInstances = window.chartInstances || {};
 
-        function drawBarChartDistanceTraining() {
-            const turnFilter = document.querySelector('input[name="training-turns-distance"]:checked')?.value || 'all';
-            
-            let trainingSessions = appState.sessionData.filter(s => 
-                !s.trainingWithoutScore && s.type === 'Allenamento'
-            );
+function drawBarChartDistanceTraining() {
+    const turnFilter = document.querySelector('input[name="training-turns-distance"]:checked')?.value || 'all';
+    
+    let trainingSessions = appState.sessionData.filter(s => 
+        !s.trainingWithoutScore && s.type === 'Allenamento'
+    );
 
-            // Applica filtro turni - CORRETTO
-            if (turnFilter === '1') {
-                trainingSessions = trainingSessions.filter(s => {
-                    return !s.turn2Score || s.turn2Score === 0 || s.turn2Score === null || s.turn2Score === undefined;
-                });
-            } else if (turnFilter === '2') {
-                trainingSessions = trainingSessions.filter(s => {
-                    return s.turn2Score && s.turn2Score > 0;
-                });
-            }
+    // Applica filtro turni - VERSIONE DEFINITIVA
+    if (turnFilter === '1') {
+        // Solo 1 turno: turn2 deve essere null O turn2Score deve essere 0
+        trainingSessions = trainingSessions.filter(s => {
+            return s.turn2 === null || s.turn2 === undefined || 
+                   (s.turn2Score === 0 && (s.turn2 === null || !s.turn2?.summary || s.turn2.summary.score === 0));
+        });
+    } else if (turnFilter === '2') {
+        // Solo 2 turni: turn2 NON deve essere null E turn2Score > 0
+        trainingSessions = trainingSessions.filter(s => {
+            return s.turn2 !== null && s.turn2 !== undefined && 
+                   s.turn2.summary && s.turn2.summary.score > 0;
+        });
+    }
 
-            const byDistance = {};
-            DISTANZA_OPTIONS.forEach(dist => {
-                const sessions = trainingSessions.filter(s => s.distanza === dist);
-                if (sessions.length > 0) {
-                    byDistance[dist] = {
-                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                        count: sessions.length
-                    };
-                }
-            });
+    console.log(`Filtro turni: ${turnFilter}, Sessioni trovate: ${trainingSessions.length}`);
 
-            const canvas = document.getElementById('barChartDistanceTraining');
-            
-            if (Object.keys(byDistance).length === 0) {
-                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
-                return;
-            }
+    const byDistance = {};
+    DISTANZA_OPTIONS.forEach(dist => {
+        const sessions = trainingSessions.filter(s => s.distanza === dist);
+        if (sessions.length > 0) {
+            byDistance[dist] = {
+                avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                count: sessions.length
+            };
+        }
+    });
 
-            const labels = Object.keys(byDistance);
-            const data = Object.values(byDistance).map(d => d.avg);
+    const canvas = document.getElementById('barChartDistanceTraining');
+    
+    if (Object.keys(byDistance).length === 0) {
+        canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
+        return;
+    }
 
-            // Distruggi chart precedente se exists
-            if (window.chartInstances.barChartDistanceTraining) {
-                window.chartInstances.barChartDistanceTraining.destroy();
-            }
+    const labels = Object.keys(byDistance);
+    const data = Object.values(byDistance).map(d => d.avg);
 
-            const ctx = canvas.getContext('2d');
-            window.chartInstances.barChartDistanceTraining = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Media Punteggio Allenamenti',
-                        data: data,
-                        backgroundColor: 'rgba(33, 150, 243, 0.7)',
-                        borderColor: 'rgb(33, 150, 243)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Punteggio Medio',
-                                color: '#fdb927'
-                            },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        },
-                        x: {
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        }
+    // Distruggi chart precedente se exists
+    if (window.chartInstances.barChartDistanceTraining) {
+        window.chartInstances.barChartDistanceTraining.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    window.chartInstances.barChartDistanceTraining = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Media Punteggio Allenamenti',
+                data: data,
+                backgroundColor: 'rgba(33, 150, 243, 0.7)',
+                borderColor: 'rgb(33, 150, 243)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Punteggio Medio',
+                        color: '#fdb927'
                     },
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fdb927' }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const dist = context.label;
-                                    const count = byDistance[dist].count;
-                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
-                                }
-                            }
+                    ticks: { color: '#fdb927' },
+                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                },
+                x: {
+                    ticks: { color: '#fdb927' },
+                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#fdb927' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const dist = context.label;
+                            const count = byDistance[dist].count;
+                            return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
                         }
                     }
                 }
-            });
+            }
         }
+    });
+}
+
+function drawBarChartTargetTraining() {
+    const turnFilter = document.querySelector('input[name="training-turns-target"]:checked')?.value || 'all';
+    
+    let trainingSessions = appState.sessionData.filter(s => 
+        !s.trainingWithoutScore && s.type === 'Allenamento'
+    );
+
+    // Applica filtro turni - VERSIONE DEFINITIVA
+    if (turnFilter === '1') {
+        // Solo 1 turno: turn2 deve essere null O turn2Score deve essere 0
+        trainingSessions = trainingSessions.filter(s => {
+            return s.turn2 === null || s.turn2 === undefined || 
+                   (s.turn2Score === 0 && (s.turn2 === null || !s.turn2?.summary || s.turn2.summary.score === 0));
+        });
+    } else if (turnFilter === '2') {
+        // Solo 2 turni: turn2 NON deve essere null E turn2Score > 0
+        trainingSessions = trainingSessions.filter(s => {
+            return s.turn2 !== null && s.turn2 !== undefined && 
+                   s.turn2.summary && s.turn2.summary.score > 0;
+        });
+    }
+
+    console.log(`Filtro turni: ${turnFilter}, Sessioni trovate: ${trainingSessions.length}`);
+
+    const byTarget = {};
+    TIPO_TARGA_OPTIONS.forEach(target => {
+        const sessions = trainingSessions.filter(s => s.tipoTarga === target);
+        if (sessions.length > 0) {
+            byTarget[target] = {
+                avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
+                count: sessions.length
+            };
+        }
+    });
+
+    const canvas = document.getElementById('barChartTargetTraining');
+
+    if (Object.keys(byTarget).length === 0) {
+        canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
+        return;
+    }
+
+    const labels = Object.keys(byTarget);
+    const data = Object.values(byTarget).map(d => d.avg);
+
+    if (window.chartInstances.barChartTargetTraining) {
+        window.chartInstances.barChartTargetTraining.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    window.chartInstances.barChartTargetTraining = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Media Punteggio Allenamenti',
+                data: data,
+                backgroundColor: 'rgba(76, 175, 80, 0.7)',
+                borderColor: 'rgb(76, 175, 80)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Punteggio Medio',
+                        color: '#fdb927'
+                    },
+                    ticks: { color: '#fdb927' },
+                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                },
+                x: {
+                    ticks: { color: '#fdb927', maxRotation: 45, minRotation: 45 },
+                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#fdb927' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const target = context.label;
+                            const count = byTarget[target].count;
+                            return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
 
         function drawBarChartDistanceRace() {
             const raceSessions = appState.sessionData.filter(s => 
