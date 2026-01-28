@@ -4089,18 +4089,26 @@ function drawBarChartDistanceTraining() {
         !s.trainingWithoutScore && s.type === 'Allenamento'
     );
 
-    // Applica filtro turni - CON CONTROLLO VOLÉE COMPLETE
+    // Applica filtro turni - VERSIONE CORRETTA FINALE
     if (turnFilter === '1') {
         // Solo 1 turno: turn2 deve essere null O vuoto
         trainingSessions = trainingSessions.filter(s => {
-            return s.turn2 === null || s.turn2 === undefined || 
-                   !s.turn2.summary || s.turn2.summary.score === 0;
+            const hasTurn2 = s.turn2 && 
+                            s.turn2 !== null && 
+                            s.turn2.summary && 
+                            s.turn2.summary.score > 0;
+            return !hasTurn2;
         });
     } else if (turnFilter === '2') {
         // Solo 2 turni COMPLETI: verifica che ci siano tutte le volée
         trainingSessions = trainingSessions.filter(s => {
             // Deve esistere turn2 con dati validi
-            if (!s.turn2 || !s.turn2.summary || !s.turn2.summary.score || s.turn2.summary.score === 0) {
+            const hasTurn2 = s.turn2 && 
+                            s.turn2 !== null && 
+                            s.turn2.summary && 
+                            s.turn2.summary.score > 0;
+            
+            if (!hasTurn2) {
                 return false;
             }
             
@@ -4113,19 +4121,27 @@ function drawBarChartDistanceTraining() {
             } else if (formato === '36 frecce (6x6)') {
                 requiredVolleys = 6; // 6 volée per turno
             } else if (formato === '72 frecce (6x12)') {
-                requiredVolleys = 12; // 12 volée (ma questo è 1 turno solo)
                 return false; // Escludi 72 frecce dal filtro "2 turni"
+            } else {
+                return false; // Formato sconosciuto
             }
             
-            // Controlla se entrambi i turni hanno tutte le volée
-            const turn1Volleys = s.turn1?.summary?.volleys?.length || 0;
-            const turn2Volleys = s.turn2?.summary?.volleys?.length || 0;
+            // Controlla numero volée per entrambi i turni
+            const turn1VolleysCount = Array.isArray(s.turn1?.summary?.volleys) ? 
+                                      s.turn1.summary.volleys.length : 0;
+            const turn2VolleysCount = Array.isArray(s.turn2?.summary?.volleys) ? 
+                                      s.turn2.summary.volleys.length : 0;
             
-            return turn1Volleys === requiredVolleys && turn2Volleys === requiredVolleys;
+            const isComplete = turn1VolleysCount === requiredVolleys && 
+                              turn2VolleysCount === requiredVolleys;
+            
+            console.log(`Sessione ${s.data}: T1=${turn1VolleysCount}, T2=${turn2VolleysCount}, Required=${requiredVolleys}, Complete=${isComplete}`);
+            
+            return isComplete;
         });
     }
 
-    console.log(`Filtro turni: ${turnFilter}, Sessioni trovate: ${trainingSessions.length}`);
+    console.log(`Filtro: ${turnFilter}, Trovate: ${trainingSessions.length} sessioni`);
 
     const byDistance = {};
     DISTANZA_OPTIONS.forEach(dist => {
@@ -4148,7 +4164,6 @@ function drawBarChartDistanceTraining() {
     const labels = Object.keys(byDistance);
     const data = Object.values(byDistance).map(d => d.avg);
 
-    // Distruggi chart precedente se exists
     if (window.chartInstances.barChartDistanceTraining) {
         window.chartInstances.barChartDistanceTraining.destroy();
     }
@@ -4210,18 +4225,26 @@ function drawBarChartTargetTraining() {
         !s.trainingWithoutScore && s.type === 'Allenamento'
     );
 
-    // Applica filtro turni - CON CONTROLLO VOLÉE COMPLETE
+    // Applica filtro turni - VERSIONE CORRETTA FINALE
     if (turnFilter === '1') {
         // Solo 1 turno: turn2 deve essere null O vuoto
         trainingSessions = trainingSessions.filter(s => {
-            return s.turn2 === null || s.turn2 === undefined || 
-                   !s.turn2.summary || s.turn2.summary.score === 0;
+            const hasTurn2 = s.turn2 && 
+                            s.turn2 !== null && 
+                            s.turn2.summary && 
+                            s.turn2.summary.score > 0;
+            return !hasTurn2;
         });
     } else if (turnFilter === '2') {
         // Solo 2 turni COMPLETI: verifica che ci siano tutte le volée
         trainingSessions = trainingSessions.filter(s => {
             // Deve esistere turn2 con dati validi
-            if (!s.turn2 || !s.turn2.summary || !s.turn2.summary.score || s.turn2.summary.score === 0) {
+            const hasTurn2 = s.turn2 && 
+                            s.turn2 !== null && 
+                            s.turn2.summary && 
+                            s.turn2.summary.score > 0;
+            
+            if (!hasTurn2) {
                 return false;
             }
             
@@ -4234,19 +4257,27 @@ function drawBarChartTargetTraining() {
             } else if (formato === '36 frecce (6x6)') {
                 requiredVolleys = 6; // 6 volée per turno
             } else if (formato === '72 frecce (6x12)') {
-                requiredVolleys = 12; // 12 volée (ma questo è 1 turno solo)
                 return false; // Escludi 72 frecce dal filtro "2 turni"
+            } else {
+                return false; // Formato sconosciuto
             }
             
-            // Controlla se entrambi i turni hanno tutte le volée
-            const turn1Volleys = s.turn1?.summary?.volleys?.length || 0;
-            const turn2Volleys = s.turn2?.summary?.volleys?.length || 0;
+            // Controlla numero volée per entrambi i turni
+            const turn1VolleysCount = Array.isArray(s.turn1?.summary?.volleys) ? 
+                                      s.turn1.summary.volleys.length : 0;
+            const turn2VolleysCount = Array.isArray(s.turn2?.summary?.volleys) ? 
+                                      s.turn2.summary.volleys.length : 0;
             
-            return turn1Volleys === requiredVolleys && turn2Volleys === requiredVolleys;
+            const isComplete = turn1VolleysCount === requiredVolleys && 
+                              turn2VolleysCount === requiredVolleys;
+            
+            console.log(`Sessione ${s.data}: T1=${turn1VolleysCount}, T2=${turn2VolleysCount}, Required=${requiredVolleys}, Complete=${isComplete}`);
+            
+            return isComplete;
         });
     }
 
-    console.log(`Filtro turni: ${turnFilter}, Sessioni trovate: ${trainingSessions.length}`);
+    console.log(`Filtro: ${turnFilter}, Trovate: ${trainingSessions.length} sessioni`);
 
     const byTarget = {};
     TIPO_TARGA_OPTIONS.forEach(target => {
