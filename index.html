@@ -3646,12 +3646,12 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                             <div class="text-xs text-primary-orange mb-1">Record Personale</div>
                             <div class="text-3xl font-bold text-green-400">${stats.general.maxScore}</div>
                         </div>
-                        <div class="bg-gray-800 p-4 rounded-lg text-center">
-                            <div class="text-xs text-primary-orange mb-1">Consistenza</div>
-                            <div class="text-xl font-bold ${stats.general.stdDev < 15 ? 'text-green-400' : stats.general.stdDev < 25 ? 'text-yellow-400' : 'text-red-400'}">
-                                ±${stats.general.stdDev.toFixed(1)}
-                            </div>
-                        </div>
+<div class="bg-gray-800 p-4 rounded-lg text-center">
+    <div class="text-xs text-primary-orange mb-1">Variazione punteggi rispetto media</div>
+    <div class="text-xl font-bold ${stats.general.stdDev < 15 ? 'text-green-400' : stats.general.stdDev < 25 ? 'text-yellow-400' : 'text-red-400'}">
+        ±${stats.general.stdDev.toFixed(1)}
+    </div>
+</div>
                     </div>
                     ${stats.general.bestSession ? `
                         <div class="bg-green-900 bg-opacity-30 p-3 rounded-lg mt-4 border border-green-500">
@@ -3967,12 +3967,11 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         <div id="heatmapHours"></div>
                     </div>
 
-                    <!-- Grafico Consistenza -->
+                    <!-- Grafico Andamento -->
                     <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📉 Consistenza (Deviazione Standard)</h3>
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📈 Grafico Andamento (vs Record)</h3>
                         <p class="text-sm text-gray-400 mb-3">
-                            La deviazione standard misura quanto variano i tuoi punteggi: 
-                            🟢 < 15 (molto costante) | 🟡 15-25 (buono) | 🔴 > 25 (variabile)
+                            Confronto ultime 5 sessioni di allenamento (2 turni) con il tuo record personale
                         </p>
                         <div style="height: 300px;">
                             <canvas id="consistencyChart"></canvas>
@@ -4090,11 +4089,15 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 !s.trainingWithoutScore && s.type === 'Allenamento'
             );
 
-            // Applica filtro turni
+            // Applica filtro turni - CORRETTO
             if (turnFilter === '1') {
-                trainingSessions = trainingSessions.filter(s => !s.turn2Score || s.turn2Score === 0);
+                trainingSessions = trainingSessions.filter(s => {
+                    return !s.turn2Score || s.turn2Score === 0 || s.turn2Score === null || s.turn2Score === undefined;
+                });
             } else if (turnFilter === '2') {
-                trainingSessions = trainingSessions.filter(s => s.turn2Score && s.turn2Score > 0);
+                trainingSessions = trainingSessions.filter(s => {
+                    return s.turn2Score && s.turn2Score > 0;
+                });
             }
 
             const byDistance = {};
@@ -4111,7 +4114,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             const canvas = document.getElementById('barChartDistanceTraining');
             
             if (Object.keys(byDistance).length === 0) {
-                canvas.parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile per il filtro selezionato</p>';
+                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
                 return;
             }
 
@@ -4260,11 +4263,15 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 !s.trainingWithoutScore && s.type === 'Allenamento'
             );
 
-            // Applica filtro turni
+            // Applica filtro turni - CORRETTO
             if (turnFilter === '1') {
-                trainingSessions = trainingSessions.filter(s => !s.turn2Score || s.turn2Score === 0);
+                trainingSessions = trainingSessions.filter(s => {
+                    return !s.turn2Score || s.turn2Score === 0 || s.turn2Score === null || s.turn2Score === undefined;
+                });
             } else if (turnFilter === '2') {
-                trainingSessions = trainingSessions.filter(s => s.turn2Score && s.turn2Score > 0);
+                trainingSessions = trainingSessions.filter(s => {
+                    return s.turn2Score && s.turn2Score > 0;
+                });
             }
 
             const byTarget = {};
@@ -4281,7 +4288,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             const canvas = document.getElementById('barChartTargetTraining');
 
             if (Object.keys(byTarget).length === 0) {
-                canvas.parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile per il filtro selezionato</p>';
+                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
                 return;
             }
 
@@ -4509,28 +4516,29 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
         }
 
         function drawConsistencyChart() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+            // Filtra solo allenamenti con 2 turni
+            const twoTurnTrainingSessions = appState.sessionData.filter(s => 
+                !s.trainingWithoutScore && 
+                s.type === 'Allenamento' && 
+                s.turn2Score && 
+                s.turn2Score > 0
+            );
 
-            if (validSessions.length < 5) {
-                document.getElementById('consistencyChart').parentElement.innerHTML = '<p class="text-center text-white">Servono almeno 5 sessioni per il grafico consistenza</p>';
+            if (twoTurnTrainingSessions.length < 5) {
+                document.getElementById('consistencyChart').parentElement.innerHTML = '<p class="text-center text-white">Servono almeno 5 allenamenti con 2 turni per il grafico andamento</p>';
                 return;
             }
 
-            // Calcola deviazione standard per finestre mobili di 5 sessioni
-            const windowSize = 5;
-            const labels = [];
-            const stdDevs = [];
+            // Trova il punteggio migliore di sempre
+            const allValidSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
+            const bestScore = Math.max(...allValidSessions.map(s => s.totalScore || 0));
 
-            for (let i = windowSize - 1; i < validSessions.length; i++) {
-                const window = validSessions.slice(i - windowSize + 1, i + 1);
-                const scores = window.map(s => s.totalScore || 0);
-                const avg = scores.reduce((a, b) => a + b, 0) / windowSize;
-                const variance = scores.reduce((sum, score) => sum + Math.pow(score - avg, 2), 0) / windowSize;
-                const stdDev = Math.sqrt(variance);
+            // Prendi le ultime 5 sessioni di allenamento a 2 turni
+            const last5Sessions = twoTurnTrainingSessions.slice(-5);
 
-                labels.push(`#${i + 1}`);
-                stdDevs.push(stdDev);
-            }
+            const labels = last5Sessions.map((s, index) => `Sess. ${twoTurnTrainingSessions.length - 4 + index}`);
+            const scores = last5Sessions.map(s => s.totalScore || 0);
+            const differences = scores.map(score => bestScore - score);
 
             const ctx = document.getElementById('consistencyChart').getContext('2d');
 
@@ -4539,18 +4547,37 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             }
 
             window.chartInstances.consistencyChart = new Chart(ctx, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Deviazione Standard (ultime 5 sessioni)',
-                        data: stdDevs,
-                        backgroundColor: 'rgba(33, 150, 243, 0.3)',
-                        borderColor: 'rgb(33, 150, 243)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
+                    datasets: [
+                        {
+                            label: 'Punteggio Record',
+                            data: Array(5).fill(bestScore),
+                            type: 'line',
+                            borderColor: 'rgb(255, 215, 0)',
+                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                            borderWidth: 3,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Punteggio Sessione',
+                            data: scores,
+                            backgroundColor: scores.map(score => 
+                                score === bestScore ? 'rgba(76, 175, 80, 0.7)' : 
+                                score >= bestScore * 0.95 ? 'rgba(33, 150, 243, 0.7)' : 
+                                'rgba(255, 152, 0, 0.7)'
+                            ),
+                            borderColor: scores.map(score => 
+                                score === bestScore ? 'rgb(76, 175, 80)' : 
+                                score >= bestScore * 0.95 ? 'rgb(33, 150, 243)' : 
+                                'rgb(255, 152, 0)'
+                            ),
+                            borderWidth: 2
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -4560,7 +4587,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'Deviazione Standard (minore = più costante)',
+                                text: 'Punteggio',
                                 color: '#fdb927'
                             },
                             ticks: { color: '#fdb927' },
@@ -4569,10 +4596,10 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         x: {
                             title: {
                                 display: true,
-                                text: 'Progressione Sessioni',
+                                text: 'Ultime 5 Sessioni (Allenamenti 2 Turni)',
                                 color: '#fdb927'
                             },
-                            ticks: { color: '#fdb927', maxRotation: 0 },
+                            ticks: { color: '#fdb927' },
                             grid: { color: 'rgba(74, 74, 74, 0.5)' }
                         }
                     },
@@ -4583,9 +4610,16 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    const value = context.parsed.y;
-                                    const quality = value < 10 ? '🟢 Ottima' : value < 20 ? '🟡 Buona' : '🔴 Variabile';
-                                    return `Consistenza: ${value.toFixed(2)} ${quality}`;
+                                    if (context.datasetIndex === 0) {
+                                        return `Record: ${bestScore} punti`;
+                                    } else {
+                                        const score = context.parsed.y;
+                                        const diff = bestScore - score;
+                                        return [
+                                            `Punteggio: ${score}`,
+                                            `Differenza dal record: -${diff} punti`
+                                        ];
+                                    }
                                 }
                             }
                         }
