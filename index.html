@@ -227,37 +227,36 @@
     // QUESTA È LA FINE DELLA PARTE1
 // PARTE2
 window.initializeApp = (db, firebaseUserId, authInstance) => {
-        const appState = {
-            view: 'login',
-            loggedInArcher: null,
-            sessionType: null,
-            currentSession: null,
-            currentTurn: 1,
-            sessionData: [],
-            detailedSession: null,
-            scoringGrid: null,
-            firebaseUserId: firebaseUserId,
-            auth: authInstance,
-            allArchers: [],
-            userGoals: [],
-            volleyNotes: {},
-            statistics: {},
+const appState = {
+view: 'login',
+loggedInArcher: null,
+sessionType: null,
+currentSession: null,
+currentTurn: 1,
+sessionData: [],
+detailedSession: null,
+scoringGrid: null,
+firebaseUserId: firebaseUserId,
+auth: authInstance,
+allArchers: [],
+userGoals: [],
+volleyNotes: {},
+statistics: {},
         };
-
-        const scoringState = {
-            rows: 0,
-            cols: 3,
-            format: null,
-            activeCell: { row: 1, col: 1 },
-            startTime: null,
-            personalAverage: 0,
+const scoringState = {
+rows: 0,
+cols: 3,
+format: null,
+activeCell: { row: 1, col: 1 },
+startTime: null,
+personalAverage: 0,
         };
-
-        const TIPO_TARGA_OPTIONS = ['40', '60', '80', '120', 'Tripla', 'Tripla Vegas', 'Field', '3D', 'Altro'];
-        const DISTANZA_OPTIONS = ['18mt', '25mt', '40mt', '50mt', '60mt', '70mt'];
-        const TIPO_LUOGO_OPTIONS = ['Indoor', 'Outdoor'];
-        const FORMATO_GARA_OPTIONS = ['30 frecce (3x10)', '36 frecce (6x6)', '72 frecce (6x12)'];
-        const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', 'M', 'CANC'];
+const TIPO_TARGA_OPTIONS = ['40', '60', '80', '120', 'Tripla', 'Tripla Vegas', 'Field', '3D', 'Altro'];
+const DISTANZA_OPTIONS = ['18mt', '25mt', '40mt', '50mt', '60mt', '70mt'];
+const TIPO_LUOGO_OPTIONS = ['Indoor', 'Outdoor'];
+const FORMATO_GARA_OPTIONS = ['30 frecce (3x10)', '36 frecce (6x6)', '72 frecce (6x12)'];
+const TIPO_ARCO_OPTIONS = ['Arco Nudo', 'Arco Olimpico', 'Compound']; // AGGIUNTO
+const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', 'M', 'CANC'];
 
         window.getArchersCollectionRef = () => {
             return collection(db, `artifacts/${appId}/archers`);
@@ -891,6 +890,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 { id: 'ora', label: 'Ora', type: 'time', required: true, value: session.startTime || defaultTime },
                 { id: 'luogo', label: 'Luogo', type: 'text', required: true, value: session.luogo || '', placeholder: 'Nome Luogo' },
                 { id: 'tipoLuogo', label: 'Tipo Luogo', type: 'select', options: TIPO_LUOGO_OPTIONS, required: true, value: session.tipoLuogo || '' },
+                { id: 'tipoArco', label: 'Tipo Arco', type: 'select', options: TIPO_ARCO_OPTIONS, required: true, value: session.tipoArco || '' }, // AGGIUNTO
             ];
 
             const conditionalFields = [
@@ -1861,52 +1861,50 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
         // FINE PARTE4B
  // PARTE4C - Riepilogo Dati e Visualizzazione Dettagliata
         let unsubscribeSnapshot = null;
-        let filterState = {
-            distanza: '',
-            tipoTarga: '',
-            type: '',
-            tipoLuogo: '',
-            anno: '',
+let filterState = {
+distanza: '',
+tipoTarga: '',
+type: '',
+tipoLuogo: '',
+anno: '',
+tipoArco: '', // AGGIUNTO
         };
-        const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
+const ANNO_OPTIONS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035];
 
-        function fetchSessions() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
+function fetchSessions() {
+if (!appState.loggedInArcher) {
+window.setView('login');
+return;
             }
-
-            if (unsubscribeSnapshot) {
-                unsubscribeSnapshot();
+if (unsubscribeSnapshot) {
+unsubscribeSnapshot();
             }
-
-            const sessionsColRef = window.getSessionsCollectionRef();
-            if (!sessionsColRef) {
-                console.error("Riferimento collezione non disponibile.");
-                return;
+const sessionsColRef = window.getSessionsCollectionRef();
+if (!sessionsColRef) {
+console.error("Riferimento collezione non disponibile.");
+return;
             }
-
-            let q = query(sessionsColRef);
-            if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
-            if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
-            if (filterState.type) q = query(q, where('type', '==', filterState.type));
-            if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
-            if (filterState.anno) {
-                const startDate = `${filterState.anno}-01-01`;
-                const endDate = `${filterState.anno}-12-31`;
-                q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
+let q = query(sessionsColRef);
+if (filterState.distanza) q = query(q, where('distanza', '==', filterState.distanza));
+if (filterState.tipoTarga) q = query(q, where('tipoTarga', '==', filterState.tipoTarga));
+if (filterState.type) q = query(q, where('type', '==', filterState.type));
+if (filterState.tipoLuogo) q = query(q, where('tipoLuogo', '==', filterState.tipoLuogo));
+if (filterState.tipoArco) q = query(q, where('tipoArco', '==', filterState.tipoArco)); // AGGIUNTO
+if (filterState.anno) {
+const startDate = `${filterState.anno}-01-01`;
+const endDate = `${filterState.anno}-12-31`;
+q = query(q, where('data', '>=', startDate), where('data', '<=', endDate));
             }
-
-            unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
-                const sessions = [];
-                querySnapshot.forEach((doc) => {
-                    sessions.push({ docId: doc.id, ...doc.data() }); 
+unsubscribeSnapshot = onSnapshot(q, (querySnapshot) => {
+const sessions = [];
+querySnapshot.forEach((doc) => {
+sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
-                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-                appState.sessionData = sessions;
-                renderDataSummaryTable();
+sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+appState.sessionData = sessions;
+renderDataSummaryTable();
             }, (error) => {
-                console.error("Errore onSnapshot:", error);
+console.error("Errore onSnapshot:", error);
             });
         }
 
@@ -1915,14 +1913,13 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             fetchSessions();
         };
 
-        function renderDataSummary() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
+function renderDataSummary() {
+if (!appState.loggedInArcher) {
+window.setView('login');
+return;
             }
-
-            const filtersHtml = `
-                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-6">
+const filtersHtml = `
+                <div class="mb-6 p-4 bg-secondary-dark rounded-xl shadow-lg grid grid-cols-2 gap-3 md:grid-cols-7">
                     <select class="input-style text-sm" onchange="window.handleFilterChange('type', this.value)">
                         <option value="">Tutti i Tipi</option>
                         <option value="Allenamento" ${filterState.type === 'Allenamento' ? 'selected' : ''}>Allenamento</option>
@@ -1930,36 +1927,37 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     </select>
                     <select class="input-style text-sm" onchange="window.handleFilterChange('distanza', this.value)">
                         <option value="">Tutte le Distanze</option>
-                        ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+${DISTANZA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.distanza === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
                     <select class="input-style text-sm" onchange="window.handleFilterChange('tipoTarga', this.value)">
                         <option value="">Tutte le Targhe</option>
-                        ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoTarga === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
                     <select class="input-style text-sm" onchange="window.handleFilterChange('tipoLuogo', this.value)">
                         <option value="">Tutti i Luoghi</option>
-                        ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoLuogo === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="input-style text-sm" onchange="window.handleFilterChange('tipoArco', this.value)">
+                        <option value="">Tutti gli Archi</option>
+${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.tipoArco === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
                     <select class="input-style text-sm" onchange="window.handleFilterChange('anno', this.value)">
                         <option value="">Tutti gli Anni</option>
-                        ${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+${ANNO_OPTIONS.map(opt => `<option value="${opt}" ${filterState.anno === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                     </select>
-                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('anno', '');">Reset</button>
+                    <button class="btn-primary p-2 text-sm" onclick="window.handleFilterChange('type', ''); window.handleFilterChange('distanza', ''); window.handleFilterChange('tipoTarga', ''); window.handleFilterChange('tipoLuogo', ''); window.handleFilterChange('tipoArco', ''); window.handleFilterChange('anno', '');">Reset</button>
                 </div>
             `;
-
-            const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
-
-            document.getElementById('content-view').innerHTML = `
+const tableContainer = `<div id="dataSummaryTable" class="grid-wrapper"></div>`;
+document.getElementById('content-view').innerHTML = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
-                ${filtersHtml}
-                ${tableContainer}
+${filtersHtml}
+${tableContainer}
                 <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
                     Torna al Menu
                 </button>
             `;
-
-            renderDataSummaryTable();
+renderDataSummaryTable();
         }
 
         function renderDataSummaryTable() {
@@ -2422,15 +2420,13 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
         });
     }
     // FINE PARTE4C
-// PARTE4D - FINALE - Grafici e Chiusura
-
+// PARTE4D - Grafici e Chiusura
         function renderChartsView() {
-            const html = `
+const html = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
                     <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
-                    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
                         <select id="chart-filter-type" class="input-style text-sm">
                             <option value="all">Tutti i Tipi (A/G)</option>
                             <option value="allenamento">Allenamento</option>
@@ -2438,17 +2434,20 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                         </select>
                         <select id="chart-filter-distance" class="input-style text-sm">
                             <option value="all">Tutte le Distanze</option>
-                            ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
                         <select id="chart-filter-target" class="input-style text-sm">
                             <option value="all">Tutte le Targhe</option>
-                            ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
                         <select id="chart-filter-location" class="input-style text-sm">
                             <option value="all">Tutti i Luoghi</option>
-                            ${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
-                        
+                        <select id="chart-filter-bow" class="input-style text-sm">
+                            <option value="all">Tutti gli Archi</option>
+${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
                         <select id="chart-filter-month" class="input-style text-sm">
                             <option value="all">Tutti i Mesi</option>
                             <option value="1">Gennaio</option>
@@ -2472,7 +2471,6 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                             <option value="single">Solo 1 Turno</option>
                             <option value="double">Solo 2 Turni</option>
                         </select>
-                        
                         <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
                     </div>
                 </div>
@@ -2483,208 +2481,189 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                     Torna al Menu Principale
                 </button>
             `;
-            document.getElementById('content-view').innerHTML = html;
-            
-            loadChartsData();
+document.getElementById('content-view').innerHTML = html;
+loadChartsData();
         }
 
-        window.resetChartFilters = () => {
-            document.getElementById('chart-filter-type').value = 'all';
-            document.getElementById('chart-filter-distance').value = 'all';
-            document.getElementById('chart-filter-target').value = 'all';
-            document.getElementById('chart-filter-location').value = 'all';
-            document.getElementById('chart-filter-month').value = 'all';
-            document.getElementById('chart-filter-year').value = 'all';
-            document.getElementById('chart-filter-turns').value = 'all';
-            drawSessionsChart();
+window.resetChartFilters = () => {
+document.getElementById('chart-filter-type').value = 'all';
+document.getElementById('chart-filter-distance').value = 'all';
+document.getElementById('chart-filter-target').value = 'all';
+document.getElementById('chart-filter-location').value = 'all';
+document.getElementById('chart-filter-bow').value = 'all';
+document.getElementById('chart-filter-month').value = 'all';
+document.getElementById('chart-filter-year').value = 'all';
+document.getElementById('chart-filter-turns').value = 'all';
+drawSessionsChart();
         };
 
-        function loadChartsData() {
-            const sessionsColRef = window.getSessionsCollectionRef();
-            if (!sessionsColRef) {
-                console.error("Riferimento collezione non disponibile.");
-                return;
+function loadChartsData() {
+const sessionsColRef = window.getSessionsCollectionRef();
+if (!sessionsColRef) {
+console.error("Riferimento collezione non disponibile.");
+return;
             }
-
-            const q = query(sessionsColRef);
-            
-            getDocs(q).then((querySnapshot) => {
-                const sessions = [];
-                querySnapshot.forEach((doc) => {
-                    sessions.push({ id: doc.id, ...doc.data() });
+const q = query(sessionsColRef);
+getDocs(q).then((querySnapshot) => {
+const sessions = [];
+querySnapshot.forEach((doc) => {
+sessions.push({ id: doc.id, ...doc.data() });
                 });
-                
-                sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-                appState.sessionData = sessions;
-                
-                setupChartFilters();
-                drawSessionsChart();
+sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+appState.sessionData = sessions;
+setupChartFilters();
+drawSessionsChart();
             }).catch((error) => {
-                console.error("Errore nel caricamento dei dati:", error);
+console.error("Errore nel caricamento dei dati:", error);
             });
         }
 
-        function setupChartFilters() {
-            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.addEventListener('change', drawSessionsChart);
+function setupChartFilters() {
+            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-bow', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
+const element = document.getElementById(id);
+if (element) {
+element.addEventListener('change', drawSessionsChart);
                 }
             });
-
-            const yearFilter = document.getElementById('chart-filter-year');
-            if (yearFilter) {
-                const years = new Set();
-                appState.sessionData.forEach(session => {
-                    if (session.data) {
-                        years.add(new Date(session.data).getFullYear());
+const yearFilter = document.getElementById('chart-filter-year');
+if (yearFilter) {
+const years = new Set();
+appState.sessionData.forEach(session => {
+if (session.data) {
+years.add(new Date(session.data).getFullYear());
                     }
                 });
-
-                Array.from(yearFilter.options).forEach((option, index) => {
-                    if (index > 0) yearFilter.removeChild(option);
+Array.from(yearFilter.options).forEach((option, index) => {
+if (index > 0) yearFilter.removeChild(option);
                 });
-
-                Array.from(years).sort((a, b) => b - a).forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
-                    yearFilter.appendChild(option);
+Array.from(years).sort((a, b) => b - a).forEach(year => {
+const option = document.createElement('option');
+option.value = year;
+option.textContent = year;
+yearFilter.appendChild(option);
                 });
             }
         }
 
-        function drawSessionsChart() {
-            const ctx = document.getElementById('sessionsChart');
-            if (!ctx) return;
-            
-            const context = ctx.getContext('2d');
-            
-            const typeFilter = document.getElementById('chart-filter-type').value;
-            const targetFilter = document.getElementById('chart-filter-target').value;
-            const distanceFilter = document.getElementById('chart-filter-distance').value;
-            const locationFilter = document.getElementById('chart-filter-location').value;
-            const monthFilter = document.getElementById('chart-filter-month').value;
-            const yearFilter = document.getElementById('chart-filter-year').value;
-            const turnsFilter = document.getElementById('chart-filter-turns').value;
-
-            let filteredData = appState.sessionData.filter(session => {
-                const sType = (session.type || '').toLowerCase();
-                const sTargetType = (session.tipoTarga || '');
-                const sDistance = (session.distanza || '');
-                const sLocation = (session.tipoLuogo || '');
-                
-                const sessionDate = session.data ? new Date(session.data) : null;
-                const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
-                const sYear = sessionDate ? sessionDate.getFullYear() : null;
-                const hasTwoTurns = session.turn2Score > 0; 
-                
-                const matchesType = typeFilter === 'all' || sType === typeFilter;
-                const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
-                const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
-                const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
-                const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
-                const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
-                
-                const matchesTurns = turnsFilter === 'all' || 
+function drawSessionsChart() {
+const ctx = document.getElementById('sessionsChart');
+if (!ctx) return;
+const context = ctx.getContext('2d');
+const typeFilter = document.getElementById('chart-filter-type').value;
+const targetFilter = document.getElementById('chart-filter-target').value;
+const distanceFilter = document.getElementById('chart-filter-distance').value;
+const locationFilter = document.getElementById('chart-filter-location').value;
+const bowFilter = document.getElementById('chart-filter-bow').value;
+const monthFilter = document.getElementById('chart-filter-month').value;
+const yearFilter = document.getElementById('chart-filter-year').value;
+const turnsFilter = document.getElementById('chart-filter-turns').value;
+let filteredData = appState.sessionData.filter(session => {
+const sType = (session.type || '').toLowerCase();
+const sTargetType = (session.tipoTarga || '');
+const sDistance = (session.distanza || '');
+const sLocation = (session.tipoLuogo || '');
+const sBow = (session.tipoArco || '');
+const sessionDate = session.data ? new Date(session.data) : null;
+const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
+const sYear = sessionDate ? sessionDate.getFullYear() : null;
+const hasTwoTurns = session.turn2Score > 0; 
+const matchesType = typeFilter === 'all' || sType === typeFilter;
+const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
+const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
+const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
+const matchesBow = bowFilter === 'all' || sBow === bowFilter;
+const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
+const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
+const matchesTurns = turnsFilter === 'all' || 
                                      (turnsFilter === 'single' && !hasTwoTurns) || 
                                      (turnsFilter === 'double' && hasTwoTurns);
-                
-                const isNotTrainingWithoutScore = !session.trainingWithoutScore;
-                
-                return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesMonth && matchesYear && matchesTurns && isNotTrainingWithoutScore;
+const isNotTrainingWithoutScore = !session.trainingWithoutScore;
+return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesBow && matchesMonth && matchesYear && matchesTurns && isNotTrainingWithoutScore;
             });
-
-            filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
-
-            const labels = filteredData.map(s => {
-                const formattedDate = formatDate(s.data);
-                const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
-                return `${formattedDate}${sessionType}`;
+filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
+const labels = filteredData.map(s => {
+const formattedDate = formatDate(s.data);
+const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
+return `${formattedDate}${sessionType}`;
             });
-            
-            const dataPoints = filteredData.map(s => s.totalScore); 
-
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Punteggio Totale Sessione',
-                    data: dataPoints,
-                    backgroundColor: 'rgba(253, 185, 39, 0.5)', 
-                    borderColor: 'rgb(253, 185, 39)',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointBackgroundColor: 'rgb(253, 185, 39)'
+const dataPoints = filteredData.map(s => s.totalScore); 
+const chartData = {
+labels: labels,
+datasets: [{
+label: 'Punteggio Totale Sessione',
+data: dataPoints,
+backgroundColor: 'rgba(253, 185, 39, 0.5)', 
+borderColor: 'rgb(253, 185, 39)',
+borderWidth: 2,
+tension: 0.4,
+pointRadius: 4,
+pointBackgroundColor: 'rgb(253, 185, 39)'
                 }]
             };
-
-            if (chartInstance) {
-                chartInstance.destroy();
+if (chartInstance) {
+chartInstance.destroy();
             }
-            
-            if (dataPoints.length === 0) {
-                context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-                context.font = '20px Inter, sans-serif';
-                context.fillStyle = '#fdb927';
-                context.textAlign = 'center';
-                context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
-                return;
+if (dataPoints.length === 0) {
+context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+context.font = '20px Inter, sans-serif';
+context.fillStyle = '#fdb927';
+context.textAlign = 'center';
+context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
+return;
             }
-
-            chartInstance = new Chart(context, {
-                type: 'line', 
-                data: chartData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Punteggio Totale',
-                                color: '#fdb927'
+chartInstance = new Chart(context, {
+type: 'line', 
+data: chartData,
+options: {
+responsive: true,
+maintainAspectRatio: false,
+scales: {
+y: {
+beginAtZero: true,
+title: {
+display: true,
+text: 'Punteggio Totale',
+color: '#fdb927'
                             },
-                            grid: {
-                                color: 'rgba(74, 74, 74, 0.5)'
+grid: {
+color: 'rgba(74, 74, 74, 0.5)'
                             },
-                            ticks: {
-                                color: '#fdb927'
+ticks: {
+color: '#fdb927'
                             }
                         },
-                        x: {
-                            grid: {
-                                color: 'rgba(74, 74, 74, 0.5)'
+x: {
+grid: {
+color: 'rgba(74, 74, 74, 0.5)'
                             },
-                            ticks: {
-                                color: '#fdb927',
-                                autoSkip: true, 
-                                maxRotation: 45,
-                                minRotation: 45 
+ticks: {
+color: '#fdb927',
+autoSkip: true, 
+maxRotation: 45,
+minRotation: 45 
                             },
-                            title: {
-                                display: true,
-                                text: 'Sessioni (in ordine cronologico)',
-                                color: '#fdb927'
+title: {
+display: true,
+text: 'Sessioni (in ordine cronologico)',
+color: '#fdb927'
                             }
                         }
                     },
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#fdb927'
+plugins: {
+legend: {
+labels: {
+color: '#fdb927'
                             }
                         },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            callbacks: {
-                                title: function(tooltipItems) {
-                                    return `Sessione: ${tooltipItems[0].label}`;
+tooltip: {
+mode: 'index',
+intersect: false,
+callbacks: {
+title: function(tooltipItems) {
+return `Sessione: ${tooltipItems[0].label}`;
                                 },
-                                label: function(context) {
-                                    return `Punteggio: ${context.parsed.y}`;
+label: function(context) {
+return `Punteggio: ${context.parsed.y}`;
                                 }
                             }
                         }
@@ -2692,7 +2671,7 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
                 }
             });
         }
-        // FINE PARTE4D
+// FINE PARTE4D
  // PARTE4E - Obiettivi e Traguardi
         async function loadGoals() {
             try {
@@ -3874,930 +3853,250 @@ window.initializeApp = (db, firebaseUserId, authInstance) => {
             document.getElementById('content-view').innerHTML = html;
         }
         // FINE PARTE4G
-// PARTE4H - Grafici Multipli
-        function renderMultipleCharts() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
-
-            fetchSessions();
-
-            setTimeout(() => {
-                const html = `
-                    <h2 class="text-3xl font-bold mb-6 text-white">📊 Grafici Multipli</h2>
-
-                    <!-- Grafico a Torta - Distribuzione Punteggi -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🥧 Distribuzione Punteggi (X/10/9/8...)</h3>
-                        <div style="height: 300px;">
-                            <canvas id="pieChart"></canvas>
-                        </div>
+// PARTE4D - Grafici e Chiusura
+        function renderChartsView() {
+const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
+                    <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+                        <select id="chart-filter-type" class="input-style text-sm">
+                            <option value="all">Tutti i Tipi (A/G)</option>
+                            <option value="allenamento">Allenamento</option>
+                            <option value="gara">Gara</option>
+                        </select>
+                        <select id="chart-filter-distance" class="input-style text-sm">
+                            <option value="all">Tutte le Distanze</option>
+${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-target" class="input-style text-sm">
+                            <option value="all">Tutte le Targhe</option>
+${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-location" class="input-style text-sm">
+                            <option value="all">Tutti i Luoghi</option>
+${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-bow" class="input-style text-sm">
+                            <option value="all">Tutti gli Archi</option>
+${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <select id="chart-filter-month" class="input-style text-sm">
+                            <option value="all">Tutti i Mesi</option>
+                            <option value="1">Gennaio</option>
+                            <option value="2">Febbraio</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Aprile</option>
+                            <option value="5">Maggio</option>
+                            <option value="6">Giugno</option>
+                            <option value="7">Luglio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Settembre</option>
+                            <option value="10">Ottobre</option>
+                            <option value="11">Novembre</option>
+                            <option value="12">Dicembre</option>
+                        </select>
+                        <select id="chart-filter-year" class="input-style text-sm">
+                            <option value="all">Tutti gli Anni</option>
+                        </select>
+                        <select id="chart-filter-turns" class="input-style text-sm">
+                            <option value="all">Tutti i Turni</option>
+                            <option value="single">Solo 1 Turno</option>
+                            <option value="double">Solo 2 Turni</option>
+                        </select>
+                        <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
                     </div>
-
-                    <!-- Grafico a Barre - Confronto Distanze ALLENAMENTI -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏋️ Media Punteggi per Distanza - ALLENAMENTI</h3>
-                        <div class="mb-3">
-                            <label class="inline-flex items-center mr-4">
-                                <input type="radio" name="training-turns-distance" value="all" checked onchange="drawBarChartDistanceTraining()">
-                                <span class="ml-2 text-white text-sm">Tutti</span>
-                            </label>
-                            <label class="inline-flex items-center mr-4">
-                                <input type="radio" name="training-turns-distance" value="1" onchange="drawBarChartDistanceTraining()">
-                                <span class="ml-2 text-white text-sm">Solo 1 Turno</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="training-turns-distance" value="2" onchange="drawBarChartDistanceTraining()">
-                                <span class="ml-2 text-white text-sm">Solo 2 Turni</span>
-                            </label>
-                        </div>
-                        <div style="height: 300px;">
-                            <canvas id="barChartDistanceTraining"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Grafico a Barre - Confronto Distanze GARE -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏆 Media Punteggi per Distanza - GARE</h3>
-                        <div style="height: 300px;">
-                            <canvas id="barChartDistanceRace"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Grafico a Barre - Confronto Targhe ALLENAMENTI -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏋️ Media Punteggi per Tipo Targa - ALLENAMENTI</h3>
-                        <div class="mb-3">
-                            <label class="inline-flex items-center mr-4">
-                                <input type="radio" name="training-turns-target" value="all" checked onchange="drawBarChartTargetTraining()">
-                                <span class="ml-2 text-white text-sm">Tutti</span>
-                            </label>
-                            <label class="inline-flex items-center mr-4">
-                                <input type="radio" name="training-turns-target" value="1" onchange="drawBarChartTargetTraining()">
-                                <span class="ml-2 text-white text-sm">Solo 1 Turno</span>
-                            </label>
-                            <label class="inline-flex items-center">
-                                <input type="radio" name="training-turns-target" value="2" onchange="drawBarChartTargetTraining()">
-                                <span class="ml-2 text-white text-sm">Solo 2 Turni</span>
-                            </label>
-                        </div>
-                        <div style="height: 300px;">
-                            <canvas id="barChartTargetTraining"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Grafico a Barre - Confronto Targhe GARE -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏆 Media Punteggi per Tipo Targa - GARE</h3>
-                        <div style="height: 300px;">
-                            <canvas id="barChartTargetRace"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Heatmap Giorni -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🗓️ Heatmap Prestazioni: Giorni della Settimana</h3>
-                        <div id="heatmapDays"></div>
-                    </div>
-
-                    <!-- Heatmap Orari -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🕐 Heatmap Prestazioni: Fasce Orarie</h3>
-                        <div id="heatmapHours"></div>
-                    </div>
-
-                    <!-- Grafico Andamento -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📈 Grafico Andamento (vs Record)</h3>
-                        <p class="text-sm text-gray-400 mb-3">
-                            Confronto ultime 5 sessioni di allenamento (2 turni) con il tuo record personale
-                        </p>
-                        <div style="height: 300px;">
-                            <canvas id="consistencyChart"></canvas>
-                        </div>
-                    </div>
-
-                    <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
-                `;
-
-                document.getElementById('content-view').innerHTML = html;
-
-                drawPieChart();
-                drawBarChartDistanceTraining();
-                drawBarChartDistanceRace();
-                drawBarChartTargetTraining();
-                drawBarChartTargetRace();
-                drawHeatmapDays();
-                drawHeatmapHours();
-                drawConsistencyChart();
-            }, 300);
-        }
-
-        function drawPieChart() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore && !s.quickScore);
-            
-            if (validSessions.length === 0) {
-                document.getElementById('pieChart').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile (esclusi Quick Score)</p>';
-                return;
-            }
-
-            // Conta tutte le frecce per punteggio
-            const scoreCounts = { X: 0, '10': 0, '9': 0, '8': 0, '7': 0, '6': 0, '5': 0, '4': 0, '3': 0, '2': 0, '1': 0, 'M': 0 };
-
-            validSessions.forEach(session => {
-                [session.turn1, session.turn2].forEach(turn => {
-                    if (!turn || !turn.grid) return;
-                    
-                    const grid = turn.grid.map(rowStr => JSON.parse(rowStr));
-                    grid.forEach(row => {
-                        row.forEach(score => {
-                            if (score && scoreCounts.hasOwnProperty(score)) {
-                                scoreCounts[score]++;
-                            } else if (score === '10') {
-                                scoreCounts['10']++;
-                            }
-                        });
-                    });
-                });
-            });
-
-            const labels = Object.keys(scoreCounts).filter(key => scoreCounts[key] > 0);
-            const data = labels.map(key => scoreCounts[key]);
-
-            const ctx = document.getElementById('pieChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: [
-                            '#FFD700', // X - oro
-                            '#FDB927', // 10 - arancione
-                            '#4CAF50', // 9 - verde
-                            '#2196F3', // 8 - blu
-                            '#9C27B0', // 7 - viola
-                            '#FF9800', // 6 - arancione scuro
-                            '#F44336', // 5 - rosso
-                            '#795548', // 4 - marrone
-                            '#607D8B', // 3 - grigio
-                            '#9E9E9E', // 2 - grigio chiaro
-                            '#FFFFFF', // 1 - bianco
-                            '#000000'  // M - nero
-                        ],
-                        borderWidth: 2,
-                        borderColor: '#1a1a1a'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                color: '#fdb927',
-                                font: { size: 14 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: ${value} frecce (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Variabile globale per tenere traccia dei chart instances
-        window.chartInstances = window.chartInstances || {};
-
-function drawBarChartDistanceTraining() {
-    const turnFilter = document.querySelector('input[name="training-turns-distance"]:checked')?.value || 'all';
-    
-    let trainingSessions = appState.sessionData.filter(s => 
-        !s.trainingWithoutScore && s.type === 'Allenamento'
-    );
-
-    // Applica filtro turni - VERSIONE CORRETTA FINALE
-    if (turnFilter === '1') {
-        // Solo 1 turno: turn2 deve essere null O vuoto
-        trainingSessions = trainingSessions.filter(s => {
-            const hasTurn2 = s.turn2 && 
-                            s.turn2 !== null && 
-                            s.turn2.summary && 
-                            s.turn2.summary.score > 0;
-            return !hasTurn2;
-        });
-    } else if (turnFilter === '2') {
-        // Solo 2 turni COMPLETI: verifica che ci siano tutte le volée
-        trainingSessions = trainingSessions.filter(s => {
-            // Deve esistere turn2 con dati validi
-            const hasTurn2 = s.turn2 && 
-                            s.turn2 !== null && 
-                            s.turn2.summary && 
-                            s.turn2.summary.score > 0;
-            
-            if (!hasTurn2) {
-                return false;
-            }
-            
-            // Verifica formato e volée complete
-            const formato = s.formatoGara;
-            let requiredVolleys = 0;
-            
-            if (formato === '30 frecce (3x10)') {
-                requiredVolleys = 10; // 10 volée per turno
-            } else if (formato === '36 frecce (6x6)') {
-                requiredVolleys = 6; // 6 volée per turno
-            } else if (formato === '72 frecce (6x12)') {
-                return false; // Escludi 72 frecce dal filtro "2 turni"
-            } else {
-                return false; // Formato sconosciuto
-            }
-            
-            // Controlla numero volée per entrambi i turni
-            const turn1VolleysCount = Array.isArray(s.turn1?.summary?.volleys) ? 
-                                      s.turn1.summary.volleys.length : 0;
-            const turn2VolleysCount = Array.isArray(s.turn2?.summary?.volleys) ? 
-                                      s.turn2.summary.volleys.length : 0;
-            
-            const isComplete = turn1VolleysCount === requiredVolleys && 
-                              turn2VolleysCount === requiredVolleys;
-            
-            console.log(`Sessione ${s.data}: T1=${turn1VolleysCount}, T2=${turn2VolleysCount}, Required=${requiredVolleys}, Complete=${isComplete}`);
-            
-            return isComplete;
-        });
-    }
-
-    console.log(`Filtro: ${turnFilter}, Trovate: ${trainingSessions.length} sessioni`);
-
-    const byDistance = {};
-    DISTANZA_OPTIONS.forEach(dist => {
-        const sessions = trainingSessions.filter(s => s.distanza === dist);
-        if (sessions.length > 0) {
-            byDistance[dist] = {
-                avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                count: sessions.length
-            };
-        }
-    });
-
-    const canvas = document.getElementById('barChartDistanceTraining');
-    
-    if (Object.keys(byDistance).length === 0) {
-        canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
-        return;
-    }
-
-    const labels = Object.keys(byDistance);
-    const data = Object.values(byDistance).map(d => d.avg);
-
-    if (window.chartInstances.barChartDistanceTraining) {
-        window.chartInstances.barChartDistanceTraining.destroy();
-    }
-
-    const ctx = canvas.getContext('2d');
-    window.chartInstances.barChartDistanceTraining = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Media Punteggio Allenamenti',
-                data: data,
-                backgroundColor: 'rgba(33, 150, 243, 0.7)',
-                borderColor: 'rgb(33, 150, 243)',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Punteggio Medio',
-                        color: '#fdb927'
-                    },
-                    ticks: { color: '#fdb927' },
-                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                },
-                x: {
-                    ticks: { color: '#fdb927' },
-                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: { color: '#fdb927' }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const dist = context.label;
-                            const count = byDistance[dist].count;
-                            return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function drawBarChartTargetTraining() {
-    const turnFilter = document.querySelector('input[name="training-turns-target"]:checked')?.value || 'all';
-    
-    let trainingSessions = appState.sessionData.filter(s => 
-        !s.trainingWithoutScore && s.type === 'Allenamento'
-    );
-
-    // Applica filtro turni - VERSIONE CORRETTA FINALE
-    if (turnFilter === '1') {
-        // Solo 1 turno: turn2 deve essere null O vuoto
-        trainingSessions = trainingSessions.filter(s => {
-            const hasTurn2 = s.turn2 && 
-                            s.turn2 !== null && 
-                            s.turn2.summary && 
-                            s.turn2.summary.score > 0;
-            return !hasTurn2;
-        });
-    } else if (turnFilter === '2') {
-        // Solo 2 turni COMPLETI: verifica che ci siano tutte le volée
-        trainingSessions = trainingSessions.filter(s => {
-            // Deve esistere turn2 con dati validi
-            const hasTurn2 = s.turn2 && 
-                            s.turn2 !== null && 
-                            s.turn2.summary && 
-                            s.turn2.summary.score > 0;
-            
-            if (!hasTurn2) {
-                return false;
-            }
-            
-            // Verifica formato e volée complete
-            const formato = s.formatoGara;
-            let requiredVolleys = 0;
-            
-            if (formato === '30 frecce (3x10)') {
-                requiredVolleys = 10; // 10 volée per turno
-            } else if (formato === '36 frecce (6x6)') {
-                requiredVolleys = 6; // 6 volée per turno
-            } else if (formato === '72 frecce (6x12)') {
-                return false; // Escludi 72 frecce dal filtro "2 turni"
-            } else {
-                return false; // Formato sconosciuto
-            }
-            
-            // Controlla numero volée per entrambi i turni
-            const turn1VolleysCount = Array.isArray(s.turn1?.summary?.volleys) ? 
-                                      s.turn1.summary.volleys.length : 0;
-            const turn2VolleysCount = Array.isArray(s.turn2?.summary?.volleys) ? 
-                                      s.turn2.summary.volleys.length : 0;
-            
-            const isComplete = turn1VolleysCount === requiredVolleys && 
-                              turn2VolleysCount === requiredVolleys;
-            
-            console.log(`Sessione ${s.data}: T1=${turn1VolleysCount}, T2=${turn2VolleysCount}, Required=${requiredVolleys}, Complete=${isComplete}`);
-            
-            return isComplete;
-        });
-    }
-
-    console.log(`Filtro: ${turnFilter}, Trovate: ${trainingSessions.length} sessioni`);
-
-    const byTarget = {};
-    TIPO_TARGA_OPTIONS.forEach(target => {
-        const sessions = trainingSessions.filter(s => s.tipoTarga === target);
-        if (sessions.length > 0) {
-            byTarget[target] = {
-                avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                count: sessions.length
-            };
-        }
-    });
-
-    const canvas = document.getElementById('barChartTargetTraining');
-
-    if (Object.keys(byTarget).length === 0) {
-        canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
-        return;
-    }
-
-    const labels = Object.keys(byTarget);
-    const data = Object.values(byTarget).map(d => d.avg);
-
-    if (window.chartInstances.barChartTargetTraining) {
-        window.chartInstances.barChartTargetTraining.destroy();
-    }
-
-    const ctx = canvas.getContext('2d');
-    window.chartInstances.barChartTargetTraining = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Media Punteggio Allenamenti',
-                data: data,
-                backgroundColor: 'rgba(76, 175, 80, 0.7)',
-                borderColor: 'rgb(76, 175, 80)',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Punteggio Medio',
-                        color: '#fdb927'
-                    },
-                    ticks: { color: '#fdb927' },
-                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                },
-                x: {
-                    ticks: { color: '#fdb927', maxRotation: 45, minRotation: 45 },
-                    grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: { color: '#fdb927' }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const target = context.label;
-                            const count = byTarget[target].count;
-                            return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-        function drawBarChartDistanceRace() {
-            const raceSessions = appState.sessionData.filter(s => 
-                !s.trainingWithoutScore && s.type === 'Gara'
-            );
-
-            const byDistance = {};
-            DISTANZA_OPTIONS.forEach(dist => {
-                const sessions = raceSessions.filter(s => s.distanza === dist);
-                if (sessions.length > 0) {
-                    byDistance[dist] = {
-                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                        count: sessions.length
-                    };
-                }
-            });
-
-            const canvas = document.getElementById('barChartDistanceRace');
-
-            if (Object.keys(byDistance).length === 0) {
-                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessuna gara registrata</p></div>';
-                return;
-            }
-
-            const labels = Object.keys(byDistance);
-            const data = Object.values(byDistance).map(d => d.avg);
-
-            if (window.chartInstances.barChartDistanceRace) {
-                window.chartInstances.barChartDistanceRace.destroy();
-            }
-
-            const ctx = canvas.getContext('2d');
-            window.chartInstances.barChartDistanceRace = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Media Punteggio Gare',
-                        data: data,
-                        backgroundColor: 'rgba(255, 152, 0, 0.7)',
-                        borderColor: 'rgb(255, 152, 0)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Punteggio Medio',
-                                color: '#fdb927'
-                            },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        },
-                        x: {
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fdb927' }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const dist = context.label;
-                                    const count = byDistance[dist].count;
-                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} gare)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function drawBarChartTargetTraining() {
-            const turnFilter = document.querySelector('input[name="training-turns-target"]:checked')?.value || 'all';
-            
-            let trainingSessions = appState.sessionData.filter(s => 
-                !s.trainingWithoutScore && s.type === 'Allenamento'
-            );
-
-            // Applica filtro turni - CORRETTO
-            if (turnFilter === '1') {
-                trainingSessions = trainingSessions.filter(s => {
-                    return !s.turn2Score || s.turn2Score === 0 || s.turn2Score === null || s.turn2Score === undefined;
-                });
-            } else if (turnFilter === '2') {
-                trainingSessions = trainingSessions.filter(s => {
-                    return s.turn2Score && s.turn2Score > 0;
-                });
-            }
-
-            const byTarget = {};
-            TIPO_TARGA_OPTIONS.forEach(target => {
-                const sessions = trainingSessions.filter(s => s.tipoTarga === target);
-                if (sessions.length > 0) {
-                    byTarget[target] = {
-                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                        count: sessions.length
-                    };
-                }
-            });
-
-            const canvas = document.getElementById('barChartTargetTraining');
-
-            if (Object.keys(byTarget).length === 0) {
-                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessun dato disponibile per il filtro selezionato</p></div>';
-                return;
-            }
-
-            const labels = Object.keys(byTarget);
-            const data = Object.values(byTarget).map(d => d.avg);
-
-            if (window.chartInstances.barChartTargetTraining) {
-                window.chartInstances.barChartTargetTraining.destroy();
-            }
-
-            const ctx = canvas.getContext('2d');
-            window.chartInstances.barChartTargetTraining = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Media Punteggio Allenamenti',
-                        data: data,
-                        backgroundColor: 'rgba(76, 175, 80, 0.7)',
-                        borderColor: 'rgb(76, 175, 80)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Punteggio Medio',
-                                color: '#fdb927'
-                            },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        },
-                        x: {
-                            ticks: { color: '#fdb927', maxRotation: 45, minRotation: 45 },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fdb927' }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const target = context.label;
-                                    const count = byTarget[target].count;
-                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} sessioni)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function drawBarChartTargetRace() {
-            const raceSessions = appState.sessionData.filter(s => 
-                !s.trainingWithoutScore && s.type === 'Gara'
-            );
-
-            const byTarget = {};
-            TIPO_TARGA_OPTIONS.forEach(target => {
-                const sessions = raceSessions.filter(s => s.tipoTarga === target);
-                if (sessions.length > 0) {
-                    byTarget[target] = {
-                        avg: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                        count: sessions.length
-                    };
-                }
-            });
-
-            const canvas = document.getElementById('barChartTargetRace');
-
-            if (Object.keys(byTarget).length === 0) {
-                canvas.parentElement.innerHTML = '<div style="height: 300px;"><p class="text-center text-white pt-32">Nessuna gara registrata</p></div>';
-                return;
-            }
-
-            const labels = Object.keys(byTarget);
-            const data = Object.values(byTarget).map(d => d.avg);
-
-            if (window.chartInstances.barChartTargetRace) {
-                window.chartInstances.barChartTargetRace.destroy();
-            }
-
-            const ctx = canvas.getContext('2d');
-            window.chartInstances.barChartTargetRace = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Media Punteggio Gare',
-                        data: data,
-                        backgroundColor: 'rgba(156, 39, 176, 0.7)',
-                        borderColor: 'rgb(156, 39, 176)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Punteggio Medio',
-                                color: '#fdb927'
-                            },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        },
-                        x: {
-                            ticks: { color: '#fdb927', maxRotation: 45, minRotation: 45 },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fdb927' }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const target = context.label;
-                                    const count = byTarget[target].count;
-                                    return `Media: ${context.parsed.y.toFixed(1)} punti (${count} gare)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function drawHeatmapDays() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
-
-            const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-            const dayData = Array(7).fill(null).map(() => ({ count: 0, totalScore: 0 }));
-
-            validSessions.forEach(session => {
-                const date = new Date(session.data);
-                const dayIndex = date.getDay();
-                dayData[dayIndex].count++;
-                dayData[dayIndex].totalScore += session.totalScore || 0;
-            });
-
-            const html = `
-                <div class="grid grid-cols-7 gap-2">
-                    ${dayData.map((data, index) => {
-                        const avgScore = data.count > 0 ? data.totalScore / data.count : 0;
-                        const maxAvg = Math.max(...dayData.map(d => d.count > 0 ? d.totalScore / d.count : 0));
-                        const intensity = maxAvg > 0 ? (avgScore / maxAvg) : 0;
-                        
-                        const bgColor = intensity > 0.8 ? 'bg-green-600' :
-                                       intensity > 0.6 ? 'bg-green-500' :
-                                       intensity > 0.4 ? 'bg-yellow-500' :
-                                       intensity > 0.2 ? 'bg-orange-500' :
-                                       intensity > 0 ? 'bg-red-500' : 'bg-gray-700';
-                        
-                        return `
-                            <div class="${bgColor} p-3 rounded-lg text-center ${data.count > 0 ? 'cursor-pointer hover:opacity-80' : ''}"
-                                 title="${dayNames[index]}: ${data.count} sessioni, media ${avgScore.toFixed(1)}">
-                                <div class="text-xs font-bold text-white mb-1">${dayNames[index].substring(0, 3)}</div>
-                                <div class="text-lg font-bold text-white">${data.count > 0 ? avgScore.toFixed(0) : '-'}</div>
-                                <div class="text-xs text-white opacity-75">${data.count} sess.</div>
-                            </div>
-                        `;
-                    }).join('')}
                 </div>
-                <div class="mt-3 text-xs text-center text-gray-400">
-                    🟢 Migliori prestazioni | 🔴 Prestazioni inferiori
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
+                    <canvas id="sessionsChart"></canvas>
                 </div>
+                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                    Torna al Menu Principale
+                </button>
             `;
-
-            document.getElementById('heatmapDays').innerHTML = html;
+document.getElementById('content-view').innerHTML = html;
+loadChartsData();
         }
 
-        function drawHeatmapHours() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore && s.startTime);
+window.resetChartFilters = () => {
+document.getElementById('chart-filter-type').value = 'all';
+document.getElementById('chart-filter-distance').value = 'all';
+document.getElementById('chart-filter-target').value = 'all';
+document.getElementById('chart-filter-location').value = 'all';
+document.getElementById('chart-filter-bow').value = 'all';
+document.getElementById('chart-filter-month').value = 'all';
+document.getElementById('chart-filter-year').value = 'all';
+document.getElementById('chart-filter-turns').value = 'all';
+drawSessionsChart();
+        };
 
-            const hourData = Array(24).fill(null).map(() => ({ count: 0, totalScore: 0 }));
-
-            validSessions.forEach(session => {
-                const hour = parseInt(session.startTime.split(':')[0]);
-                hourData[hour].count++;
-                hourData[hour].totalScore += session.totalScore || 0;
+function loadChartsData() {
+const sessionsColRef = window.getSessionsCollectionRef();
+if (!sessionsColRef) {
+console.error("Riferimento collezione non disponibile.");
+return;
+            }
+const q = query(sessionsColRef);
+getDocs(q).then((querySnapshot) => {
+const sessions = [];
+querySnapshot.forEach((doc) => {
+sessions.push({ id: doc.id, ...doc.data() });
+                });
+sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+appState.sessionData = sessions;
+setupChartFilters();
+drawSessionsChart();
+            }).catch((error) => {
+console.error("Errore nel caricamento dei dati:", error);
             });
-
-            const maxAvg = Math.max(...hourData.map(d => d.count > 0 ? d.totalScore / d.count : 0));
-
-            const html = `
-                <div class="grid grid-cols-8 sm:grid-cols-12 gap-2">
-                    ${hourData.map((data, hour) => {
-                        const avgScore = data.count > 0 ? data.totalScore / data.count : 0;
-                        const intensity = maxAvg > 0 ? (avgScore / maxAvg) : 0;
-                        
-                        const bgColor = intensity > 0.8 ? 'bg-green-600' :
-                                       intensity > 0.6 ? 'bg-green-500' :
-                                       intensity > 0.4 ? 'bg-yellow-500' :
-                                       intensity > 0.2 ? 'bg-orange-500' :
-                                       intensity > 0 ? 'bg-red-500' : 'bg-gray-700';
-                        
-                        return `
-                            <div class="${bgColor} p-2 rounded-lg text-center ${data.count > 0 ? 'cursor-pointer hover:opacity-80' : ''}"
-                                 title="Ore ${hour}:00 - ${data.count} sessioni, media ${avgScore.toFixed(1)}">
-                                <div class="text-xs font-bold text-white">${hour}h</div>
-                                <div class="text-sm font-bold text-white">${data.count > 0 ? avgScore.toFixed(0) : '-'}</div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-                <div class="mt-3 text-xs text-center text-gray-400">
-                    🟢 Migliori prestazioni | 🔴 Prestazioni inferiori
-                </div>
-            `;
-
-            document.getElementById('heatmapHours').innerHTML = html;
         }
 
-        function drawConsistencyChart() {
-            // Filtra solo allenamenti con 2 turni
-            const twoTurnTrainingSessions = appState.sessionData.filter(s => 
-                !s.trainingWithoutScore && 
-                s.type === 'Allenamento' && 
-                s.turn2Score && 
-                s.turn2Score > 0
-            );
-
-            if (twoTurnTrainingSessions.length < 5) {
-                document.getElementById('consistencyChart').parentElement.innerHTML = '<p class="text-center text-white">Servono almeno 5 allenamenti con 2 turni per il grafico andamento</p>';
-                return;
+function setupChartFilters() {
+            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-bow', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
+const element = document.getElementById(id);
+if (element) {
+element.addEventListener('change', drawSessionsChart);
+                }
+            });
+const yearFilter = document.getElementById('chart-filter-year');
+if (yearFilter) {
+const years = new Set();
+appState.sessionData.forEach(session => {
+if (session.data) {
+years.add(new Date(session.data).getFullYear());
+                    }
+                });
+Array.from(yearFilter.options).forEach((option, index) => {
+if (index > 0) yearFilter.removeChild(option);
+                });
+Array.from(years).sort((a, b) => b - a).forEach(year => {
+const option = document.createElement('option');
+option.value = year;
+option.textContent = year;
+yearFilter.appendChild(option);
+                });
             }
+        }
 
-            // Trova il punteggio migliore di sempre
-            const allValidSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
-            const bestScore = Math.max(...allValidSessions.map(s => s.totalScore || 0));
-
-            // Prendi le ultime 5 sessioni di allenamento a 2 turni
-            const last5Sessions = twoTurnTrainingSessions.slice(-5);
-
-            const labels = last5Sessions.map((s, index) => `Sess. ${twoTurnTrainingSessions.length - 4 + index}`);
-            const scores = last5Sessions.map(s => s.totalScore || 0);
-            const differences = scores.map(score => bestScore - score);
-
-            const ctx = document.getElementById('consistencyChart').getContext('2d');
-
-            if (window.chartInstances.consistencyChart) {
-                window.chartInstances.consistencyChart.destroy();
+function drawSessionsChart() {
+const ctx = document.getElementById('sessionsChart');
+if (!ctx) return;
+const context = ctx.getContext('2d');
+const typeFilter = document.getElementById('chart-filter-type').value;
+const targetFilter = document.getElementById('chart-filter-target').value;
+const distanceFilter = document.getElementById('chart-filter-distance').value;
+const locationFilter = document.getElementById('chart-filter-location').value;
+const bowFilter = document.getElementById('chart-filter-bow').value;
+const monthFilter = document.getElementById('chart-filter-month').value;
+const yearFilter = document.getElementById('chart-filter-year').value;
+const turnsFilter = document.getElementById('chart-filter-turns').value;
+let filteredData = appState.sessionData.filter(session => {
+const sType = (session.type || '').toLowerCase();
+const sTargetType = (session.tipoTarga || '');
+const sDistance = (session.distanza || '');
+const sLocation = (session.tipoLuogo || '');
+const sBow = (session.tipoArco || '');
+const sessionDate = session.data ? new Date(session.data) : null;
+const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
+const sYear = sessionDate ? sessionDate.getFullYear() : null;
+const hasTwoTurns = session.turn2Score > 0; 
+const matchesType = typeFilter === 'all' || sType === typeFilter;
+const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
+const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
+const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
+const matchesBow = bowFilter === 'all' || sBow === bowFilter;
+const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
+const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
+const matchesTurns = turnsFilter === 'all' || 
+                                     (turnsFilter === 'single' && !hasTwoTurns) || 
+                                     (turnsFilter === 'double' && hasTwoTurns);
+const isNotTrainingWithoutScore = !session.trainingWithoutScore;
+return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesBow && matchesMonth && matchesYear && matchesTurns && isNotTrainingWithoutScore;
+            });
+filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
+const labels = filteredData.map(s => {
+const formattedDate = formatDate(s.data);
+const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
+return `${formattedDate}${sessionType}`;
+            });
+const dataPoints = filteredData.map(s => s.totalScore); 
+const chartData = {
+labels: labels,
+datasets: [{
+label: 'Punteggio Totale Sessione',
+data: dataPoints,
+backgroundColor: 'rgba(253, 185, 39, 0.5)', 
+borderColor: 'rgb(253, 185, 39)',
+borderWidth: 2,
+tension: 0.4,
+pointRadius: 4,
+pointBackgroundColor: 'rgb(253, 185, 39)'
+                }]
+            };
+if (chartInstance) {
+chartInstance.destroy();
             }
-
-            window.chartInstances.consistencyChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Punteggio Record',
-                            data: Array(5).fill(bestScore),
-                            type: 'line',
-                            borderColor: 'rgb(255, 215, 0)',
-                            backgroundColor: 'rgba(255, 215, 0, 0.1)',
-                            borderWidth: 3,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            fill: false
-                        },
-                        {
-                            label: 'Punteggio Sessione',
-                            data: scores,
-                            backgroundColor: scores.map(score => 
-                                score === bestScore ? 'rgba(76, 175, 80, 0.7)' : 
-                                score >= bestScore * 0.95 ? 'rgba(33, 150, 243, 0.7)' : 
-                                'rgba(255, 152, 0, 0.7)'
-                            ),
-                            borderColor: scores.map(score => 
-                                score === bestScore ? 'rgb(76, 175, 80)' : 
-                                score >= bestScore * 0.95 ? 'rgb(33, 150, 243)' : 
-                                'rgb(255, 152, 0)'
-                            ),
-                            borderWidth: 2
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Punteggio',
-                                color: '#fdb927'
+if (dataPoints.length === 0) {
+context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+context.font = '20px Inter, sans-serif';
+context.fillStyle = '#fdb927';
+context.textAlign = 'center';
+context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
+return;
+            }
+chartInstance = new Chart(context, {
+type: 'line', 
+data: chartData,
+options: {
+responsive: true,
+maintainAspectRatio: false,
+scales: {
+y: {
+beginAtZero: true,
+title: {
+display: true,
+text: 'Punteggio Totale',
+color: '#fdb927'
                             },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Ultime 5 Sessioni (Allenamenti 2 Turni)',
-                                color: '#fdb927'
+grid: {
+color: 'rgba(74, 74, 74, 0.5)'
                             },
-                            ticks: { color: '#fdb927' },
-                            grid: { color: 'rgba(74, 74, 74, 0.5)' }
+ticks: {
+color: '#fdb927'
+                            }
+                        },
+x: {
+grid: {
+color: 'rgba(74, 74, 74, 0.5)'
+                            },
+ticks: {
+color: '#fdb927',
+autoSkip: true, 
+maxRotation: 45,
+minRotation: 45 
+                            },
+title: {
+display: true,
+text: 'Sessioni (in ordine cronologico)',
+color: '#fdb927'
+                            }
                         }
                     },
-                    plugins: {
-                        legend: {
-                            labels: { color: '#fdb927' }
+plugins: {
+legend: {
+labels: {
+color: '#fdb927'
+                            }
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.datasetIndex === 0) {
-                                        return `Record: ${bestScore} punti`;
-                                    } else {
-                                        const score = context.parsed.y;
-                                        const diff = bestScore - score;
-                                        return [
-                                            `Punteggio: ${score}`,
-                                            `Differenza dal record: -${diff} punti`
-                                        ];
-                                    }
+tooltip: {
+mode: 'index',
+intersect: false,
+callbacks: {
+title: function(tooltipItems) {
+return `Sessione: ${tooltipItems[0].label}`;
+                                },
+label: function(context) {
+return `Punteggio: ${context.parsed.y}`;
                                 }
                             }
                         }
@@ -4805,7 +4104,7 @@ function drawBarChartTargetTraining() {
                 }
             });
         }
-        // FINE PARTE4H
+// FINE PARTE4D
 // PARTE4I - Export, Backup e Condivisione Dati
         function renderExportData() {
             if (!appState.loggedInArcher) {
