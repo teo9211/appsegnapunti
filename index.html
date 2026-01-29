@@ -3853,200 +3853,323 @@ return `Punteggio: ${context.parsed.y}`;
             document.getElementById('content-view').innerHTML = html;
         }
         // FINE PARTE4G
-// PARTE4D - Grafici e Chiusura
-        function renderChartsView() {
+// PARTE4H - Grafici Multipli
+        function renderMultipleCharts() {
+if (!appState.loggedInArcher) {
+window.setView('login');
+return;
+            }
+fetchSessions();
+setTimeout(() => {
 const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
-                    <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
-                        <select id="chart-filter-type" class="input-style text-sm">
-                            <option value="all">Tutti i Tipi (A/G)</option>
-                            <option value="allenamento">Allenamento</option>
-                            <option value="gara">Gara</option>
-                        </select>
-                        <select id="chart-filter-distance" class="input-style text-sm">
-                            <option value="all">Tutte le Distanze</option>
-${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-target" class="input-style text-sm">
-                            <option value="all">Tutte le Targhe</option>
-${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-location" class="input-style text-sm">
-                            <option value="all">Tutti i Luoghi</option>
-${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-bow" class="input-style text-sm">
-                            <option value="all">Tutti gli Archi</option>
+                    <h2 class="text-3xl font-bold mb-6 text-white">📊 Grafici Multipli</h2>
+                    
+                    <!-- Filtro Tipo Arco Globale -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🏹 Filtro Tipo Arco</h3>
+                        <select id="global-bow-filter" class="input-style" onchange="window.applyGlobalBowFilter()">
+                            <option value="all">Tutti i Tipi di Arco</option>
 ${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                         </select>
-                        <select id="chart-filter-month" class="input-style text-sm">
-                            <option value="all">Tutti i Mesi</option>
-                            <option value="1">Gennaio</option>
-                            <option value="2">Febbraio</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Aprile</option>
-                            <option value="5">Maggio</option>
-                            <option value="6">Giugno</option>
-                            <option value="7">Luglio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Settembre</option>
-                            <option value="10">Ottobre</option>
-                            <option value="11">Novembre</option>
-                            <option value="12">Dicembre</option>
-                        </select>
-                        <select id="chart-filter-year" class="input-style text-sm">
-                            <option value="all">Tutti gli Anni</option>
-                        </select>
-                        <select id="chart-filter-turns" class="input-style text-sm">
-                            <option value="all">Tutti i Turni</option>
-                            <option value="single">Solo 1 Turno</option>
-                            <option value="double">Solo 2 Turni</option>
-                        </select>
-                        <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
                     </div>
-                </div>
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
-                    <canvas id="sessionsChart"></canvas>
-                </div>
-                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu Principale
-                </button>
-            `;
+
+                    <!-- Grafico a Torta - Distribuzione Punteggi -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🥧 Distribuzione Punteggi (X/10/9/8...)</h3>
+                        <div style="height: 300px;">
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Heatmap Giorni -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🗓️ Heatmap Prestazioni: Giorni della Settimana</h3>
+                        <div id="heatmapDays"></div>
+                    </div>
+
+                    <!-- Heatmap Orari -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">🕐 Heatmap Prestazioni: Fasce Orarie</h3>
+                        <div id="heatmapHours"></div>
+                    </div>
+
+                    <!-- Grafico Andamento -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-xl font-bold mb-4 text-primary-orange">📈 Grafico Andamento (vs Record)</h3>
+                        <p class="text-sm text-gray-400 mb-3">
+                            Confronto ultime 5 sessioni di allenamento (2 turni) con il tuo record personale
+                        </p>
+                        <div style="height: 300px;">
+                            <canvas id="consistencyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('mainMenu')">
+                        Torna al Menu
+                    </button>
+                `;
 document.getElementById('content-view').innerHTML = html;
-loadChartsData();
+
+// Inizializza filtro globale
+window.globalBowFilter = 'all';
+
+drawPieChart();
+drawHeatmapDays();
+drawHeatmapHours();
+drawConsistencyChart();
+            }, 300);
         }
 
-window.resetChartFilters = () => {
-document.getElementById('chart-filter-type').value = 'all';
-document.getElementById('chart-filter-distance').value = 'all';
-document.getElementById('chart-filter-target').value = 'all';
-document.getElementById('chart-filter-location').value = 'all';
-document.getElementById('chart-filter-bow').value = 'all';
-document.getElementById('chart-filter-month').value = 'all';
-document.getElementById('chart-filter-year').value = 'all';
-document.getElementById('chart-filter-turns').value = 'all';
-drawSessionsChart();
+window.applyGlobalBowFilter = () => {
+window.globalBowFilter = document.getElementById('global-bow-filter').value;
+drawPieChart();
+drawHeatmapDays();
+drawHeatmapHours();
+drawConsistencyChart();
         };
 
-function loadChartsData() {
-const sessionsColRef = window.getSessionsCollectionRef();
-if (!sessionsColRef) {
-console.error("Riferimento collezione non disponibile.");
+function getFilteredSessions() {
+if (window.globalBowFilter === 'all') {
+return appState.sessionData;
+            }
+return appState.sessionData.filter(s => s.tipoArco === window.globalBowFilter);
+        }
+
+function drawPieChart() {
+const allSessions = getFilteredSessions();
+const validSessions = allSessions.filter(s => !s.trainingWithoutScore && !s.quickScore);
+
+if (validSessions.length === 0) {
+document.getElementById('pieChart').parentElement.innerHTML = '<p class="text-center text-white">Nessun dato disponibile (esclusi Quick Score)</p>';
 return;
             }
-const q = query(sessionsColRef);
-getDocs(q).then((querySnapshot) => {
-const sessions = [];
-querySnapshot.forEach((doc) => {
-sessions.push({ id: doc.id, ...doc.data() });
-                });
-sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-appState.sessionData = sessions;
-setupChartFilters();
-drawSessionsChart();
-            }).catch((error) => {
-console.error("Errore nel caricamento dei dati:", error);
-            });
-        }
 
-function setupChartFilters() {
-            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-bow', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
-const element = document.getElementById(id);
-if (element) {
-element.addEventListener('change', drawSessionsChart);
-                }
+// Conta tutte le frecce per punteggio
+const scoreCounts = { X: 0, '10': 0, '9': 0, '8': 0, '7': 0, '6': 0, '5': 0, '4': 0, '3': 0, '2': 0, '1': 0, 'M': 0 };
+validSessions.forEach(session => {
+                [session.turn1, session.turn2].forEach(turn => {
+if (!turn || !turn.grid) return;
+const grid = turn.grid.map(rowStr => JSON.parse(rowStr));
+grid.forEach(row => {
+row.forEach(score => {
+if (score && scoreCounts.hasOwnProperty(score)) {
+scoreCounts[score]++;
+                            } else if (score === '10') {
+scoreCounts['10']++;
+                            }
+                        });
+                    });
+                });
             });
-const yearFilter = document.getElementById('chart-filter-year');
-if (yearFilter) {
-const years = new Set();
-appState.sessionData.forEach(session => {
-if (session.data) {
-years.add(new Date(session.data).getFullYear());
-                    }
-                });
-Array.from(yearFilter.options).forEach((option, index) => {
-if (index > 0) yearFilter.removeChild(option);
-                });
-Array.from(years).sort((a, b) => b - a).forEach(year => {
-const option = document.createElement('option');
-option.value = year;
-option.textContent = year;
-yearFilter.appendChild(option);
-                });
+
+const labels = Object.keys(scoreCounts).filter(key => scoreCounts[key] > 0);
+const data = labels.map(key => scoreCounts[key]);
+const ctx = document.getElementById('pieChart').getContext('2d');
+
+if (window.chartInstances && window.chartInstances.pieChart) {
+window.chartInstances.pieChart.destroy();
             }
-        }
 
-function drawSessionsChart() {
-const ctx = document.getElementById('sessionsChart');
-if (!ctx) return;
-const context = ctx.getContext('2d');
-const typeFilter = document.getElementById('chart-filter-type').value;
-const targetFilter = document.getElementById('chart-filter-target').value;
-const distanceFilter = document.getElementById('chart-filter-distance').value;
-const locationFilter = document.getElementById('chart-filter-location').value;
-const bowFilter = document.getElementById('chart-filter-bow').value;
-const monthFilter = document.getElementById('chart-filter-month').value;
-const yearFilter = document.getElementById('chart-filter-year').value;
-const turnsFilter = document.getElementById('chart-filter-turns').value;
-let filteredData = appState.sessionData.filter(session => {
-const sType = (session.type || '').toLowerCase();
-const sTargetType = (session.tipoTarga || '');
-const sDistance = (session.distanza || '');
-const sLocation = (session.tipoLuogo || '');
-const sBow = (session.tipoArco || '');
-const sessionDate = session.data ? new Date(session.data) : null;
-const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
-const sYear = sessionDate ? sessionDate.getFullYear() : null;
-const hasTwoTurns = session.turn2Score > 0; 
-const matchesType = typeFilter === 'all' || sType === typeFilter;
-const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
-const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
-const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
-const matchesBow = bowFilter === 'all' || sBow === bowFilter;
-const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
-const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
-const matchesTurns = turnsFilter === 'all' || 
-                                     (turnsFilter === 'single' && !hasTwoTurns) || 
-                                     (turnsFilter === 'double' && hasTwoTurns);
-const isNotTrainingWithoutScore = !session.trainingWithoutScore;
-return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesBow && matchesMonth && matchesYear && matchesTurns && isNotTrainingWithoutScore;
-            });
-filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
-const labels = filteredData.map(s => {
-const formattedDate = formatDate(s.data);
-const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
-return `${formattedDate}${sessionType}`;
-            });
-const dataPoints = filteredData.map(s => s.totalScore); 
-const chartData = {
+if (!window.chartInstances) window.chartInstances = {};
+
+window.chartInstances.pieChart = new Chart(ctx, {
+type: 'pie',
+data: {
 labels: labels,
 datasets: [{
-label: 'Punteggio Totale Sessione',
-data: dataPoints,
-backgroundColor: 'rgba(253, 185, 39, 0.5)', 
-borderColor: 'rgb(253, 185, 39)',
+data: data,
+backgroundColor: [
+'#FFD700', // X - oro
+'#FDB927', // 10 - arancione
+'#4CAF50', // 9 - verde
+'#2196F3', // 8 - blu
+'#9C27B0', // 7 - viola
+'#FF9800', // 6 - arancione scuro
+'#F44336', // 5 - rosso
+'#795548', // 4 - marrone
+'#607D8B', // 3 - grigio
+'#9E9E9E', // 2 - grigio chiaro
+'#FFFFFF', // 1 - bianco
+'#000000'  // M - nero
+                        ],
 borderWidth: 2,
-tension: 0.4,
-pointRadius: 4,
-pointBackgroundColor: 'rgb(253, 185, 39)'
-                }]
-            };
-if (chartInstance) {
-chartInstance.destroy();
-            }
-if (dataPoints.length === 0) {
-context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-context.font = '20px Inter, sans-serif';
-context.fillStyle = '#fdb927';
-context.textAlign = 'center';
-context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
+borderColor: '#1a1a1a'
+                    }]
+                },
+options: {
+responsive: true,
+maintainAspectRatio: false,
+plugins: {
+legend: {
+position: 'right',
+labels: {
+color: '#fdb927',
+font: { size: 14 }
+                            }
+                        },
+tooltip: {
+callbacks: {
+label: function(context) {
+const label = context.label || '';
+const value = context.parsed || 0;
+const total = context.dataset.data.reduce((a, b) => a + b, 0);
+const percentage = ((value / total) * 100).toFixed(1);
+return `${label}: ${value} frecce (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+function drawHeatmapDays() {
+const allSessions = getFilteredSessions();
+const validSessions = allSessions.filter(s => !s.trainingWithoutScore);
+
+const dayNames = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+const dayData = Array(7).fill(null).map(() => ({ count: 0, totalScore: 0 }));
+
+validSessions.forEach(session => {
+const date = new Date(session.data);
+const dayIndex = date.getDay();
+dayData[dayIndex].count++;
+dayData[dayIndex].totalScore += session.totalScore || 0;
+            });
+
+const html = `
+                <div class="grid grid-cols-7 gap-2">
+${dayData.map((data, index) => {
+const avgScore = data.count > 0 ? data.totalScore / data.count : 0;
+const maxAvg = Math.max(...dayData.map(d => d.count > 0 ? d.totalScore / d.count : 0));
+const intensity = maxAvg > 0 ? (avgScore / maxAvg) : 0;
+const bgColor = intensity > 0.8 ? 'bg-green-600' :
+intensity > 0.6 ? 'bg-green-500' :
+intensity > 0.4 ? 'bg-yellow-500' :
+intensity > 0.2 ? 'bg-orange-500' :
+intensity > 0 ? 'bg-red-500' : 'bg-gray-700';
+return `
+                            <div class="${bgColor} p-3 rounded-lg text-center ${data.count > 0 ? 'cursor-pointer hover:opacity-80' : ''}"
+                                 title="${dayNames[index]}: ${data.count} sessioni, media ${avgScore.toFixed(1)}">
+                                <div class="text-xs font-bold text-white mb-1">${dayNames[index].substring(0, 3)}</div>
+                                <div class="text-lg font-bold text-white">${data.count > 0 ? avgScore.toFixed(0) : '-'}</div>
+                                <div class="text-xs text-white opacity-75">${data.count} sess.</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="mt-3 text-xs text-center text-gray-400">
+                    🟢 Migliori prestazioni | 🔴 Prestazioni inferiori
+                </div>
+            `;
+document.getElementById('heatmapDays').innerHTML = html;
+        }
+
+function drawHeatmapHours() {
+const allSessions = getFilteredSessions();
+const validSessions = allSessions.filter(s => !s.trainingWithoutScore && s.startTime);
+
+const hourData = Array(24).fill(null).map(() => ({ count: 0, totalScore: 0 }));
+
+validSessions.forEach(session => {
+const hour = parseInt(session.startTime.split(':')[0]);
+hourData[hour].count++;
+hourData[hour].totalScore += session.totalScore || 0;
+            });
+
+const maxAvg = Math.max(...hourData.map(d => d.count > 0 ? d.totalScore / d.count : 0));
+
+const html = `
+                <div class="grid grid-cols-8 sm:grid-cols-12 gap-2">
+${hourData.map((data, hour) => {
+const avgScore = data.count > 0 ? data.totalScore / data.count : 0;
+const intensity = maxAvg > 0 ? (avgScore / maxAvg) : 0;
+const bgColor = intensity > 0.8 ? 'bg-green-600' :
+intensity > 0.6 ? 'bg-green-500' :
+intensity > 0.4 ? 'bg-yellow-500' :
+intensity > 0.2 ? 'bg-orange-500' :
+intensity > 0 ? 'bg-red-500' : 'bg-gray-700';
+return `
+                            <div class="${bgColor} p-2 rounded-lg text-center ${data.count > 0 ? 'cursor-pointer hover:opacity-80' : ''}"
+                                 title="Ore ${hour}:00 - ${data.count} sessioni, media ${avgScore.toFixed(1)}">
+                                <div class="text-xs font-bold text-white">${hour}h</div>
+                                <div class="text-sm font-bold text-white">${data.count > 0 ? avgScore.toFixed(0) : '-'}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="mt-3 text-xs text-center text-gray-400">
+                    🟢 Migliori prestazioni | 🔴 Prestazioni inferiori
+                </div>
+            `;
+document.getElementById('heatmapHours').innerHTML = html;
+        }
+
+function drawConsistencyChart() {
+const allSessions = getFilteredSessions();
+// Filtra solo allenamenti con 2 turni
+const twoTurnTrainingSessions = allSessions.filter(s => 
+                !s.trainingWithoutScore && 
+s.type === 'Allenamento' && 
+s.turn2Score && 
+s.turn2Score > 0
+            );
+
+if (twoTurnTrainingSessions.length < 5) {
+document.getElementById('consistencyChart').parentElement.innerHTML = '<p class="text-center text-white">Servono almeno 5 allenamenti con 2 turni per il grafico andamento</p>';
 return;
             }
-chartInstance = new Chart(context, {
-type: 'line', 
-data: chartData,
+
+// Trova il punteggio migliore di sempre
+const allValidSessions = allSessions.filter(s => !s.trainingWithoutScore);
+const bestScore = Math.max(...allValidSessions.map(s => s.totalScore || 0));
+
+// Prendi le ultime 5 sessioni di allenamento a 2 turni
+const last5Sessions = twoTurnTrainingSessions.slice(-5);
+const labels = last5Sessions.map((s, index) => `Sess. ${twoTurnTrainingSessions.length - 4 + index}`);
+const scores = last5Sessions.map(s => s.totalScore || 0);
+
+const ctx = document.getElementById('consistencyChart').getContext('2d');
+
+if (window.chartInstances && window.chartInstances.consistencyChart) {
+window.chartInstances.consistencyChart.destroy();
+            }
+
+if (!window.chartInstances) window.chartInstances = {};
+
+window.chartInstances.consistencyChart = new Chart(ctx, {
+type: 'bar',
+data: {
+labels: labels,
+datasets: [
+                        {
+label: 'Punteggio Record',
+data: Array(5).fill(bestScore),
+type: 'line',
+borderColor: 'rgb(255, 215, 0)',
+backgroundColor: 'rgba(255, 215, 0, 0.1)',
+borderWidth: 3,
+borderDash: [5, 5],
+pointRadius: 0,
+fill: false
+                        },
+                        {
+label: 'Punteggio Sessione',
+data: scores,
+backgroundColor: scores.map(score => 
+score === bestScore ? 'rgba(76, 175, 80, 0.7)' : 
+score >= bestScore * 0.95 ? 'rgba(33, 150, 243, 0.7)' : 
+'rgba(255, 152, 0, 0.7)'
+                            ),
+borderColor: scores.map(score => 
+score === bestScore ? 'rgb(76, 175, 80)' : 
+score >= bestScore * 0.95 ? 'rgb(33, 150, 243)' : 
+'rgb(255, 152, 0)'
+                            ),
+borderWidth: 2
+                        }
+                    ]
+                },
 options: {
 responsive: true,
 maintainAspectRatio: false,
@@ -4055,48 +4178,39 @@ y: {
 beginAtZero: true,
 title: {
 display: true,
-text: 'Punteggio Totale',
+text: 'Punteggio',
 color: '#fdb927'
                             },
-grid: {
-color: 'rgba(74, 74, 74, 0.5)'
-                            },
-ticks: {
-color: '#fdb927'
-                            }
+ticks: { color: '#fdb927' },
+grid: { color: 'rgba(74, 74, 74, 0.5)' }
                         },
 x: {
-grid: {
-color: 'rgba(74, 74, 74, 0.5)'
-                            },
-ticks: {
-color: '#fdb927',
-autoSkip: true, 
-maxRotation: 45,
-minRotation: 45 
-                            },
 title: {
 display: true,
-text: 'Sessioni (in ordine cronologico)',
+text: 'Ultime 5 Sessioni (Allenamenti 2 Turni)',
 color: '#fdb927'
-                            }
+                            },
+ticks: { color: '#fdb927' },
+grid: { color: 'rgba(74, 74, 74, 0.5)' }
                         }
                     },
 plugins: {
 legend: {
-labels: {
-color: '#fdb927'
-                            }
+labels: { color: '#fdb927' }
                         },
 tooltip: {
-mode: 'index',
-intersect: false,
 callbacks: {
-title: function(tooltipItems) {
-return `Sessione: ${tooltipItems[0].label}`;
-                                },
 label: function(context) {
-return `Punteggio: ${context.parsed.y}`;
+if (context.datasetIndex === 0) {
+return `Record: ${bestScore} punti`;
+                                    } else {
+const score = context.parsed.y;
+const diff = bestScore - score;
+return [
+`Punteggio: ${score}`,
+`Differenza dal record: -${diff} punti`
+                                        ];
+                                    }
                                 }
                             }
                         }
@@ -4104,7 +4218,7 @@ return `Punteggio: ${context.parsed.y}`;
                 }
             });
         }
-// FINE PARTE4D
+// FINE PARTE4H
 // PARTE4I - Export, Backup e Condivisione Dati
         function renderExportData() {
             if (!appState.loggedInArcher) {
