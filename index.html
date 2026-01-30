@@ -754,7 +754,16 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
                             📅 Calendario Sessioni
                         </button>
                     </div>
-
+<div class="mb-6">
+                <h3 class="text-lg font-bold text-primary-orange mb-3">💾 Gestione Dati</h3>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('exportData')">
+                    📥 Esporta & Backup
+                </button>
+                <!-- AGGIUNGI QUESTO PULSANTE -->
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2 bg-blue-600 hover:bg-blue-700" onclick="window.showMigrationModal()">
+                    🔄 Migrazione Dati (Aggiungi Tipo Arco)
+                </button>
+            </div>
                     <div class="mb-6">
                         <h3 class="text-lg font-bold text-primary-orange mb-3">💾 Gestione Dati</h3>
                         <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('exportData')">
@@ -4699,6 +4708,99 @@ return [
                 ]);
             });
         };
+        // AGGIUNGI QUESTA FUNZIONE ALLA FINE DELLA PARTE4I (prima di FINE PARTE4I)
+
+async function migrateSessionsAddBowType() {
+    if (!appState.loggedInArcher) {
+        showModal("Errore", "Devi essere loggato per eseguire la migrazione.", [
+            { text: "Ok", handler: () => {} }
+        ]);
+        return;
+    }
+
+    const modalContent = document.createElement('div');
+    modalContent.innerHTML = `
+        <p class="text-white mb-4">Questa operazione aggiornerà tutte le sessioni che non hanno il campo "Tipo Arco".</p>
+        <p class="text-yellow-400 mb-4">⚠️ Seleziona il tipo di arco da applicare a TUTTE le sessioni esistenti:</p>
+        <select id="migration-bow-type" class="input-style">
+            <option value="">Seleziona tipo arco...</option>
+            ${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+        </select>
+    `;
+
+    showModal(
+        "🔄 Migrazione Dati - Aggiungi Tipo Arco",
+        modalContent,
+        [
+            { text: "Annulla", handler: () => {} },
+            { 
+                text: "Avvia Migrazione", 
+                handler: async () => {
+                    const bowType = document.getElementById('migration-bow-type').value;
+                    if (!bowType) {
+                        showModal("Errore", "Seleziona un tipo di arco.", [
+                            { text: "Ok", handler: () => window.showMigrationModal() }
+                        ]);
+                        return;
+                    }
+                    await executeMigration(bowType);
+                }
+            }
+        ]
+    );
+}
+
+async function executeMigration(bowType) {
+    try {
+        const archerId = appState.loggedInArcher.id;
+        const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
+        const querySnapshot = await getDocs(sessionsRef);
+
+        let updatedCount = 0;
+        let skippedCount = 0;
+        const updatePromises = [];
+
+        querySnapshot.forEach((docSnapshot) => {
+            const sessionData = docSnapshot.data();
+            
+            // Aggiorna solo se tipoArco non esiste o è vuoto
+            if (!sessionData.tipoArco) {
+                const sessionDocRef = doc(db, `artifacts/${appId}/archers/${archerId}/sessions/${docSnapshot.id}`);
+                updatePromises.push(
+                    updateDoc(sessionDocRef, { tipoArco: bowType })
+                        .then(() => updatedCount++)
+                        .catch(err => console.error("Errore aggiornamento:", err))
+                );
+            } else {
+                skippedCount++;
+            }
+        });
+
+        // Esegui tutti gli aggiornamenti
+        await Promise.all(updatePromises);
+
+        showModal(
+            "✅ Migrazione Completata!", 
+            `
+                <p class="text-white mb-2"><strong>Sessioni aggiornate:</strong> ${updatedCount}</p>
+                <p class="text-white mb-2"><strong>Sessioni già aggiornate (saltate):</strong> ${skippedCount}</p>
+                <p class="text-green-400 mt-4">Tutte le sessioni sono state aggiornate con tipo arco: <strong>${bowType}</strong></p>
+            `,
+            [{ text: "Ok", handler: () => window.setView('mainMenu') }]
+        );
+
+        // Ricarica le sessioni
+        fetchSessions();
+
+    } catch (error) {
+        console.error("Errore durante la migrazione:", error);
+        showModal("Errore", `Si è verificato un errore durante la migrazione: ${error.message}`, [
+            { text: "Ok", handler: () => {} }
+        ]);
+    }
+}
+
+window.showMigrationModal = migrateSessionsAddBowType;
         // FINE PARTE4I
 // PARTE4J - Calendario Sessioni
         function renderCalendar() {
