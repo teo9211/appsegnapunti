@@ -2719,12 +2719,16 @@ async function loadGoals() {
             }
         }
 
-        function renderGoals() {
-            if (!appState.loggedInArcher) {
+function renderGoals() {
+            // Controlla entrambi: se ne esiste almeno uno, procedi.
+            const currentUser = appState.user || appState.loggedInArcher;
+
+            if (!currentUser) {
+                console.log("Utente non trovato, reindirizzo al login...");
                 window.setView('login');
                 return;
             }
-
+            // Carichiamo i dati e poi disegniamo la pagina
             loadGoals().then(() => {
                 const activeGoals = appState.userGoals.filter(g => !g.completed);
                 const completedGoals = appState.userGoals.filter(g => g.completed);
@@ -2736,29 +2740,58 @@ async function loadGoals() {
                         ➕ Nuovo Obiettivo
                     </button>
 
-                    ${activeGoals.length > 0 ? `
-                        <div class="mb-6">
-                            <h3 class="text-xl font-bold mb-4 text-primary-orange">🎯 Obiettivi Attivi</h3>
-                            <div class="space-y-4">
-                                ${activeGoals.map(goal => renderGoalCard(goal)).join('')}
+                    <div id="goals-list" class="space-y-4 mb-6">
+                        ${appState.userGoals.length === 0 ? `
+                            <div class="col-span-full text-center py-10 bg-gray-800 rounded-xl border border-dashed border-gray-600">
+                                <p class="text-gray-400">Nessun obiettivo attivo. Creane uno per iniziare!</p>
                             </div>
-                        </div>
-                    ` : `
-                        <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6 text-center">
-                            <p class="text-white">Nessun obiettivo attivo. Creane uno per iniziare!</p>
-                        </div>
-                    `}
+                        ` : appState.userGoals.map(goal => {
+                            // Calcolo del progresso in tempo reale
+                            let progress = 0;
+                            let currentVal = 0;
 
-                    ${completedGoals.length > 0 ? `
-                        <div class="mb-6">
-                            <h3 class="text-xl font-bold mb-4 text-green-400">✅ Obiettivi Completati</h3>
-                            <div class="space-y-4">
-                                ${completedGoals.map(goal => renderGoalCard(goal)).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
+                            if (goal.type === 'arrows') {
+                                currentVal = appState.sessionData.reduce((sum, s) => sum + (s.frecceTotali || 0), 0);
+                                progress = Math.min(Math.round((currentVal / goal.targetValue) * 100), 100);
+                            } else if (goal.type === 'score') {
+                                const relevantSessions = appState.sessionData.filter(s => 
+                                    s.distanza === goal.distanza && s.tipoTarga === goal.tipoTarga
+                                );
+                                currentVal = relevantSessions.length > 0 ? Math.max(...relevantSessions.map(s => s.punteggio || 0)) : 0;
+                                progress = Math.min(Math.round((currentVal / goal.targetValue) * 100), 100);
+                            }
 
-                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+                            return `
+                                <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 class="text-lg font-bold text-white">${goal.title}</h3>
+                                            <p class="text-sm text-gray-400">${goal.description || ''}</p>
+                                        </div>
+                                        <span class="px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-primary-orange/20 text-primary-orange'}">
+                                            ${goal.period === 'weekly' ? 'Settimanale' : 'Mensile'}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="mb-2 flex justify-between text-sm">
+                                        <span class="text-gray-400">Progresso</span>
+                                        <span class="text-white font-medium">${currentVal} / ${goal.targetValue} ${goal.type === 'arrows' ? 'frecce' : 'punti'}</span>
+                                    </div>
+                                    
+                                    <div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+                                        <div class="bg-primary-orange h-2.5 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
+                                    </div>
+
+                                    <div class="text-xs text-gray-500 flex justify-between">
+                                        <span>Scadenza: ${goal.deadline || (goal.period === 'weekly' ? 'Fine settimana' : 'Fine mese')}</span>
+                                        <span class="font-bold text-primary-orange">${progress}%</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <button class="btn-primary w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600" onclick="window.setView('mainMenu')">
                         Torna al Menu
                     </button>
                 `;
