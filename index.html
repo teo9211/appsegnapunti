@@ -1342,10 +1342,25 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
             appState.volleyNotes = appState.currentSession[turnKey].volleyNotes || {};
             scoringState.activeCell = { row: 1, col: 1 };
 
-            // Calcola media personale per statistiche live
+// Calcola media personale per statistiche live
             calculatePersonalAverage();
         }
 
+        // --- OK: MANTIENI QUESTO BLOCCO QUI ---
+        // Percorso per le Sessioni (Frecce tirate)
+window.getSessionsCollectionRef = () => {
+            const u = appState.user || appState.loggedInArcher;
+            if (!u) return null;
+            return collection(db, 'users', u.uid, 'sessions');
+        };
+
+        window.getGoalsCollectionRef = () => {
+            const u = appState.user || appState.loggedInArcher;
+            if (!u) return null;
+            return collection(db, 'users', u.uid, 'goals');
+        };
+
+        // --- FUNZIONI DI CALCOLO E GESTIONE ---
         async function calculatePersonalAverage() {
             try {
                 const sessionsColRef = window.getSessionsCollectionRef();
@@ -1375,10 +1390,6 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
                 scoringState.personalAverage = 0;
             }
         }
-window.getGoalsCollectionRef = () => {
-            if (!appState.user) return null;
-            return collection(db, 'users', appState.user.uid, 'goals');
-        };
 
         window.handleCellClick = (row, col) => {
             scoringState.activeCell = { row, col };
