@@ -1375,6 +1375,10 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
                 scoringState.personalAverage = 0;
             }
         }
+window.getGoalsCollectionRef = () => {
+            if (!appState.user) return null;
+            return collection(db, 'users', appState.user.uid, 'goals');
+        };
 
         window.handleCellClick = (row, col) => {
             scoringState.activeCell = { row, col };
@@ -2682,14 +2686,26 @@ return `Punteggio: ${context.parsed.y}`;
         }
 // FINE PARTE4D
  // PARTE4E - Obiettivi e Traguardi
-        async function loadGoals() {
+async function loadGoals() {
             try {
                 const goalsRef = window.getGoalsCollectionRef();
                 if (!goalsRef) return;
 
+                // Carica le sessioni se non sono in memoria, serve per calcolare le medie/punteggi
+                if (appState.sessionData.length === 0) {
+                    const sessionsColRef = window.getSessionsCollectionRef();
+                    if (sessionsColRef) {
+                        const sessionsSnapshot = await getDocs(sessionsColRef);
+                        const sessions = [];
+                        sessionsSnapshot.forEach((doc) => {
+                            sessions.push({ docId: doc.id, ...doc.data() });
+                        });
+                        appState.sessionData = sessions;
+                    }
+                }
+
                 const querySnapshot = await getDocs(goalsRef);
                 appState.userGoals = [];
-                
                 querySnapshot.forEach((doc) => {
                     appState.userGoals.push({ docId: doc.id, ...doc.data() });
                 });
@@ -2698,8 +2714,6 @@ return `Punteggio: ${context.parsed.y}`;
                     if (a.completed !== b.completed) return a.completed ? 1 : -1;
                     return new Date(b.createdAt?.toDate?.() || 0) - new Date(a.createdAt?.toDate?.() || 0);
                 });
-
-                console.log('Caricati', appState.userGoals.length, 'obiettivi');
             } catch (error) {
                 console.error("Errore caricamento obiettivi:", error);
             }
@@ -2948,7 +2962,7 @@ return `Punteggio: ${context.parsed.y}`;
             }
         };
 
-        async function saveNewGoal() {
+async function saveNewGoal() {
             const title = document.getElementById('goal-title').value.trim();
             const description = document.getElementById('goal-description').value.trim();
             const type = document.getElementById('goal-type').value;
@@ -2988,15 +3002,23 @@ return `Punteggio: ${context.parsed.y}`;
             }
 
             try {
+                // Questo è il punto che dava errore: ora window.getGoalsCollectionRef() esiste!
                 const goalsRef = window.getGoalsCollectionRef();
+                if (!goalsRef) {
+                    throw new Error("Devi essere loggato per salvare obiettivi");
+                }
+                
                 await addDoc(goalsRef, newGoal);
+                
+                // Ricarichiamo la lista obiettivi per vedere subito quello nuovo
+                await loadGoals();
                 
                 showModal("Successo", "Obiettivo creato con successo!", [
                     { text: "Ok", handler: () => window.setView('goals') }
                 ]);
             } catch (error) {
                 console.error("Errore creazione obiettivo:", error);
-                showModal("Errore", "Impossibile creare l'obiettivo.", [
+                showModal("Errore", "Impossibile creare l'obiettivo: " + error.message, [
                     { text: "Ok", handler: () => {} }
                 ]);
             }
