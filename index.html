@@ -3012,6 +3012,7 @@ async function saveNewGoal() {
                 return;
             }
 
+            // Usiamo serverTimestamp() di Firebase per la data
             const newGoal = {
                 title: title,
                 description: description,
@@ -3019,44 +3020,47 @@ async function saveNewGoal() {
                 targetValue: targetValue,
                 period: period,
                 completed: false,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp() 
             };
 
             if (type === 'score') {
                 const distanza = document.getElementById('goal-distanza').value;
                 const targa = document.getElementById('goal-targa').value;
-
                 if (!distanza || !targa) {
-                    showModal("Errore", "Seleziona distanza e tipo targa per l'obiettivo di punteggio.", [
+                    showModal("Errore", "Seleziona distanza e targa.", [
                         { text: "Ok", handler: () => window.showAddGoalModal() }
                     ]);
                     return;
                 }
-
                 newGoal.distanza = distanza;
                 newGoal.tipoTarga = targa;
             }
 
             try {
-                // Questo è il punto che dava errore: ora window.getGoalsCollectionRef() esiste!
+                // RECUPERO IL RIFERIMENTO CORRETTO
                 const goalsRef = window.getGoalsCollectionRef();
-                if (!goalsRef) {
-                    throw new Error("Devi essere loggato per salvare obiettivi");
-                }
                 
+                if (!goalsRef) {
+                    throw new Error("Sessione utente non valida. Effettua nuovamente il login.");
+                }
+
+                // Eseguo l'aggiunta del documento
                 await addDoc(goalsRef, newGoal);
                 
-                // Ricarichiamo la lista obiettivi per vedere subito quello nuovo
+                // Forza il ricaricamento dei dati locali
                 await loadGoals();
                 
                 showModal("Successo", "Obiettivo creato con successo!", [
                     { text: "Ok", handler: () => window.setView('goals') }
                 ]);
             } catch (error) {
-                console.error("Errore creazione obiettivo:", error);
-                showModal("Errore", "Impossibile creare l'obiettivo: " + error.message, [
-                    { text: "Ok", handler: () => {} }
-                ]);
+                console.error("Errore Firebase:", error);
+                // Se l'errore persiste, mostriamo un messaggio più utile
+                let msg = "Impossibile creare l'obiettivo.";
+                if (error.code === 'permission-denied') {
+                    msg = "Errore di permessi: Verifica le regole di sicurezza su Firebase Console.";
+                }
+                showModal("Errore", msg, [{ text: "Ok", handler: () => {} }]);
             }
         }
 
