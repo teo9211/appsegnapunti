@@ -262,15 +262,6 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
             return collection(db, `artifacts/${appId}/archers`);
         };
 
-        window.getSessionsCollectionRef = () => {
-            if (!appState.loggedInArcher) return null;
-            return collection(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/sessions`);
-        };
-
-        window.getGoalsCollectionRef = () => {
-            if (!appState.loggedInArcher) return null;
-            return collection(db, `artifacts/${appId}/archers/${appState.loggedInArcher.id}/goals`);
-        };
         
         function pad(num) {
             return num < 10 ? '0' + num : num;
@@ -1348,23 +1339,23 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
 
         // --- OK: MANTIENI QUESTO BLOCCO QUI ---
         // Percorso per le Sessioni (Frecce tirate)
-window.getSessionsCollectionRef = () => {
-            const u = appState.user || appState.loggedInArcher;
+// --- PERCORSI DATABASE (UNIFICATI) ---
+        window.getSessionsCollectionRef = () => {
+            const u = appState.loggedInArcher;
             if (!u) return null;
-            return collection(db, 'users', u.uid, 'sessions');
+            return collection(db, `artifacts/${appId}/archers/${u.id}/sessions`);
         };
 
         window.getGoalsCollectionRef = () => {
-            const u = appState.user || appState.loggedInArcher;
+            const u = appState.loggedInArcher;
             if (!u) return null;
-            return collection(db, 'users', u.uid, 'goals');
+            return collection(db, `artifacts/${appId}/archers/${u.id}/goals`);
         };
-
-        // --- FUNZIONI DI CALCOLO E GESTIONE ---
+        // --- FUNZIONI DI CALCOLO ---
         async function calculatePersonalAverage() {
             try {
                 const sessionsColRef = window.getSessionsCollectionRef();
-                if (!sessionsColRef) return;
+                if (!sessionsColRef || !appState.currentSession) return;
 
                 const q = query(
                     sessionsColRef,
@@ -1378,6 +1369,7 @@ window.getSessionsCollectionRef = () => {
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
+                    // Calcola la media solo su sessioni valide con punteggio
                     if (data.totalAverage && data.totalAverage > 0 && !data.trainingWithoutScore && !data.quickScore) {
                         totalScore += data.totalAverage;
                         count++;
