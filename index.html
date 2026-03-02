@@ -860,9 +860,7 @@ function renderChartsView() {
             </div>
         </div>
 
-        <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-            Torna al Menu Principale
-        </button>
+
     `;
     document.getElementById('content-view').innerHTML = html;
     loadChartsData();
@@ -1053,7 +1051,7 @@ function renderChartsView() {
                                 ⚡ Quick Score (Inserimento Rapido)
                             </button>
                         ` : ''}
-                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">Torna Indietro</button>
+
                     </div>
                 </form>
             `;
@@ -1168,10 +1166,7 @@ function renderChartsView() {
                             <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
                                 💾 Salva Quick Score
                             </button>
-                            <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
-                                    onclick="window.setView('registrationForm', { type: '${session.type}' })">
-                                Torna Indietro
-                            </button>
+
                         </div>
                     </form>
                 </div>
@@ -1318,10 +1313,7 @@ function renderChartsView() {
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
                             Salva Allenamento
                         </button>
-                        <button type="button" class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" 
-                                onclick="window.setView('registrationForm', { type: 'Allenamento' })">
-                            Torna Indietro
-                        </button>
+
                     </div>
                 </form>
             `;
@@ -1780,9 +1772,7 @@ function renderChartsView() {
                             Salva Turno
                         </button>
                     `}
-                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('registrationForm', { type: '${sessionType}' })">
-                        Torna Indietro
-                    </button>
+
                 </div>
             `;
 
@@ -2165,9 +2155,7 @@ renderDataSummaryTable();
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
                             📝 Modifica Note
                         </button>
-                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                            🏠 Torna al Menu Principale
-                        </button>
+
                         <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
@@ -2227,9 +2215,7 @@ renderDataSummaryTable();
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
                             📝 Modifica Note
                         </button>
-                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                            🏠 Torna al Menu Principale
-                        </button>
+
                         <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
@@ -2275,9 +2261,7 @@ renderDataSummaryTable();
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
                             📝 Modifica Note
                         </button>
-                        <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                            🏠 Torna al Menu Principale
-                        </button>
+
                         <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
@@ -2589,9 +2573,7 @@ ${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join(''
                 <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
                     <canvas id="sessionsChart"></canvas>
                 </div>
-                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu Principale
-                </button>
+
             `;
 document.getElementById('content-view').innerHTML = html;
 loadChartsData();
