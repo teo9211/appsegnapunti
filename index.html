@@ -566,37 +566,35 @@ window.setView = (viewName, data = {}) => {
                     break;
 // --- INSERISCI QUI IL NUOVO CASO ---
                 case 'dashboardStats':
-                    document.getElementById('content-view').innerHTML = `
-                        <div class="space-y-6 pb-10">
-                            <h2 class="text-2xl font-bold text-white mb-4 text-center">Dashboard & Statistiche</h2>
-                            
-                            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
-                                <div class="flex items-center justify-between mb-4">
-                                    <h3 class="text-sm font-bold text-primary-orange uppercase">Riepilogo Numerico</h3>
-                                    <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-gray-800 text-white text-xs rounded-lg p-2 border border-gray-600 outline-none">
-                                        <option value="all">Sempre</option>
-                                        <option value="month">Ultimo mese</option>
-                                        <option value="3months">Ultimi 3 mesi</option>
-                                        <option value="year">Ultimo anno</option>
-                                    </select>
-                                </div>
-                                <div id="stats-summary-grid" class="grid grid-cols-2 gap-3">
-                                    </div>
-                            </div>
+    document.getElementById('content-view').innerHTML = `
+        <div class="space-y-6 pb-10">
+            <h2 class="text-2xl font-bold text-white text-center">Dashboard & Statistiche</h2>
+            
+            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-bold text-primary-orange uppercase">Performance</h3>
+                    <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-gray-800 text-white text-xs rounded-lg p-1 border border-gray-600">
+                        <option value="all">Sempre</option>
+                        <option value="month">Mese</option>
+                        <option value="3months">3 Mesi</option>
+                        <option value="year">Anno</option>
+                    </select>
+                </div>
+                <div id="stats-summary-grid" class="grid grid-cols-2 gap-3"></div>
+            </div>
 
-                            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
-                                <h3 class="text-sm font-bold text-primary-orange uppercase mb-4">Andamento Punteggi</h3>
-                                <div class="h-64">
-                                    <canvas id="mainStatsChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
+                <h3 class="text-sm font-bold text-primary-orange uppercase mb-4">Andamento</h3>
+                <div class="h-48">
+                    <canvas id="mainStatsChart"></canvas>
+                </div>
+            </div>
 
-                    setTimeout(() => {
-                        window.updateDashboardStats();
-                    }, 50);
-                    break;
+            <div id="advanced-stats-extra"></div>
+        </div>
+    `;
+    setTimeout(() => { window.updateDashboardStats(); }, 50);
+    break;
             } // fine switch
         }; // fine setView
         // FINE PARTE2
@@ -3567,115 +3565,154 @@ async function saveNewGoal() {
             window.setView('detailedSummary', { sessionId: sessionId });
         };
         // FINE PARTE4F   
-// --- PARTE 4G: DASHBOARD UNIFICATA & STATISTICHE ---
-        
-        // 1. Funzione principale di aggiornamento dati e grafica
-        window.updateDashboardStats = () => {
-            const period = document.getElementById('stats-period').value;
-            const now = new Date();
+// --- PARTE 4G: DASHBOARD AVANZATA UNIFICATA ---
+
+window.updateDashboardStats = () => {
+    const period = document.getElementById('stats-period')?.value || 'all';
+    const now = new Date();
+    
+    // 1. FILTRO TEMPORALE
+    const filteredSessions = appState.sessionData.filter(s => {
+        if (period === 'all') return true;
+        const sDate = new Date(s.data);
+        const diffMonths = (now.getFullYear() - sDate.getFullYear()) * 12 + (now.getMonth() - sDate.getMonth());
+        if (period === 'month') return diffMonths < 1;
+        if (period === '3months') return diffMonths < 3;
+        if (period === 'year') return diffMonths < 12;
+        return true;
+    }).sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    const validSessions = filteredSessions.filter(s => !s.trainingWithoutScore);
+
+    if (validSessions.length === 0) {
+        document.getElementById('stats-summary-grid').innerHTML = `<p class="col-span-2 text-center text-gray-400 py-4">Nessun dato per questo periodo</p>`;
+        if (window.chartInstance) window.chartInstance.destroy();
+        return;
+    }
+
+    // 2. CALCOLI STATISTICI (TUA LOGICA ORIGINALE)
+    const totalSessions = filteredSessions.length;
+    const allScores = validSessions.map(s => s.totalScore || 0);
+    const avgScore = allScores.reduce((a, b) => a + b, 0) / validSessions.length;
+    const maxScore = Math.max(...allScores);
+    
+    // Calcolo deviazione standard
+    const variance = allScores.reduce((sum, score) => sum + Math.pow(score - avgScore, 2), 0) / validSessions.length;
+    const stdDev = Math.sqrt(variance);
+
+    // Accuratezza X, 10, 9
+    const sessionsWithDetails = validSessions.filter(s => !s.quickScore);
+    const totalArrows = sessionsWithDetails.reduce((sum, s) => {
+        const format = s.formatoGara || '';
+        if (format.includes('3x10')) return sum + 30;
+        if (format.includes('6x6')) return sum + 36;
+        if (format.includes('6x12')) return sum + 72;
+        return sum + 30; // default
+    }, 0);
+
+    const totalX = sessionsWithDetails.reduce((sum, s) => sum + (s.totalX || 0), 0);
+    const totalTen = sessionsWithDetails.reduce((sum, s) => sum + (s.totalTen || 0), 0);
+    const totalNine = sessionsWithDetails.reduce((sum, s) => sum + (s.totalNine || 0), 0);
+
+    const percentX = totalArrows > 0 ? (totalX / totalArrows * 100) : 0;
+    const percentTen = totalArrows > 0 ? (totalTen / totalArrows * 100) : 0;
+    const percentNine = totalArrows > 0 ? (totalNine / totalArrows * 100) : 0;
+
+    // 3. AGGIORNAMENTO UI (NUMERI E ACCURATEZZA)
+    const summaryGrid = document.getElementById('stats-summary-grid');
+    if (summaryGrid) {
+        summaryGrid.innerHTML = `
+            <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                <div class="text-[10px] text-primary-orange uppercase mb-1">Sessioni</div>
+                <div class="text-xl font-bold text-white">${totalSessions}</div>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                <div class="text-[10px] text-primary-orange uppercase mb-1">Media</div>
+                <div class="text-xl font-bold text-white">${avgScore.toFixed(1)}</div>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                <div class="text-[10px] text-primary-orange uppercase mb-1">Record</div>
+                <div class="text-xl font-bold text-green-400">${maxScore}</div>
+            </div>
+            <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                <div class="text-[10px] text-primary-orange uppercase mb-1">Stabilità</div>
+                <div class="text-xl font-bold ${stdDev < 20 ? 'text-green-400' : 'text-yellow-400'}">±${stdDev.toFixed(1)}</div>
+            </div>
             
-            // Filtro le sessioni in base al periodo selezionato
-            const filteredSessions = appState.sessionData.filter(s => {
-                if (period === 'all') return true;
-                const sDate = new Date(s.data);
-                const diffMonths = (now.getFullYear() - sDate.getFullYear()) * 12 + (now.getMonth() - sDate.getMonth());
-                if (period === 'month') return diffMonths < 1;
-                if (period === '3months') return diffMonths < 3;
-                if (period === 'year') return diffMonths < 12;
-                return true;
-            }).sort((a, b) => new Date(a.data) - new Date(b.data));
+            <div class="col-span-2 mt-2 grid grid-cols-3 gap-2 border-t border-gray-700 pt-3">
+                <div class="text-center">
+                    <div class="text-sm font-bold text-yellow-400">${percentX.toFixed(1)}%</div>
+                    <div class="text-[9px] text-gray-400">X</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm font-bold text-green-400">${percentTen.toFixed(1)}%</div>
+                    <div class="text-[9px] text-gray-400">10</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm font-bold text-blue-400">${percentNine.toFixed(1)}%</div>
+                    <div class="text-[9px] text-gray-400">9</div>
+                </div>
+            </div>
+        `;
+    }
 
-            // Filtro solo quelle con punteggio per i calcoli tecnici
-            const scoringSessions = filteredSessions.filter(s => !s.trainingWithoutScore);
-            
-            // Calcoli statistici
-            const totalSessions = filteredSessions.length;
-            const avgScore = scoringSessions.length > 0 
-                ? scoringSessions.reduce((acc, s) => acc + (s.totalScore || 0), 0) / scoringSessions.length 
-                : 0;
-            const maxScore = scoringSessions.length > 0 
-                ? Math.max(...scoringSessions.map(s => s.totalScore || 0)) 
-                : 0;
-            const gareCount = filteredSessions.filter(s => s.type === 'Gara').length;
-
-            // Aggiornamento della griglia numerica nell'HTML
-            const summaryGrid = document.getElementById('stats-summary-grid');
-            if (summaryGrid) {
-                summaryGrid.innerHTML = `
-                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
-                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Sessioni</div>
-                        <div class="text-2xl font-bold text-white">${totalSessions}</div>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
-                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Media</div>
-                        <div class="text-2xl font-bold text-white">${avgScore.toFixed(1)}</div>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
-                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Record</div>
-                        <div class="text-2xl font-bold text-green-400">${maxScore}</div>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
-                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Gare</div>
-                        <div class="text-2xl font-bold text-blue-400">${gareCount}</div>
-                    </div>
-                `;
-            }
-
-            // Rendering del Grafico con Chart.js
-            const ctx = document.getElementById('mainStatsChart');
-            if (ctx) {
-                // Distruggiamo il grafico precedente per evitare sovrapposizioni e rallentamenti
-                if (window.chartInstance) {
-                    window.chartInstance.destroy();
+    // 4. RENDERING GRAFICO
+    const ctx = document.getElementById('mainStatsChart');
+    if (ctx) {
+        if (window.chartInstance) window.chartInstance.destroy();
+        window.chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: validSessions.map(s => formatDate(s.data)),
+                datasets: [{
+                    label: 'Punti',
+                    data: validSessions.map(s => s.totalScore),
+                    borderColor: '#fdb927',
+                    backgroundColor: 'rgba(253, 185, 39, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: '#333' }, ticks: { color: '#aaa', font: { size: 10 } } },
+                    x: { grid: { display: false }, ticks: { color: '#aaa', font: { size: 9 } } }
                 }
-
-                window.chartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: scoringSessions.map(s => formatDate(s.data)),
-                        datasets: [{
-                            label: 'Punti Totali',
-                            data: scoringSessions.map(s => s.totalScore),
-                            borderColor: '#fdb927',
-                            backgroundColor: 'rgba(253, 185, 39, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 5,
-                            pointBackgroundColor: '#fdb927',
-                            pointBorderColor: '#fff',
-                            pointHoverRadius: 7
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#1a1a1a',
-                                titleColor: '#fdb927',
-                                borderColor: '#fdb927',
-                                borderWidth: 1
-                            }
-                        },
-                        scales: {
-                            y: { 
-                                grid: { color: '#333' }, 
-                                ticks: { color: '#aaa', font: { size: 10 } } 
-                            },
-                            x: { 
-                                grid: { display: false }, 
-                                ticks: { color: '#aaa', font: { size: 9 } } 
-                            }
-                        }
-                    }
-                });
             }
-        };
+        });
+    }
+    
+    // Qui puoi ri-aggiungere le funzioni per Indoor/Outdoor o Distanze se vuoi vederle sotto il grafico
+    renderAdvancedStatsExtra(validSessions);
+};
 
+// Funzione di supporto per le statistiche avanzate (Distanze, Orari, ecc.)
+function renderAdvancedStatsExtra(sessions) {
+    const container = document.getElementById('advanced-stats-extra');
+    if (!container) return;
 
-        
+    // Esempio: Calcolo veloce Indoor vs Outdoor
+    const indoor = sessions.filter(s => s.tipoLuogo === 'Indoor');
+    const outdoor = sessions.filter(s => s.tipoLuogo === 'Outdoor');
+    
+    container.innerHTML = `
+        <div class="grid grid-cols-2 gap-4 mt-4">
+            <div class="p-3 bg-gray-800 rounded-lg border-l-4 border-blue-500">
+                <div class="text-[10px] text-gray-400 uppercase">Media Indoor</div>
+                <div class="text-lg font-bold text-white">${indoor.length ? (indoor.reduce((a,b)=>a+b.totalScore,0)/indoor.length).toFixed(1) : '-'}</div>
+            </div>
+            <div class="p-3 bg-gray-800 rounded-lg border-l-4 border-green-500">
+                <div class="text-[10px] text-gray-400 uppercase">Media Outdoor</div>
+                <div class="text-lg font-bold text-white">${outdoor.length ? (outdoor.reduce((a,b)=>a+b.totalScore,0)/outdoor.length).toFixed(1) : '-'}</div>
+            </div>
+        </div>
+    `;
+}
         // --- FINE PARTE 4G ---
 // PARTE4H - Grafici Multipli
         function renderMultipleCharts() {
@@ -5039,3 +5076,4 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
+
