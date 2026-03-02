@@ -566,36 +566,40 @@ window.setView = (viewName, data = {}) => {
                     break;
 // --- INSERISCI QUI IL NUOVO CASO ---
 case 'dashboardStats':
-    document.getElementById('content-view').innerHTML = `
-        <div class="space-y-6 pb-10">
-            <h2 class="text-2xl font-bold text-white text-center">Analisi Performance</h2>
-            
-            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xs font-bold text-primary-orange uppercase tracking-widest">Panoramica</h3>
-                    <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-gray-800 text-white text-xs rounded-lg p-2 border border-gray-600 outline-none">
-                        <option value="all">Sempre</option>
-                        <option value="month">Ultimo mese</option>
-                        <option value="3months">Ultimi 3 mesi</option>
-                        <option value="year">Ultimo anno</option>
-                    </select>
-                </div>
-                <div id="stats-summary-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
-            </div>
+                    document.getElementById('content-view').innerHTML = `
+                        <div class="space-y-6 pb-10">
+                            <div class="flex flex-col items-center justify-center mb-4">
+                                <h2 class="text-2xl font-bold text-white uppercase tracking-wider">Analisi Performance</h2>
+                                <div class="h-1 w-20 bg-primary-orange mt-1 rounded-full"></div>
+                            </div>
+                            
+                            <div class="flex justify-end px-2">
+                                <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-secondary-dark text-white text-xs rounded-lg p-2 border border-primary-orange outline-none shadow-lg">
+                                    <option value="all">Storico Completo</option>
+                                    <option value="month">Ultimo Mese</option>
+                                    <option value="3months">Ultimi 3 Mesi</option>
+                                    <option value="year">Ultimo Anno</option>
+                                </select>
+                            </div>
 
-            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg text-center">
-                <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest">Andamento Punteggi</h3>
-                <div class="h-64">
-                    <canvas id="mainStatsChart"></canvas>
-                </div>
-            </div>
+                            <div id="stats-summary-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3 px-2"></div>
 
-            <div id="advanced-stats-content" class="space-y-6">
-                </div>
-        </div>
-    `;
-    setTimeout(() => { window.updateDashboardStats(); }, 50);
-    break;
+                            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
+                                <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest text-center">📈 Andamento Punteggi</h3>
+                                <div class="h-64">
+                                    <canvas id="mainStatsChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div id="advanced-stats-content" class="space-y-6 px-2">
+                                </div>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.updateDashboardStats();
+                    }, 50);
+                    break;
             } // fine switch
         }; // fine setView
         // FINE PARTE2
@@ -3572,7 +3576,7 @@ window.updateDashboardStats = () => {
     const period = document.getElementById('stats-period')?.value || 'all';
     const now = new Date();
     
-    // 1. FILTRO DATI
+    // 1. FILTRO DATI DINAMICO
     const filteredSessions = appState.sessionData.filter(s => {
         if (!s.data) return false;
         if (period === 'all') return true;
@@ -3584,42 +3588,42 @@ window.updateDashboardStats = () => {
         return true;
     }).sort((a, b) => new Date(a.data) - new Date(b.data));
 
-    const validSessions = filteredSessions.filter(s => !s.trainingWithoutScore);
+    const validSessions = filteredSessions.filter(s => !s.trainingWithoutScore && s.totalScore > 0);
 
     if (validSessions.length === 0) {
-        document.getElementById('stats-summary-grid').innerHTML = `<p class="col-span-2 text-center text-gray-400 py-4">Nessun dato trovato</p>`;
+        document.getElementById('stats-summary-grid').innerHTML = `<p class="col-span-4 text-center text-gray-400 py-10 italic">Nessun dato disponibile per questo periodo.</p>`;
         document.getElementById('advanced-stats-content').innerHTML = "";
         return;
     }
 
-    // 2. CALCOLI GENERALI
+    // 2. CALCOLO STATISTICHE GENERALI (DAL TUO FILE ORIGINALE)
     const allScores = validSessions.map(s => s.totalScore || 0);
     const avgScore = allScores.reduce((a, b) => a + b, 0) / validSessions.length;
     const maxScore = Math.max(...allScores);
     const variance = allScores.reduce((sum, score) => sum + Math.pow(score - avgScore, 2), 0) / validSessions.length;
     const stdDev = Math.sqrt(variance);
 
-    // Render Riassunto
+    // Render Summary Grid
     document.getElementById('stats-summary-grid').innerHTML = `
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[10px] text-primary-orange mb-1 uppercase">Sessioni</div>
+        <div class="bg-gray-800 p-3 rounded-xl text-center border border-gray-700 shadow-md">
+            <div class="text-[9px] text-primary-orange uppercase mb-1">Sessioni</div>
             <div class="text-2xl font-bold text-white">${filteredSessions.length}</div>
         </div>
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[10px] text-primary-orange mb-1 uppercase">Media</div>
+        <div class="bg-gray-800 p-3 rounded-xl text-center border border-gray-700 shadow-md">
+            <div class="text-[9px] text-primary-orange uppercase mb-1">Media</div>
             <div class="text-2xl font-bold text-white">${avgScore.toFixed(1)}</div>
         </div>
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[10px] text-primary-orange mb-1 uppercase">Record</div>
+        <div class="bg-gray-800 p-3 rounded-xl text-center border border-gray-700 shadow-md">
+            <div class="text-[9px] text-primary-orange uppercase mb-1">Record</div>
             <div class="text-2xl font-bold text-green-400">${maxScore}</div>
         </div>
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[10px] text-primary-orange mb-1 uppercase">Stabilità</div>
-            <div class="text-xl font-bold ${stdDev < 15 ? 'text-green-400' : 'text-yellow-400'}">±${stdDev.toFixed(1)}</div>
+        <div class="bg-gray-800 p-3 rounded-xl text-center border border-gray-700 shadow-md">
+            <div class="text-[9px] text-primary-orange uppercase mb-1">Stabilità</div>
+            <div class="text-xl font-bold ${stdDev < 20 ? 'text-green-400' : 'text-yellow-500'}">±${stdDev.toFixed(1)}</div>
         </div>
     `;
 
-    // 3. GRAFICO ANDAMENTO
+    // 3. GRAFICO LINEARE
     const ctx = document.getElementById('mainStatsChart');
     if (ctx) {
         if (window.chartInstance) window.chartInstance.destroy();
@@ -3633,94 +3637,115 @@ window.updateDashboardStats = () => {
                     backgroundColor: 'rgba(253, 185, 39, 0.1)',
                     fill: true,
                     tension: 0.4,
-                    pointRadius: 4
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fdb927'
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    // 4. STATISTICHE AVANZATE (ACCURATEZZA, DISTANZE, ORARI)
-    let advancedHtml = "";
+    // 4. RICOSTRUZIONE SEZIONI AVANZATE (ACCURATEZZA, DISTANZE, ORARI, TREND)
+    let advHtml = "";
 
-    // A. ACCURATEZZA (X, 10, 9)
-    const sessionsWithDetails = validSessions.filter(s => !s.quickScore);
-    const totalArrows = sessionsWithDetails.reduce((sum, s) => {
-        const f = s.formatoGara || "";
-        return sum + (f.includes('3x10') ? 30 : f.includes('6x6') ? 36 : f.includes('6x12') ? 72 : 30);
-    }, 0);
-    const pX = totalArrows > 0 ? (sessionsWithDetails.reduce((a,b)=>a+(b.totalX||0),0)/totalArrows*100) : 0;
-    const p10 = totalArrows > 0 ? (sessionsWithDetails.reduce((a,b)=>a+(b.totalTen||0),0)/totalArrows*100) : 0;
-    const p9 = totalArrows > 0 ? (sessionsWithDetails.reduce((a,b)=>a+(b.totalNine||0),0)/totalArrows*100) : 0;
+    // A. Accuratezza (X, 10, 9)
+    const detailed = validSessions.filter(s => !s.quickScore);
+    const totalArrows = detailed.reduce((sum, s) => sum + (s.formatoGara?.includes('6x') ? (s.formatoGara.includes('12')?72:36) : 30), 0);
+    const pX = totalArrows > 0 ? (detailed.reduce((a,b)=>a+(b.totalX||0),0)/totalArrows*100) : 0;
+    const p10 = totalArrows > 0 ? (detailed.reduce((a,b)=>a+(b.totalTen||0),0)/totalArrows*100) : 0;
+    const p9 = totalArrows > 0 ? (detailed.reduce((a,b)=>a+(b.totalNine||0),0)/totalArrows*100) : 0;
 
-    advancedHtml += `
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
-            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest text-center">🎯 Accuratezza</h3>
-            <div class="grid grid-cols-3 gap-4">
-                ${renderProgressBar('X', pX, 'bg-yellow-400')}
-                ${renderProgressBar('10', p10, 'bg-green-400')}
-                ${renderProgressBar('9', p9, 'bg-blue-400')}
+    advHtml += `
+        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange">
+            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest text-center">🎯 Accuratezza Impatti</h3>
+            <div class="grid grid-cols-3 gap-2">
+                ${renderOriginalBar('X', pX, 'bg-yellow-400')}
+                ${renderOriginalBar('10', p10, 'bg-green-500')}
+                ${renderOriginalBar('9', p9, 'bg-blue-500')}
             </div>
         </div>
     `;
 
-    // B. DISTANZE & TIPO TARGA
-    const byDist = {};
+    // B. Distanze (Tua logica progressiva)
+    const dists = {};
     validSessions.forEach(s => {
-        if(!byDist[s.distanza]) byDist[s.distanza] = { s:0, c:0, m:0 };
-        byDist[s.distanza].s += (s.totalScore || 0);
-        byDist[s.distanza].c++;
-        byDist[s.distanza].m = Math.max(byDist[s.distanza].m, s.totalScore);
+        if(!dists[s.distanza]) dists[s.distanza] = { sum:0, count:0, max:0 };
+        dists[s.distanza].sum += s.totalScore;
+        dists[s.distanza].count++;
+        dists[s.distanza].max = Math.max(dists[s.distanza].max, s.totalScore);
     });
 
-    advancedHtml += `
+    advHtml += `
         <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
             <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest text-center">📏 Prestazioni per Distanza</h3>
-            <div class="space-y-3">
-                ${Object.entries(byDist).map(([d, data]) => `
-                    <div>
-                        <div class="flex justify-between text-[10px] mb-1">
-                            <span class="text-white font-bold">${d}m</span>
-                            <span class="text-primary-orange">${(data.s/data.c).toFixed(1)} media | ${data.m} max</span>
+            <div class="space-y-4">
+                ${Object.entries(dists).map(([d, data]) => {
+                    const avg = data.sum / data.count;
+                    const perc = (avg / 360) * 100;
+                    return `
+                        <div>
+                            <div class="flex justify-between text-[10px] mb-1 uppercase">
+                                <span class="text-white font-bold">${d} Metri</span>
+                                <span class="text-primary-orange">${avg.toFixed(1)} Avg | ${data.max} Max</span>
+                            </div>
+                            <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                                <div class="bg-primary-orange h-full" style="width: ${perc}%"></div>
+                            </div>
                         </div>
-                        <div class="progress-bar h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                            <div class="progress-fill bg-primary-orange h-full" style="width: ${(data.s/data.c)/3.6}%"></div>
-                        </div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </div>
     `;
 
-    // C. INDOOR VS OUTDOOR
-    const ind = validSessions.filter(s => s.tipoLuogo === 'Indoor');
-    const out = validSessions.filter(s => s.tipoLuogo === 'Outdoor');
-    if(ind.length && out.length) {
-        advancedHtml += `
+    // C. Indoor vs Outdoor
+    const indoor = validSessions.filter(s => s.tipoLuogo === 'Indoor');
+    const outdoor = validSessions.filter(s => s.tipoLuogo === 'Outdoor');
+    if(indoor.length || outdoor.length) {
+        advHtml += `
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-blue-900 bg-opacity-20 p-4 rounded-xl border border-blue-500 text-center">
-                    <div class="text-[10px] text-blue-400 uppercase font-bold">🏠 Indoor</div>
-                    <div class="text-2xl font-bold text-white">${(ind.reduce((a,b)=>a+b.totalScore,0)/ind.length).toFixed(1)}</div>
+                <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500 text-center">
+                    <div class="text-[10px] text-blue-400 uppercase font-bold mb-1">Indoor</div>
+                    <div class="text-2xl font-bold text-white">${indoor.length ? (indoor.reduce((a,b)=>a+b.totalScore,0)/indoor.length).toFixed(1) : '---'}</div>
                 </div>
-                <div class="bg-green-900 bg-opacity-20 p-4 rounded-xl border border-green-500 text-center">
-                    <div class="text-[10px] text-green-400 uppercase font-bold">🌳 Outdoor</div>
-                    <div class="text-2xl font-bold text-white">${(out.reduce((a,b)=>a+b.totalScore,0)/out.length).toFixed(1)}</div>
+                <div class="bg-green-900/20 p-4 rounded-xl border border-green-500 text-center">
+                    <div class="text-[10px] text-green-400 uppercase font-bold mb-1">Outdoor</div>
+                    <div class="text-2xl font-bold text-white">${outdoor.length ? (outdoor.reduce((a,b)=>a+b.totalScore,0)/outdoor.length).toFixed(1) : '---'}</div>
                 </div>
             </div>
         `;
     }
 
-    document.getElementById('advanced-stats-content').innerHTML = advancedHtml;
+    // D. Trend Miglioramento (Tua logica originale)
+    if (validSessions.length >= 6) {
+        const firstHalf = validSessions.slice(0, Math.floor(validSessions.length/2));
+        const lastHalf = validSessions.slice(-Math.floor(validSessions.length/2));
+        const avgF = firstHalf.reduce((a,b)=>a+b.totalScore,0)/firstHalf.length;
+        const avgL = lastHalf.reduce((a,b)=>a+b.totalScore,0)/lastHalf.length;
+        const imp = avgL - avgF;
+
+        advHtml += `
+            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange text-center">
+                <h3 class="text-xs font-bold text-primary-orange uppercase mb-2 tracking-widest">📈 Trend Miglioramento</h3>
+                <div class="text-3xl font-bold ${imp >= 0 ? 'text-green-400' : 'text-red-400'}">
+                    ${imp >= 0 ? '↑' : '↓'} ${Math.abs(imp).toFixed(1)}
+                </div>
+                <div class="text-[10px] text-gray-400 mt-1 uppercase">Rispetto alla prima metà delle sessioni</div>
+            </div>
+        `;
+    }
+
+    document.getElementById('advanced-stats-content').innerHTML = advHtml;
 };
 
-// Funzione helper per le barre di accuratezza
-function renderProgressBar(label, percent, colorClass) {
+// Funzione Helper per le barre di accuratezza (Stile originale)
+function renderOriginalBar(label, percent, colorClass) {
     return `
-        <div class="text-center">
-            <div class="text-lg font-bold text-white">${percent.toFixed(1)}%</div>
+        <div class="text-center p-2 bg-gray-800 rounded-lg border border-gray-700">
+            <div class="text-sm font-bold text-white mb-1">${percent.toFixed(1)}%</div>
             <div class="text-[9px] text-gray-400 mb-2 uppercase">${label}</div>
-            <div class="progress-bar h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                <div class="progress-fill ${colorClass} h-full" style="width: ${percent}%"></div>
+            <div class="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                <div class="${colorClass} h-full" style="width: ${percent}%"></div>
             </div>
         </div>
     `;
