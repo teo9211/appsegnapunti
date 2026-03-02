@@ -174,6 +174,7 @@
     let app, db, auth;
     let userId = null;
     let chartInstance = null;
+    let appState = { view: 'login' }; // AGGIUNGI QUESTA RIGA
 
     setLogLevel('debug');
 
@@ -183,7 +184,40 @@
             <p class="text-sm text-primary-orange mt-2">Inizializzazione Firebase</p>
         </div>
     `;
-
+window.goBack = () => {
+    const currentView = appState.view;
+    
+    switch (currentView) {
+        case 'register':
+            window.setView('login');
+            break;
+        case 'registrationForm':
+        case 'dashboard':
+        case 'dataSummary':
+        case 'goals':
+        case 'calendar':
+        case 'charts':
+        case 'exportData':
+        case 'compareSessionsView':
+            window.setView('mainMenu');
+            break;
+        case 'scoring':
+        case 'quickScore':
+        case 'trainingNotes':
+            if(confirm("Vuoi davvero uscire? I dati non salvati andranno persi.")) {
+                window.setView('mainMenu');
+            }
+            break;
+        case 'detailedSummary':
+            window.setView('dataSummary');
+            break;
+        case 'editNotes':
+            window.setView('detailedSummary', { sessionId: appState.detailedSession.id });
+            break;
+        default:
+            window.setView('mainMenu');
+    }
+};
     try {
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -435,6 +469,13 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
 
         window.setView = (viewName, data = {}) => {
             appState.view = viewName;
+            // Gestione visibilità tasto indietro
+    const backBtn = document.getElementById('back-button');
+    if (viewName === 'login' || viewName === 'mainMenu') {
+        backBtn.classList.add('hidden');
+    } else {
+        backBtn.classList.remove('hidden');
+    }
             document.getElementById('content-view').innerHTML = '';
             closeModal();
 
@@ -4637,6 +4678,13 @@ return [
                     </style>
                 </head>
                 <body>
+                    <button id="back-button" 
+        onclick="window.goBack()" 
+        class="hidden fixed top-4 left-4 z-50 bg-secondary-dark border-2 border-primary-orange text-primary-orange p-2 rounded-full shadow-2xl hover:bg-primary-orange hover:text-black transition-all">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+</button>
                     <h1>🏹 Report Archery - ${appState.loggedInArcher.nome}</h1>
                     <p><strong>Data Report:</strong> ${formatDate(new Date().toISOString().split('T')[0])}</p>
                     <p><strong>Periodo:</strong> ${period === 'all' ? 'Tutte le sessioni' : 
@@ -5247,3 +5295,4 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
+
