@@ -566,36 +566,38 @@ window.setView = (viewName, data = {}) => {
                     break;
 // --- INSERISCI QUI IL NUOVO CASO ---
 case 'dashboardStats':
-    document.getElementById('content-view').innerHTML = `
-        <div class="space-y-6 pb-10">
-            <h2 class="text-2xl font-bold text-white text-center uppercase tracking-wider">Analisi Performance</h2>
-            
-            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xs font-bold text-primary-orange uppercase">Panoramica</h3>
-                    <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-gray-800 text-white text-xs rounded-lg p-2 border border-gray-600 outline-none">
-                        <option value="all">Sempre</option>
-                        <option value="month">Ultimo mese</option>
-                        <option value="3months">Ultimi 3 mesi</option>
-                        <option value="year">Ultimo anno</option>
-                    </select>
-                </div>
-                <div id="stats-summary-grid" class="grid grid-cols-2 gap-3"></div>
-            </div>
+                    document.getElementById('content-view').innerHTML = `
+                        <div class="space-y-6 pb-10">
+                            <div class="flex flex-col items-center justify-center mb-4">
+                                <h2 class="text-2xl font-bold text-white uppercase tracking-wider">Dashboard & Statistiche</h2>
+                                <div class="h-1 w-20 bg-primary-orange mt-1 rounded-full"></div>
+                            </div>
+                            
+                            <div class="flex justify-end px-2">
+                                <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-secondary-dark text-white text-xs rounded-lg p-2 border border-primary-orange outline-none shadow-lg">
+                                    <option value="all">Tutti i dati</option>
+                                    <option value="month">Ultimo Mese</option>
+                                    <option value="3months">Ultimi 3 Mesi</option>
+                                    <option value="year">Ultimo Anno</option>
+                                </select>
+                            </div>
 
-            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
-                <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest text-center">Andamento Punteggi</h3>
-                <div class="h-64">
-                    <canvas id="mainStatsChart"></canvas>
-                </div>
-            </div>
+                            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
+                                <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest text-center">📈 Andamento Punteggi</h3>
+                                <div class="h-64">
+                                    <canvas id="mainStatsChart"></canvas>
+                                </div>
+                            </div>
 
-            <div id="advanced-stats-container" class="space-y-6 mx-2">
-                </div>
-        </div>
-    `;
-    setTimeout(() => { window.updateDashboardStats(); }, 50);
-    break;
+                            <div id="original-dashboard-content" class="space-y-6">
+                                </div>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.updateDashboardStats();
+                    }, 50);
+                    break;
             } // fine switch
         }; // fine setView
         // FINE PARTE2
@@ -3566,127 +3568,115 @@ async function saveNewGoal() {
             window.setView('detailedSummary', { sessionId: sessionId });
         };
         // FINE PARTE4F   
-// --- PARTE 4G: DASHBOARD AVANZATA UNIFICATA ---
+// --- PARTE 4G: DASHBOARD COMPLETA INTEGRATA ---
 
 window.updateDashboardStats = () => {
-    // Ricalcolo globale usando la tua logica originale
-    calculateAllStatistics(); 
+    // 1. Applichiamo il filtro temporale ai dati prima di calcolare
+    const period = document.getElementById('stats-period')?.value || 'all';
+    const now = new Date();
+    
+    // Backup dei dati originali per non perderli
+    const allDataBackup = [...appState.sessionData];
+    
+    // Filtriamo i dati per le statistiche
+    appState.sessionData = allDataBackup.filter(s => {
+        if (!s.data) return false;
+        if (period === 'all') return true;
+        const sDate = new Date(s.data);
+        const diffMonths = (now.getFullYear() - sDate.getFullYear()) * 12 + (now.getMonth() - sDate.getMonth());
+        if (period === 'month') return diffMonths < 1;
+        if (period === '3months') return diffMonths < 3;
+        if (period === 'year') return diffMonths < 12;
+        return true;
+    });
+
+    // 2. Eseguiamo i tuoi calcoli originali
+    calculateAllStatistics();
+
+    // 3. Renderizziamo il grafico di andamento
+    renderTrendChart();
+
+    // 4. Renderizziamo il contenuto della dashboard (Tua logica originale)
     const stats = appState.statistics;
+    const container = document.getElementById('original-dashboard-content');
 
     if (!stats || !stats.hasData) {
-        document.getElementById('stats-summary-grid').innerHTML = `<p class="col-span-2 text-center text-gray-400 py-4">Dati insufficienti</p>`;
+        container.innerHTML = `<div class="bg-secondary-dark p-6 rounded-xl mx-2 shadow-lg text-center text-gray-400">Nessun dato nel periodo selezionato</div>`;
+        appState.sessionData = allDataBackup; // Ripristiniamo i dati
         return;
     }
 
-    // --- 1. RIEPILOGO NUMERICO ---
-    document.getElementById('stats-summary-grid').innerHTML = `
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[9px] text-primary-orange uppercase mb-1">Sessioni</div>
-            <div class="text-2xl font-bold text-white">${stats.general.totalSessions}</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[9px] text-primary-orange uppercase mb-1">Media</div>
-            <div class="text-2xl font-bold text-white">${stats.general.avgScore.toFixed(1)}</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[9px] text-primary-orange uppercase mb-1">Record</div>
-            <div class="text-2xl font-bold text-green-400">${stats.general.maxScore}</div>
-        </div>
-        <div class="bg-gray-800 p-4 rounded-lg text-center border border-gray-700">
-            <div class="text-[9px] text-primary-orange uppercase mb-1">Variazione</div>
-            <div class="text-xl font-bold text-yellow-500">±${stats.general.stdDev.toFixed(1)}</div>
-        </div>
-    `;
-
-    // --- 2. GRAFICO (Andamento) ---
-    renderTrendChart();
-
-    // --- 3. INIEZIONE DI TUTTE LE SEZIONI ORIGINALI ---
-    let html = "";
-
-    // A. Accuratezza (X, 10, 9)
-    html += `
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
-            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 text-center">🎯 Accuratezza</h3>
-            <div class="grid grid-cols-3 gap-2">
-                ${renderOriginalBar('X', stats.accuracy.percentX, 'bg-yellow-400')}
-                ${renderOriginalBar('10', stats.accuracy.percentTen, 'bg-green-500')}
-                ${renderOriginalBar('9', stats.accuracy.percentNine, 'bg-blue-500')}
+    // Qui inseriamo esattamente il tuo HTML originale (adattato per il container)
+    container.innerHTML = `
+        <div class="stats-card mx-2">
+            <h3 class="text-lg font-bold mb-4 text-white uppercase tracking-tighter">📊 Panoramica Generale</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange mb-1 uppercase font-bold">Sessioni</div>
+                    <div class="text-2xl font-bold text-white">${stats.general.totalSessions}</div>
+                </div>
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange mb-1 uppercase font-bold">Media</div>
+                    <div class="text-2xl font-bold text-white">${stats.general.avgScore.toFixed(1)}</div>
+                </div>
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange mb-1 uppercase font-bold">Record</div>
+                    <div class="text-2xl font-bold text-green-400">${stats.general.maxScore}</div>
+                </div>
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange mb-1 uppercase font-bold">Stabilità</div>
+                    <div class="text-xl font-bold ${stats.general.stdDev < 15 ? 'text-green-400' : 'text-yellow-400'}">±${stats.general.stdDev.toFixed(1)}</div>
+                </div>
             </div>
         </div>
-    `;
 
-    // B. Prestazioni per Distanza
-    html += `
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
-            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 text-center">📏 Medie per Distanza</h3>
-            <div class="space-y-3">
-                ${Object.entries(stats.byDistance).map(([dist, d]) => `
+        <div class="stats-card mx-2">
+            <h3 class="text-lg font-bold mb-4 text-white uppercase tracking-tighter">🎯 Accuratezza</h3>
+            <div class="grid grid-cols-3 gap-3">
+                ${renderAccuracyBar('X', stats.accuracy.percentX, 'bg-yellow-400')}
+                ${renderAccuracyBar('10', stats.accuracy.percentTen, 'bg-green-500')}
+                ${renderAccuracyBar('9', stats.accuracy.percentNine, 'bg-blue-500')}
+            </div>
+        </div>
+
+        <div class="stats-card mx-2">
+            <h3 class="text-lg font-bold mb-4 text-white uppercase tracking-tighter">📏 Per Distanza</h3>
+            <div class="space-y-4">
+                ${Object.entries(stats.byDistance).map(([dist, data]) => `
                     <div>
-                        <div class="flex justify-between text-[10px] mb-1">
+                        <div class="flex justify-between text-[10px] mb-1 uppercase">
                             <span class="text-white font-bold">${dist}</span>
-                            <span class="text-primary-orange">${d.avgScore.toFixed(1)} Avg</span>
+                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} Avg | ${data.maxScore} Max</span>
                         </div>
-                        <div class="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                            <div class="bg-primary-orange h-full" style="width: ${(d.avgScore/360)*100}%"></div>
+                        <div class="progress-bar h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="progress-fill bg-primary-orange h-full" style="width: ${(data.avgScore/360)*100}%"></div>
                         </div>
                     </div>
                 `).join('')}
             </div>
         </div>
+
+        ${stats.indoor && stats.outdoor ? `
+        <div class="stats-card mx-2 grid grid-cols-2 gap-4">
+            <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500 text-center">
+                <div class="text-[10px] text-blue-400 font-bold uppercase mb-1">Indoor</div>
+                <div class="text-2xl font-bold text-white">${stats.indoor.avgScore.toFixed(1)}</div>
+            </div>
+            <div class="bg-green-900/20 p-4 rounded-xl border border-green-500 text-center">
+                <div class="text-[10px] text-green-400 font-bold uppercase mb-1">Outdoor</div>
+                <div class="text-2xl font-bold text-white">${stats.outdoor.avgScore.toFixed(1)}</div>
+            </div>
+        </div>` : ''}
+
+        <div id="extra-stats-box" class="space-y-6 pb-10">
+            </div>
     `;
 
-    // C. Indoor vs Outdoor
-    if (stats.indoor && stats.outdoor) {
-        html += `
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500 text-center">
-                    <div class="text-[10px] text-blue-400 uppercase font-bold mb-1 italic">Indoor</div>
-                    <div class="text-xl font-bold text-white">${stats.indoor.avgScore.toFixed(1)}</div>
-                </div>
-                <div class="bg-green-900/20 p-4 rounded-xl border border-green-500 text-center">
-                    <div class="text-[10px] text-green-400 uppercase font-bold mb-1 italic">Outdoor</div>
-                    <div class="text-xl font-bold text-white">${stats.outdoor.avgScore.toFixed(1)}</div>
-                </div>
-            </div>
-        `;
-    }
-
-    // D. Fasce Orarie
-    const activeSlots = Object.entries(stats.timeSlots).filter(([_, d]) => d.count > 0);
-    if (activeSlots.length > 0) {
-        html += `
-            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg text-center">
-                <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 italic">🕐 Fasce Orarie Migliori</h3>
-                <div class="space-y-2">
-                    ${activeSlots.map(([_, d]) => `
-                        <div class="flex justify-between items-center bg-gray-800 p-2 rounded border border-gray-700">
-                            <span class="text-[10px] text-white">${d.name}</span>
-                            <span class="text-xs font-bold text-primary-orange">${d.avgScore.toFixed(1)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    // E. Trend Miglioramento
-    if (stats.trend) {
-        html += `
-            <div class="bg-secondary-dark p-6 rounded-xl border border-primary-orange shadow-lg text-center">
-                <h3 class="text-xs font-bold text-primary-orange uppercase mb-2">📈 Trend Miglioramento</h3>
-                <div class="text-4xl font-bold ${stats.trend.improvement >= 0 ? 'text-green-400' : 'text-red-400'}">
-                    ${stats.trend.improvement >= 0 ? '+' : ''}${stats.trend.improvement.toFixed(1)}
-                </div>
-                <div class="text-[10px] text-gray-400 uppercase">Punti di differenza (ultime 10 sessioni)</div>
-            </div>
-        `;
-    }
-
-    document.getElementById('advanced-stats-container').innerHTML = html;
+    // Ripristiniamo i dati originali in appState
+    appState.sessionData = allDataBackup;
 };
 
-// Funzione per il grafico andamento
+// Funzione Helper per il grafico
 function renderTrendChart() {
     const validSessions = appState.sessionData
         .filter(s => !s.trainingWithoutScore && s.totalScore > 0)
@@ -3700,6 +3690,7 @@ function renderTrendChart() {
             data: {
                 labels: validSessions.map(s => formatDate(s.data)),
                 datasets: [{
+                    label: 'Punteggio',
                     data: validSessions.map(s => s.totalScore),
                     borderColor: '#fdb927',
                     backgroundColor: 'rgba(253, 185, 39, 0.1)',
@@ -3713,10 +3704,10 @@ function renderTrendChart() {
     }
 }
 
-// Helper per le barre originali
-function renderOriginalBar(label, percent, color) {
+// Helper per barre accuratezza
+function renderAccuracyBar(label, percent, color) {
     return `
-        <div class="text-center p-2 bg-gray-800 rounded-lg border border-gray-700">
+        <div class="text-center">
             <div class="text-sm font-bold text-white mb-1">${percent.toFixed(1)}%</div>
             <div class="text-[9px] text-gray-400 mb-2 uppercase">${label}</div>
             <div class="w-full bg-gray-700 h-1 rounded-full overflow-hidden">
