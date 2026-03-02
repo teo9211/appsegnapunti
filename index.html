@@ -697,80 +697,121 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
             });
         }
 
-        function renderMainMenu() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
+// MODIFICA NEL MENU PRINCIPALE (PARTE 3)
+function renderMainMenu() {
+    if (!appState.loggedInArcher) {
+        window.setView('login');
+        return;
+    }
 
-            const html = `
-                <div class="text-center space-y-3">
-                    <h2 class="text-2xl font-bold mb-4 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
-                    
-                    <div class="mb-6">
-                        <h3 class="text-lg font-bold text-primary-orange mb-3">📋 Registra Sessione</h3>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">
-                            🎯 Allenamento 🏋️
-                        </button>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('registrationForm', { type: 'Gara' })">
-                            🏆 Gara 🥇
-                        </button>
-                    </div>
+    const html = `
+        <div class="text-center space-y-3">
+            <h2 class="text-2xl font-bold mb-4 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-primary-orange mb-3">📋 Registra Sessione</h3>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">
+                    🎯 Allenamento 🏋️
+                </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('registrationForm', { type: 'Gara' })">
+                    🏆 Gara 🥇
+                </button>
+            </div>
 
-                    <div class="mb-6">
-                        <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Statistiche</h3>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dashboard')">
-                            🎯 Dashboard Statistiche
-                        </button>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('dataSummary')">
-                            🧾 Riepilogo Dati
-                        </button>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('charts')">
-                            📈 Grafico Andamento
-                        </button>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('multipleCharts')">
-                            📊 Grafici Multipli
-                        </button>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('compareSessionsView')">
-                            ⚖️ Confronta Sessioni
-                        </button>
-                    </div>
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Statistiche</h3>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dashboard')">
+                    🎯 Dashboard Statistiche
+                </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('dataSummary')">
+                    🧾 Riepilogo Dati
+                </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('charts')">
+                    📈 Grafici Andamento
+                </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('compareSessionsView')">
+                    ⚖️ Confronta Sessioni
+                </button>
+            </div>
 
-                    <div class="mb-6">
-                        <h3 class="text-lg font-bold text-primary-orange mb-3">🎯 Obiettivi e Pianificazione</h3>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('goals')">
-                            🏅 I Miei Obiettivi
-                        </button>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('calendar')">
-                            📅 Calendario Sessioni
-                        </button>
-                    </div>
-<div class="mb-6">
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-primary-orange mb-3">🎯 Obiettivi e Pianificazione</h3>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('goals')">
+                    🏅 I Miei Obiettivi
+                </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('calendar')">
+                    📅 Calendario Sessioni
+                </button>
+            </div>
+
+            <div class="mb-6">
                 <h3 class="text-lg font-bold text-primary-orange mb-3">💾 Gestione Dati</h3>
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('exportData')">
                     📥 Esporta & Backup
                 </button>
-                <!-- AGGIUNGI QUESTO PULSANTE -->
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2 bg-blue-600 hover:bg-blue-700" onclick="window.showMigrationModal()">
                     🔄 Migrazione Dati (Aggiungi Tipo Arco)
                 </button>
             </div>
-                    <div class="mb-6">
-                        <h3 class="text-lg font-bold text-primary-orange mb-3">💾 Gestione Dati</h3>
-                        <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('exportData')">
-                            📥 Esporta & Backup
-                        </button>
-                    </div>
-                    
-                    <div class="mt-6 pt-4 border-t-2 border-gray-700">
-                        <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
-                            🗑️ Elimina Profilo
-                        </button>
-                    </div>
+            
+            <div class="mt-6 pt-4 border-t-2 border-gray-700">
+                <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
+                    🗑️ Elimina Profilo
+                </button>
+            </div>
+        </div>
+    `;
+    document.getElementById('content-view').innerHTML = html;
+}
+
+// MODIFICA VISTA GRAFICI (PARTE 4D)
+function renderChartsView() {
+    const html = `
+        <h2 class="text-3xl font-bold mb-6 text-white">Analisi Andamento</h2>
+        
+        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+            <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri Avanzati</h3>
+            <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <select id="chart-filter-type" class="input-style text-sm" onchange="window.drawSessionsChart()">
+                    <option value="all">Tutti i Tipi</option>
+                    <option value="Allenamento">Allenamento</option>
+                    <option value="Gara">Gara</option>
+                </select>
+                <select id="chart-filter-distance" class="input-style text-sm" onchange="window.drawSessionsChart()">
+                    <option value="all">Tutte le Distanze</option>
+                    ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                </select>
+                <select id="chart-filter-target" class="input-style text-sm" onchange="window.drawSessionsChart()">
+                    <option value="all">Tutte le Targhe</option>
+                    ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                </select>
+                <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset Filtri</button>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                <h3 class="text-lg font-bold mb-4 text-white">Punteggio Totale nel Tempo</h3>
+                <div style="height: 300px;">
+                    <canvas id="sessionsChart"></canvas>
                 </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
-        }
+            </div>
+
+            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                <h3 class="text-lg font-bold mb-4 text-white">Distribuzione Media (X / 10 / 9)</h3>
+                <div style="height: 300px;">
+                    <canvas id="accuracyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
+            Torna al Menu Principale
+        </button>
+    `;
+    document.getElementById('content-view').innerHTML = html;
+    loadChartsData();
+}
 
         window.showDeleteProfileSection = () => {
             if (!appState.loggedInArcher) {
