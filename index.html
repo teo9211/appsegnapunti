@@ -11,7 +11,6 @@
     <meta name="msapplication-TileImage" content="https://raw.githubusercontent.com/teo9211/appsegnapunti/main/IMG_3452.jpg?raw=true">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body {
@@ -811,10 +810,6 @@ function renderMainMenu() {
 
 <div class="mb-6">
                 <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Statistiche</h3>
-                
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dashboardStats')">
-                    📊 Dashboard & Statistiche
-                </button>
 
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('dataSummary')">
                     🧾 Riepilogo Dati
@@ -854,150 +849,6 @@ function renderMainMenu() {
     document.getElementById('content-view').innerHTML = html;
 }
 
-// MODIFICA VISTA GRAFICI (PARTE 4D)
-function renderChartsView() {
-    const html = `
-        <h2 class="text-3xl font-bold mb-6 text-white">Analisi Andamento</h2>
-        
-        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-            <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri Avanzati</h3>
-            <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <select id="chart-filter-type" class="input-style text-sm" onchange="window.drawSessionsChart()">
-                    <option value="all">Tutti i Tipi</option>
-                    <option value="Allenamento">Allenamento</option>
-                    <option value="Gara">Gara</option>
-                </select>
-                <select id="chart-filter-distance" class="input-style text-sm" onchange="window.drawSessionsChart()">
-                    <option value="all">Tutte le Distanze</option>
-                    ${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                </select>
-                <select id="chart-filter-target" class="input-style text-sm" onchange="window.drawSessionsChart()">
-                    <option value="all">Tutte le Targhe</option>
-                    ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                </select>
-                <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset Filtri</button>
-            </div>
-        </div>
-
-        <div class="space-y-6">
-            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                <h3 class="text-lg font-bold mb-4 text-white">Punteggio Totale nel Tempo</h3>
-                <div style="height: 300px;">
-                    <canvas id="sessionsChart"></canvas>
-                </div>
-            </div>
-
-            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                <h3 class="text-lg font-bold mb-4 text-white">Distribuzione Media (X / 10 / 9)</h3>
-                <div style="height: 300px;">
-                    <canvas id="accuracyChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-
-    `;
-    document.getElementById('content-view').innerHTML = html;
-    loadChartsData();
-}
-
-        window.showDeleteProfileSection = () => {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
-
-            const html = `
-                <div class="max-w-md mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('mainMenu')">
-                        ← Torna al Menu
-                    </button>
-                    
-                    <h2 class="text-3xl font-bold mb-4 text-white text-center">Elimina Profilo</h2>
-                    <p class="text-center mb-4 text-white">Stai per eliminare il profilo di <strong class="text-primary-orange">${appState.loggedInArcher.nome}</strong></p>
-                    <p class="text-center mb-6 text-red-500 font-bold">⚠️ ATTENZIONE: Questa azione eliminerà definitivamente il tuo profilo e TUTTE le sessioni associate!</p>
-                    
-                    <form id="deleteProfileForm" class="space-y-4 bg-secondary-dark p-6 rounded-xl shadow-lg border-2 border-red-600">
-                        <div>
-                            <label class="block text-sm font-medium mb-1 text-white">Conferma con la tua Password</label>
-                            <input type="password" id="delete-profile-password" class="input-style" required placeholder="Inserisci password per confermare" autofocus>
-                        </div>
-                        <div class="flex gap-3">
-                            <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" onclick="window.setView('mainMenu')">
-                                Annulla
-                            </button>
-                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg font-bold">
-                                Elimina Definitivamente
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
-            document.getElementById('content-view').innerHTML = html;
-            
-            document.getElementById('deleteProfileForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const password = document.getElementById('delete-profile-password').value;
-                
-                if (!password) {
-                    showModal("Errore", "Inserisci la password per confermare.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
-                
-                if (password !== MASTER_PASSWORD && password !== appState.loggedInArcher.password) {
-                    showModal("Errore", "Password errata. Impossibile eliminare il profilo.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
-                
-                try {
-                    const archerId = appState.loggedInArcher.id;
-                    const archerName = appState.loggedInArcher.nome;
-                    
-                    const sessionsRef = collection(db, `artifacts/${appId}/archers/${archerId}/sessions`);
-                    const sessionsSnapshot = await getDocs(sessionsRef);
-                    
-                    const deletePromises = [];
-                    sessionsSnapshot.forEach((sessionDoc) => {
-                        deletePromises.push(deleteDoc(sessionDoc.ref));
-                    });
-                    
-                    await Promise.all(deletePromises);
-                    
-                    const goalsRef = collection(db, `artifacts/${appId}/archers/${archerId}/goals`);
-                    const goalsSnapshot = await getDocs(goalsRef);
-                    
-                    const deleteGoalsPromises = [];
-                    goalsSnapshot.forEach((goalDoc) => {
-                        deleteGoalsPromises.push(deleteDoc(goalDoc.ref));
-                    });
-                    
-                    await Promise.all(deleteGoalsPromises);
-                    
-                    const archerDocRef = doc(db, `artifacts/${appId}/archers/${archerId}`);
-                    await deleteDoc(archerDocRef);
-                    
-                    console.log("Profilo eliminato:", archerName);
-                    
-                    appState.loggedInArcher = null;
-                    appState.currentSession = null;
-                    appState.sessionData = [];
-                    
-                    showModal("Successo", `Il profilo di ${archerName} è stato eliminato con successo.`, [
-                        { text: "Ok", handler: () => window.setView('login') }
-                    ]);
-                    
-                } catch (error) {
-                    console.error("Errore eliminazione profilo:", error);
-                    showModal("Errore", `Si è verificato un errore: ${error.message}`, [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                }
-            });
-        };
         // FINE PARTE3
 // PARTE4A - Form Registrazione Sessione, Allenamenti Tecnici, Quick Score, Segnapunti
         function renderRegistrationForm(type) {
@@ -2090,9 +1941,7 @@ document.getElementById('content-view').innerHTML = `
                 <h2 class="text-3xl font-bold mb-6 text-white">Riepilogo Dati - ${appState.loggedInArcher.nome}</h2>
 ${filtersHtml}
 ${tableContainer}
-                <button class="btn-primary w-full p-3 rounded-lg mt-6 bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                    Torna al Menu
-                </button>
+
             `;
 renderDataSummaryTable();
         }
@@ -2551,256 +2400,7 @@ renderDataSummaryTable();
         });
     }
     // FINE PARTE4C
-// PARTE4D - Grafici e Chiusura
-        function renderChartsView() {
-const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white">Grafici Andamento</h2>
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-primary-orange">Filtri</h3>
-                    <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
-                        <select id="chart-filter-type" class="input-style text-sm">
-                            <option value="all">Tutti i Tipi (A/G)</option>
-                            <option value="allenamento">Allenamento</option>
-                            <option value="gara">Gara</option>
-                        </select>
-                        <select id="chart-filter-distance" class="input-style text-sm">
-                            <option value="all">Tutte le Distanze</option>
-${DISTANZA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-target" class="input-style text-sm">
-                            <option value="all">Tutte le Targhe</option>
-${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-location" class="input-style text-sm">
-                            <option value="all">Tutti i Luoghi</option>
-${TIPO_LUOGO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-bow" class="input-style text-sm">
-                            <option value="all">Tutti gli Archi</option>
-${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
-                        </select>
-                        <select id="chart-filter-month" class="input-style text-sm">
-                            <option value="all">Tutti i Mesi</option>
-                            <option value="1">Gennaio</option>
-                            <option value="2">Febbraio</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Aprile</option>
-                            <option value="5">Maggio</option>
-                            <option value="6">Giugno</option>
-                            <option value="7">Luglio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Settembre</option>
-                            <option value="10">Ottobre</option>
-                            <option value="11">Novembre</option>
-                            <option value="12">Dicembre</option>
-                        </select>
-                        <select id="chart-filter-year" class="input-style text-sm">
-                            <option value="all">Tutti gli Anni</option>
-                        </select>
-                        <select id="chart-filter-turns" class="input-style text-sm">
-                            <option value="all">Tutti i Turni</option>
-                            <option value="single">Solo 1 Turno</option>
-                            <option value="double">Solo 2 Turni</option>
-                        </select>
-                        <button class="btn-primary p-2 text-sm" onclick="window.resetChartFilters()">Reset</button>
-                    </div>
-                </div>
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg" style="height: 400px;">
-                    <canvas id="sessionsChart"></canvas>
-                </div>
 
-            `;
-document.getElementById('content-view').innerHTML = html;
-loadChartsData();
-        }
-
-window.resetChartFilters = () => {
-document.getElementById('chart-filter-type').value = 'all';
-document.getElementById('chart-filter-distance').value = 'all';
-document.getElementById('chart-filter-target').value = 'all';
-document.getElementById('chart-filter-location').value = 'all';
-document.getElementById('chart-filter-bow').value = 'all';
-document.getElementById('chart-filter-month').value = 'all';
-document.getElementById('chart-filter-year').value = 'all';
-document.getElementById('chart-filter-turns').value = 'all';
-drawSessionsChart();
-        };
-
-function loadChartsData() {
-const sessionsColRef = window.getSessionsCollectionRef();
-if (!sessionsColRef) {
-console.error("Riferimento collezione non disponibile.");
-return;
-            }
-const q = query(sessionsColRef);
-getDocs(q).then((querySnapshot) => {
-const sessions = [];
-querySnapshot.forEach((doc) => {
-sessions.push({ id: doc.id, ...doc.data() });
-                });
-sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
-appState.sessionData = sessions;
-setupChartFilters();
-drawSessionsChart();
-            }).catch((error) => {
-console.error("Errore nel caricamento dei dati:", error);
-            });
-        }
-
-function setupChartFilters() {
-            ['chart-filter-type', 'chart-filter-target', 'chart-filter-distance', 'chart-filter-location', 'chart-filter-bow', 'chart-filter-month', 'chart-filter-year', 'chart-filter-turns'].forEach(id => {
-const element = document.getElementById(id);
-if (element) {
-element.addEventListener('change', drawSessionsChart);
-                }
-            });
-const yearFilter = document.getElementById('chart-filter-year');
-if (yearFilter) {
-const years = new Set();
-appState.sessionData.forEach(session => {
-if (session.data) {
-years.add(new Date(session.data).getFullYear());
-                    }
-                });
-Array.from(yearFilter.options).forEach((option, index) => {
-if (index > 0) yearFilter.removeChild(option);
-                });
-Array.from(years).sort((a, b) => b - a).forEach(year => {
-const option = document.createElement('option');
-option.value = year;
-option.textContent = year;
-yearFilter.appendChild(option);
-                });
-            }
-        }
-
-function drawSessionsChart() {
-const ctx = document.getElementById('sessionsChart');
-if (!ctx) return;
-const context = ctx.getContext('2d');
-const typeFilter = document.getElementById('chart-filter-type').value;
-const targetFilter = document.getElementById('chart-filter-target').value;
-const distanceFilter = document.getElementById('chart-filter-distance').value;
-const locationFilter = document.getElementById('chart-filter-location').value;
-const bowFilter = document.getElementById('chart-filter-bow').value;
-const monthFilter = document.getElementById('chart-filter-month').value;
-const yearFilter = document.getElementById('chart-filter-year').value;
-const turnsFilter = document.getElementById('chart-filter-turns').value;
-let filteredData = appState.sessionData.filter(session => {
-const sType = (session.type || '').toLowerCase();
-const sTargetType = (session.tipoTarga || '');
-const sDistance = (session.distanza || '');
-const sLocation = (session.tipoLuogo || '');
-const sBow = (session.tipoArco || '');
-const sessionDate = session.data ? new Date(session.data) : null;
-const sMonth = sessionDate ? sessionDate.getMonth() + 1 : null;
-const sYear = sessionDate ? sessionDate.getFullYear() : null;
-const hasTwoTurns = session.turn2Score > 0; 
-const matchesType = typeFilter === 'all' || sType === typeFilter;
-const matchesTarget = targetFilter === 'all' || sTargetType === targetFilter;
-const matchesDistance = distanceFilter === 'all' || sDistance === distanceFilter;
-const matchesLocation = locationFilter === 'all' || sLocation === locationFilter;
-const matchesBow = bowFilter === 'all' || sBow === bowFilter;
-const matchesMonth = monthFilter === 'all' || (sessionDate && String(sMonth) === monthFilter);
-const matchesYear = yearFilter === 'all' || (sessionDate && String(sYear) === yearFilter);
-const matchesTurns = turnsFilter === 'all' || 
-                                     (turnsFilter === 'single' && !hasTwoTurns) || 
-                                     (turnsFilter === 'double' && hasTwoTurns);
-const isNotTrainingWithoutScore = !session.trainingWithoutScore;
-return matchesType && matchesTarget && matchesDistance && matchesLocation && matchesBow && matchesMonth && matchesYear && matchesTurns && isNotTrainingWithoutScore;
-            });
-filteredData.sort((a, b) => new Date(a.data) - new Date(b.data));
-const labels = filteredData.map(s => {
-const formattedDate = formatDate(s.data);
-const sessionType = s.type === 'Gara' ? ' (G)' : ' (A)';
-return `${formattedDate}${sessionType}`;
-            });
-const dataPoints = filteredData.map(s => s.totalScore); 
-const chartData = {
-labels: labels,
-datasets: [{
-label: 'Punteggio Totale Sessione',
-data: dataPoints,
-backgroundColor: 'rgba(253, 185, 39, 0.5)', 
-borderColor: 'rgb(253, 185, 39)',
-borderWidth: 2,
-tension: 0.4,
-pointRadius: 4,
-pointBackgroundColor: 'rgb(253, 185, 39)'
-                }]
-            };
-if (chartInstance) {
-chartInstance.destroy();
-            }
-if (dataPoints.length === 0) {
-context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-context.font = '20px Inter, sans-serif';
-context.fillStyle = '#fdb927';
-context.textAlign = 'center';
-context.fillText('Nessun dato trovato per i filtri selezionati.', context.canvas.width / 2, context.canvas.height / 2);
-return;
-            }
-chartInstance = new Chart(context, {
-type: 'line', 
-data: chartData,
-options: {
-responsive: true,
-maintainAspectRatio: false,
-scales: {
-y: {
-beginAtZero: true,
-title: {
-display: true,
-text: 'Punteggio Totale',
-color: '#fdb927'
-                            },
-grid: {
-color: 'rgba(74, 74, 74, 0.5)'
-                            },
-ticks: {
-color: '#fdb927'
-                            }
-                        },
-x: {
-grid: {
-color: 'rgba(74, 74, 74, 0.5)'
-                            },
-ticks: {
-color: '#fdb927',
-autoSkip: true, 
-maxRotation: 45,
-minRotation: 45 
-                            },
-title: {
-display: true,
-text: 'Sessioni (in ordine cronologico)',
-color: '#fdb927'
-                            }
-                        }
-                    },
-plugins: {
-legend: {
-labels: {
-color: '#fdb927'
-                            }
-                        },
-tooltip: {
-mode: 'index',
-intersect: false,
-callbacks: {
-title: function(tooltipItems) {
-return `Sessione: ${tooltipItems[0].label}`;
-                                },
-label: function(context) {
-return `Punteggio: ${context.parsed.y}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-// FINE PARTE4D
  // PARTE4E - Obiettivi e Traguardi
 async function loadGoals() {
             try {
@@ -2907,9 +2507,7 @@ function renderGoals() {
                         }).join('')}
                     </div>
 
-                    <button class="btn-primary w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
+
                 `;
 
                 document.getElementById('content-view').innerHTML = html;
@@ -3249,9 +2847,7 @@ async function saveNewGoal() {
                     <button class="btn-primary flex-1 p-3 rounded-lg" onclick="window.compareSelectedSessions()" id="compare-btn" disabled>
                         📊 Confronta Sessioni
                     </button>
-                    <button class="btn-primary flex-1 p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
+
                 </div>
 
                 <div id="comparison-results" class="mt-6"></div>
@@ -3572,120 +3168,6 @@ async function saveNewGoal() {
         // FINE PARTE4F   
 // --- PARTE 4G: DASHBOARD COMPLETA INTEGRATA ---
 
-window.updateDashboardStats = () => {
-    // 1. Recupero TUTTI i Filtri (inclusi quelli temporali di 4D)
-    const f = {
-        type: document.getElementById('f-type').value,
-        dist: document.getElementById('f-dist').value,
-        target: document.getElementById('f-target').value,
-        bow: document.getElementById('f-bow').value
-    };
-
-    // 2. Filtro Dati (Logica 4D)
-    const filtered = appState.sessionData.filter(s => {
-        return (f.type === 'all' || (s.type||'').toLowerCase() === f.type) &&
-               (f.dist === 'all' || s.distanza === f.dist) &&
-               (f.target === 'all' || s.tipoTarga === f.target) &&
-               (f.bow === 'all' || s.tipoArco === f.bow) &&
-               (!s.trainingWithoutScore);
-    }).sort((a, b) => new Date(a.data) - new Date(b.data));
-
-    // 3. Calcoli Statistici (Logica 4G)
-    const originalData = [...appState.sessionData];
-    appState.sessionData = filtered;
-    calculateAllStatistics(); 
-    const stats = appState.statistics;
-    
-    const grid = document.getElementById('stats-dynamic-grid');
-    drawUnifiedChart(filtered);
-
-    if (!stats || !stats.hasData) {
-        grid.innerHTML = `<p class="text-center text-gray-500 py-10 italic">Nessun dato per questi filtri</p>`;
-        appState.sessionData = originalData;
-        return;
-    }
-
-    // 4. Render HTML Integrale (4G + 4D)
-    grid.innerHTML = `
-        <div class="grid grid-cols-2 gap-3 mx-2">
-            <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 text-center">
-                <div class="text-[9px] text-primary-orange uppercase font-bold">Sessioni</div>
-                <div class="text-2xl font-bold text-white">${stats.general.totalSessions}</div>
-            </div>
-            <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 text-center">
-                <div class="text-[9px] text-primary-orange uppercase font-bold">Media</div>
-                <div class="text-2xl font-bold text-white">${stats.general.avgScore.toFixed(1)}</div>
-            </div>
-            <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 text-center">
-                <div class="text-[9px] text-primary-orange uppercase font-bold">Record</div>
-                <div class="text-2xl font-bold text-green-400">${stats.general.maxScore}</div>
-            </div>
-            <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 text-center">
-                <div class="text-[9px] text-primary-orange uppercase font-bold">Deviazione</div>
-                <div class="text-xl font-bold text-yellow-500">±${stats.general.stdDev.toFixed(1)}</div>
-            </div>
-        </div>
-
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
-            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 text-center italic">🎯 Accuratezza Frecce</h3>
-            <div class="grid grid-cols-3 gap-2">
-                ${renderStatBar('X', stats.accuracy.percentX, 'bg-yellow-400')}
-                ${renderStatBar('10', stats.accuracy.percentTen, 'bg-green-500')}
-                ${renderStatBar('9', stats.accuracy.percentNine, 'bg-blue-500')}
-            </div>
-        </div>
-
-        ${stats.indoor && stats.outdoor ? `
-        <div class="grid grid-cols-2 gap-4 mx-2">
-            <div class="bg-blue-900/20 p-3 rounded-xl border border-blue-500 text-center">
-                <div class="text-[9px] text-blue-400 font-bold uppercase mb-1">🏠 Indoor</div>
-                <div class="text-xl font-bold text-white">${stats.indoor.avgScore.toFixed(1)}</div>
-            </div>
-            <div class="bg-green-900/20 p-3 rounded-xl border border-green-500 text-center">
-                <div class="text-[9px] text-green-400 font-bold uppercase mb-1">🌳 Outdoor</div>
-                <div class="text-xl font-bold text-white">${stats.outdoor.avgScore.toFixed(1)}</div>
-            </div>
-        </div>` : ''}
-
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
-            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 tracking-widest">📏 Medie per Distanza</h3>
-            <div class="space-y-3">
-                ${Object.entries(stats.byDistance).map(([d, data]) => `
-                    <div>
-                        <div class="flex justify-between text-[10px] mb-1">
-                            <span class="text-white font-bold">${d}</span>
-                            <span class="text-primary-orange">${data.avgScore.toFixed(1)}</span>
-                        </div>
-                        <div class="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                            <div class="bg-primary-orange h-full" style="width: ${(data.avgScore/360)*100}%"></div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-
-        ${stats.trend ? `
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2 text-center">
-            <h3 class="text-[10px] text-primary-orange uppercase mb-2">📈 Trend Ultime 10 Sessioni</h3>
-            <div class="text-2xl font-bold ${stats.trend.improvement >= 0 ? 'text-green-400' : 'text-red-400'}">
-                ${stats.trend.improvement >= 0 ? '↑' : '↓'} ${Math.abs(stats.trend.percentChange).toFixed(1)}%
-            </div>
-        </div>` : ''}
-
-        <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg mx-2">
-            <h3 class="text-xs font-bold text-primary-orange uppercase mb-4 text-center italic">🕐 Performance Oraria</h3>
-            <div class="grid grid-cols-2 gap-2">
-                ${Object.entries(stats.timeSlots).filter(([_, d]) => d.count > 0).map(([key, data]) => `
-                    <div class="bg-gray-800 p-2 rounded text-center">
-                        <div class="text-[8px] text-gray-400 uppercase">${data.name.split(' ')[0]}</div>
-                        <div class="text-sm font-bold text-white">${data.avgScore.toFixed(1)}</div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    appState.sessionData = originalData; 
-};
         // --- FINE PARTE 4G ---
 // PARTE4H - Grafici Multipli
         function renderMultipleCharts() {
@@ -3738,9 +3220,7 @@ ${TIPO_ARCO_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join(''
                         </div>
                     </div>
 
-                    <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
+
                 `;
 document.getElementById('content-view').innerHTML = html;
 
@@ -4139,9 +3619,6 @@ return [
                         </button>
                     </div>
 
-                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
                 `;
 
                 document.getElementById('content-view').innerHTML = html;
@@ -4698,9 +4175,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                         <!-- Le statistiche verranno inserite qui -->
                     </div>
 
-                    <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
+
                 `;
 
                 document.getElementById('content-view').innerHTML = html;
