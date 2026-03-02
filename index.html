@@ -564,8 +564,41 @@ window.setView = (viewName, data = {}) => {
                 case 'charts':
                     renderChartsView();
                     break;
-            }
-        };
+// --- INSERISCI QUI IL NUOVO CASO ---
+                case 'dashboardStats':
+                    document.getElementById('content-view').innerHTML = `
+                        <div class="space-y-6 pb-10">
+                            <h2 class="text-2xl font-bold text-white mb-4 text-center">Dashboard & Statistiche</h2>
+                            
+                            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-sm font-bold text-primary-orange uppercase">Riepilogo Numerico</h3>
+                                    <select id="stats-period" onchange="window.updateDashboardStats()" class="bg-gray-800 text-white text-xs rounded-lg p-2 border border-gray-600 outline-none">
+                                        <option value="all">Sempre</option>
+                                        <option value="month">Ultimo mese</option>
+                                        <option value="3months">Ultimi 3 mesi</option>
+                                        <option value="year">Ultimo anno</option>
+                                    </select>
+                                </div>
+                                <div id="stats-summary-grid" class="grid grid-cols-2 gap-3">
+                                    </div>
+                            </div>
+
+                            <div class="bg-secondary-dark p-4 rounded-xl border border-primary-orange shadow-lg">
+                                <h3 class="text-sm font-bold text-primary-orange uppercase mb-4">Andamento Punteggi</h3>
+                                <div class="h-64">
+                                    <canvas id="mainStatsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.updateDashboardStats();
+                    }, 50);
+                    break;
+            } // fine switch
+        }; // fine setView
         // FINE PARTE2
 // PARTE3 - Login, Registrazione, Menu
         async function loadAllArchers() {
@@ -773,16 +806,15 @@ function renderMainMenu() {
                 </button>
             </div>
 
-            <div class="mb-6">
+<div class="mb-6">
                 <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Statistiche</h3>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dashboard')">
-                    🎯 Dashboard Statistiche
+                
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('dashboardStats')">
+                    📊 Dashboard & Statistiche
                 </button>
+
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('dataSummary')">
                     🧾 Riepilogo Dati
-                </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('charts')">
-                    📈 Grafici Andamento
                 </button>
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('compareSessionsView')">
                     ⚖️ Confronta Sessioni
@@ -3535,473 +3567,121 @@ async function saveNewGoal() {
             window.setView('detailedSummary', { sessionId: sessionId });
         };
         // FINE PARTE4F   
-// PARTE4G - Dashboard Statistiche Personalizzate
-        function renderDashboard() {
-            if (!appState.loggedInArcher) {
-                window.setView('login');
-                return;
-            }
-
-            fetchSessions();
-
-            setTimeout(() => {
-                calculateAllStatistics();
-                renderDashboardContent();
-            }, 300);
-        }
-
-        function calculateAllStatistics() {
-            const validSessions = appState.sessionData.filter(s => !s.trainingWithoutScore);
-
-            if (validSessions.length === 0) {
-                appState.statistics = { hasData: false };
-                return;
-            }
-
-            // Statistiche Generali
-            const totalSessions = validSessions.length;
-            const totalScore = validSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0);
-            const avgScore = totalScore / totalSessions;
-
-            const allScores = validSessions.map(s => s.totalScore || 0);
-            const maxScore = Math.max(...allScores);
-            const minScore = Math.min(...allScores);
-            const bestSession = validSessions.find(s => s.totalScore === maxScore);
-
-            // Calcolo deviazione standard
-            const variance = allScores.reduce((sum, score) => sum + Math.pow(score - avgScore, 2), 0) / totalSessions;
-            const stdDev = Math.sqrt(variance);
-
-            // Statistiche per Distanza
-            const byDistance = {};
-            DISTANZA_OPTIONS.forEach(dist => {
-                const sessions = validSessions.filter(s => s.distanza === dist);
-                if (sessions.length > 0) {
-                    byDistance[dist] = {
-                        count: sessions.length,
-                        avgScore: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                        maxScore: Math.max(...sessions.map(s => s.totalScore || 0))
-                    };
-                }
-            });
-
-            // Statistiche per Tipo Targa
-            const byTarget = {};
-            TIPO_TARGA_OPTIONS.forEach(target => {
-                const sessions = validSessions.filter(s => s.tipoTarga === target);
-                if (sessions.length > 0) {
-                    byTarget[target] = {
-                        count: sessions.length,
-                        avgScore: sessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / sessions.length,
-                        maxScore: Math.max(...sessions.map(s => s.totalScore || 0))
-                    };
-                }
-            });
-
-            // Indoor vs Outdoor
-            const indoorSessions = validSessions.filter(s => s.tipoLuogo === 'Indoor');
-            const outdoorSessions = validSessions.filter(s => s.tipoLuogo === 'Outdoor');
-
-            const indoorStats = indoorSessions.length > 0 ? {
-                count: indoorSessions.length,
-                avgScore: indoorSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / indoorSessions.length,
-                maxScore: Math.max(...indoorSessions.map(s => s.totalScore || 0))
-            } : null;
-
-            const outdoorStats = outdoorSessions.length > 0 ? {
-                count: outdoorSessions.length,
-                avgScore: outdoorSessions.reduce((sum, s) => sum + (s.totalScore || 0), 0) / outdoorSessions.length,
-                maxScore: Math.max(...outdoorSessions.map(s => s.totalScore || 0))
-            } : null;
-
-            // Percentuali X, 10, 9
-            const sessionsWithDetails = validSessions.filter(s => !s.quickScore);
-            const totalArrows = sessionsWithDetails.reduce((sum, s) => {
-                const format = s.formatoGara;
-                if (format.includes('3x10')) return sum + 30;
-                if (format.includes('6x6')) return sum + 36;
-                if (format.includes('6x12')) return sum + 72;
-                return sum;
-            }, 0);
-
-            const totalX = sessionsWithDetails.reduce((sum, s) => sum + (s.totalX || 0), 0);
-            const totalTen = sessionsWithDetails.reduce((sum, s) => sum + (s.totalTen || 0), 0);
-            const totalNine = sessionsWithDetails.reduce((sum, s) => sum + (s.totalNine || 0), 0);
-
-            const percentX = totalArrows > 0 ? (totalX / totalArrows * 100) : 0;
-            const percentTen = totalArrows > 0 ? (totalTen / totalArrows * 100) : 0;
-            const percentNine = totalArrows > 0 ? (totalNine / totalArrows * 100) : 0;
-
-            // Analisi Fasce Orarie
-            const timeSlots = {
-                morning: { name: 'Mattino (6-12)', sessions: [], scores: [] },
-                afternoon: { name: 'Pomeriggio (12-18)', sessions: [], scores: [] },
-                evening: { name: 'Sera (18-24)', sessions: [], scores: [] },
-                night: { name: 'Notte (0-6)', sessions: [], scores: [] }
-            };
-
-            validSessions.forEach(s => {
-                if (!s.startTime) return;
-                const hour = parseInt(s.startTime.split(':')[0]);
-                
-                if (hour >= 6 && hour < 12) {
-                    timeSlots.morning.sessions.push(s);
-                    timeSlots.morning.scores.push(s.totalScore || 0);
-                } else if (hour >= 12 && hour < 18) {
-                    timeSlots.afternoon.sessions.push(s);
-                    timeSlots.afternoon.scores.push(s.totalScore || 0);
-                } else if (hour >= 18 && hour < 24) {
-                    timeSlots.evening.sessions.push(s);
-                    timeSlots.evening.scores.push(s.totalScore || 0);
-                } else {
-                    timeSlots.night.sessions.push(s);
-                    timeSlots.night.scores.push(s.totalScore || 0);
-                }
-            });
-
-            Object.keys(timeSlots).forEach(slot => {
-                const data = timeSlots[slot];
-                if (data.scores.length > 0) {
-                    data.avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
-                    data.count = data.sessions.length;
-                } else {
-                    data.avgScore = 0;
-                    data.count = 0;
-                }
-            });
-
-            // Trend Miglioramento (ultime 10 sessioni vs prime 10)
-            let trend = null;
-            if (validSessions.length >= 10) {
-                const first10 = validSessions.slice(0, 10);
-                const last10 = validSessions.slice(-10);
-                
-                const avgFirst = first10.reduce((sum, s) => sum + (s.totalScore || 0), 0) / 10;
-                const avgLast = last10.reduce((sum, s) => sum + (s.totalScore || 0), 0) / 10;
-                
-                trend = {
-                    improvement: avgLast - avgFirst,
-                    percentChange: ((avgLast - avgFirst) / avgFirst * 100)
-                };
-            }
-
-            // Correlazione Durata-Prestazione
-            const sessionsWithDuration = validSessions.filter(s => s.duration && s.duration > 0);
-            let durationCorrelation = null;
+// --- PARTE 4G: DASHBOARD UNIFICATA & STATISTICHE ---
+        
+        // 1. Funzione principale di aggiornamento dati e grafica
+        window.updateDashboardStats = () => {
+            const period = document.getElementById('stats-period').value;
+            const now = new Date();
             
-            if (sessionsWithDuration.length >= 5) {
-                const shortSessions = sessionsWithDuration.filter(s => s.duration <= 60);
-                const mediumSessions = sessionsWithDuration.filter(s => s.duration > 60 && s.duration <= 120);
-                const longSessions = sessionsWithDuration.filter(s => s.duration > 120);
+            // Filtro le sessioni in base al periodo selezionato
+            const filteredSessions = appState.sessionData.filter(s => {
+                if (period === 'all') return true;
+                const sDate = new Date(s.data);
+                const diffMonths = (now.getFullYear() - sDate.getFullYear()) * 12 + (now.getMonth() - sDate.getMonth());
+                if (period === 'month') return diffMonths < 1;
+                if (period === '3months') return diffMonths < 3;
+                if (period === 'year') return diffMonths < 12;
+                return true;
+            }).sort((a, b) => new Date(a.data) - new Date(b.data));
 
-                durationCorrelation = {
-                    short: shortSessions.length > 0 ? {
-                        count: shortSessions.length,
-                        avg: shortSessions.reduce((sum, s) => sum + s.totalScore, 0) / shortSessions.length
-                    } : null,
-                    medium: mediumSessions.length > 0 ? {
-                        count: mediumSessions.length,
-                        avg: mediumSessions.reduce((sum, s) => sum + s.totalScore, 0) / mediumSessions.length
-                    } : null,
-                    long: longSessions.length > 0 ? {
-                        count: longSessions.length,
-                        avg: longSessions.reduce((sum, s) => sum + s.totalScore, 0) / longSessions.length
-                    } : null
-                };
-            }
+            // Filtro solo quelle con punteggio per i calcoli tecnici
+            const scoringSessions = filteredSessions.filter(s => !s.trainingWithoutScore);
+            
+            // Calcoli statistici
+            const totalSessions = filteredSessions.length;
+            const avgScore = scoringSessions.length > 0 
+                ? scoringSessions.reduce((acc, s) => acc + (s.totalScore || 0), 0) / scoringSessions.length 
+                : 0;
+            const maxScore = scoringSessions.length > 0 
+                ? Math.max(...scoringSessions.map(s => s.totalScore || 0)) 
+                : 0;
+            const gareCount = filteredSessions.filter(s => s.type === 'Gara').length;
 
-            appState.statistics = {
-                hasData: true,
-                general: {
-                    totalSessions,
-                    avgScore,
-                    maxScore,
-                    minScore,
-                    stdDev,
-                    bestSession
-                },
-                byDistance,
-                byTarget,
-                indoor: indoorStats,
-                outdoor: outdoorStats,
-                accuracy: {
-                    percentX,
-                    percentTen,
-                    percentNine,
-                    totalX,
-                    totalTen,
-                    totalNine
-                },
-                timeSlots,
-                trend,
-                durationCorrelation
-            };
-        }
-
-        function renderDashboardContent() {
-            const stats = appState.statistics;
-
-            if (!stats || !stats.hasData) {
-                document.getElementById('content-view').innerHTML = `
-                    <h2 class="text-3xl font-bold mb-6 text-white">🎯 Dashboard Statistiche</h2>
-                    <div class="bg-secondary-dark p-6 rounded-xl shadow-lg text-center">
-                        <p class="text-white text-lg">Non ci sono abbastanza dati per generare statistiche.</p>
-                        <p class="text-sm text-primary-orange mt-2">Registra almeno una sessione con punteggio per iniziare!</p>
+            // Aggiornamento della griglia numerica nell'HTML
+            const summaryGrid = document.getElementById('stats-summary-grid');
+            if (summaryGrid) {
+                summaryGrid.innerHTML = `
+                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
+                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Sessioni</div>
+                        <div class="text-2xl font-bold text-white">${totalSessions}</div>
                     </div>
-                    <button class="btn-primary w-full p-3 rounded-lg mt-6" onclick="window.setView('mainMenu')">
-                        Torna al Menu
-                    </button>
+                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
+                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Media</div>
+                        <div class="text-2xl font-bold text-white">${avgScore.toFixed(1)}</div>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
+                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Record</div>
+                        <div class="text-2xl font-bold text-green-400">${maxScore}</div>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded-xl text-center border border-gray-700 shadow-lg">
+                        <div class="text-[10px] text-primary-orange uppercase font-bold mb-1">Gare</div>
+                        <div class="text-2xl font-bold text-blue-400">${gareCount}</div>
+                    </div>
                 `;
-                return;
             }
 
-            const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white">🎯 Dashboard Statistiche</h2>
+            // Rendering del Grafico con Chart.js
+            const ctx = document.getElementById('mainStatsChart');
+            if (ctx) {
+                // Distruggiamo il grafico precedente per evitare sovrapposizioni e rallentamenti
+                if (window.chartInstance) {
+                    window.chartInstance.destroy();
+                }
 
-                <!-- Statistiche Generali -->
-                <div class="stats-card mb-6">
-                    <h3 class="text-2xl font-bold mb-4 text-white">📊 Panoramica Generale</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="bg-gray-800 p-4 rounded-lg text-center">
-                            <div class="text-xs text-primary-orange mb-1">Sessioni Totali</div>
-                            <div class="text-3xl font-bold text-white">${stats.general.totalSessions}</div>
-                        </div>
-                        <div class="bg-gray-800 p-4 rounded-lg text-center">
-                            <div class="text-xs text-primary-orange mb-1">Media Punteggio</div>
-                            <div class="text-3xl font-bold text-white">${stats.general.avgScore.toFixed(1)}</div>
-                        </div>
-                        <div class="bg-gray-800 p-4 rounded-lg text-center">
-                            <div class="text-xs text-primary-orange mb-1">Record Personale</div>
-                            <div class="text-3xl font-bold text-green-400">${stats.general.maxScore}</div>
-                        </div>
-<div class="bg-gray-800 p-4 rounded-lg text-center">
-    <div class="text-xs text-primary-orange mb-1">Variazione punteggi rispetto media</div>
-    <div class="text-xl font-bold ${stats.general.stdDev < 15 ? 'text-green-400' : stats.general.stdDev < 25 ? 'text-yellow-400' : 'text-red-400'}">
-        ±${stats.general.stdDev.toFixed(1)}
-    </div>
-</div>
-                    </div>
-                    ${stats.general.bestSession ? `
-                        <div class="bg-green-900 bg-opacity-30 p-3 rounded-lg mt-4 border border-green-500">
-                            <p class="text-sm text-green-400">
-                                🏆 <strong>Miglior prestazione:</strong> ${stats.general.maxScore} punti 
-                                il ${formatDate(stats.general.bestSession.data)} 
-                                (${stats.general.bestSession.distanza} - ${stats.general.bestSession.tipoTarga})
-                            </p>
-                        </div>
-                    ` : ''}
-                </div>
+                window.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: scoringSessions.map(s => formatDate(s.data)),
+                        datasets: [{
+                            label: 'Punti Totali',
+                            data: scoringSessions.map(s => s.totalScore),
+                            borderColor: '#fdb927',
+                            backgroundColor: 'rgba(253, 185, 39, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#fdb927',
+                            pointBorderColor: '#fff',
+                            pointHoverRadius: 7
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1a1a1a',
+                                titleColor: '#fdb927',
+                                borderColor: '#fdb927',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                grid: { color: '#333' }, 
+                                ticks: { color: '#aaa', font: { size: 10 } } 
+                            },
+                            x: { 
+                                grid: { display: false }, 
+                                ticks: { color: '#aaa', font: { size: 9 } } 
+                            }
+                        }
+                    }
+                });
+            }
+        };
 
-                <!-- Accuratezza -->
-                ${stats.accuracy.totalX > 0 || stats.accuracy.totalTen > 0 ? `
-                    <div class="stats-card mb-6">
-                        <h3 class="text-2xl font-bold mb-4 text-white">🎯 Accuratezza</h3>
-                        <div class="grid grid-cols-3 gap-4">
-                            <div class="bg-gray-800 p-4 rounded-lg">
-                                <div class="text-center mb-2">
-                                    <div class="text-4xl font-bold text-yellow-400">${stats.accuracy.percentX.toFixed(1)}%</div>
-                                    <div class="text-xs text-primary-orange">X</div>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill bg-yellow-400" style="width: ${stats.accuracy.percentX}%"></div>
-                                </div>
-                            </div>
-                            <div class="bg-gray-800 p-4 rounded-lg">
-                                <div class="text-center mb-2">
-                                    <div class="text-4xl font-bold text-green-400">${stats.accuracy.percentTen.toFixed(1)}%</div>
-                                    <div class="text-xs text-primary-orange">10</div>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill bg-green-400" style="width: ${stats.accuracy.percentTen}%"></div>
-                                </div>
-                            </div>
-                            <div class="bg-gray-800 p-4 rounded-lg">
-                                <div class="text-center mb-2">
-                                    <div class="text-4xl font-bold text-blue-400">${stats.accuracy.percentNine.toFixed(1)}%</div>
-                                    <div class="text-xs text-primary-orange">9</div>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill bg-blue-400" style="width: ${stats.accuracy.percentNine}%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-xs text-center text-gray-400 mt-2">
-                            Totali: X=${stats.accuracy.totalX}, 10=${stats.accuracy.totalTen}, 9=${stats.accuracy.totalNine}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <!-- Prestazioni per Distanza -->
-                ${Object.keys(stats.byDistance).length > 0 ? `
-                    <div class="stats-card mb-6">
-                        <h3 class="text-2xl font-bold mb-4 text-white">📏 Prestazioni per Distanza</h3>
-                        <div class="space-y-3">
-                            ${Object.entries(stats.byDistance).map(([dist, data]) => {
-                                const maxPossible = 360; // Assumiamo max 360
-                                const percentage = (data.avgScore / maxPossible) * 100;
-                                return `
-                                    <div>
-                                        <div class="flex justify-between text-sm mb-1">
-                                            <span class="text-white font-bold">${dist}</span>
-                                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} media | ${data.maxScore} max | ${data.count} sessioni</span>
-                                        </div>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill" style="width: ${percentage}%"></div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <!-- Prestazioni per Tipo Targa -->
-                ${Object.keys(stats.byTarget).length > 0 ? `
-                    <div class="stats-card mb-6">
-                        <h3 class="text-2xl font-bold mb-4 text-white">🎯 Prestazioni per Tipo Targa</h3>
-                        <div class="space-y-3">
-                            ${Object.entries(stats.byTarget).map(([target, data]) => {
-                                const maxPossible = 360;
-                                const percentage = (data.avgScore / maxPossible) * 100;
-                                return `
-                                    <div>
-                                        <div class="flex justify-between text-sm mb-1">
-                                            <span class="text-white font-bold">${target}</span>
-                                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} media | ${data.maxScore} max | ${data.count} sessioni</span>
-                                        </div>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill" style="width: ${percentage}%"></div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <!-- Indoor vs Outdoor -->
-                ${stats.indoor && stats.outdoor ? `
-                    <div class="stats-card mb-6">
-                        <h3 class="text-2xl font-bold mb-4 text-white">🏠 Indoor vs 🌳 Outdoor</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-blue-900 bg-opacity-30 p-4 rounded-lg border border-blue-500">
-                                <h4 class="text-lg font-bold text-blue-400 mb-2">🏠 Indoor</h4>
-                                <div class="text-3xl font-bold text-white mb-1">${stats.indoor.avgScore.toFixed(1)}</div>
-                                <div class="text-xs text-blue-300">Media | Max: ${stats.indoor.maxScore} | ${stats.indoor.count} sessioni</div>
-                            </div>
-                            <div class="bg-green-900 bg-opacity-30 p-4 rounded-lg border border-green-500">
-                                <h4 class="text-lg font-bold text-green-400 mb-2">🌳 Outdoor</h4>
-                                <div class="text-3xl font-bold text-white mb-1">${stats.outdoor.avgScore.toFixed(1)}</div>
-                                <div class="text-xs text-green-300">Media | Max: ${stats.outdoor.maxScore} | ${stats.outdoor.count} sessioni</div>
-                            </div>
-                        </div>
-                        ${Math.abs(stats.indoor.avgScore - stats.outdoor.avgScore) > 10 ? `
-                            <div class="mt-3 p-2 bg-gray-800 rounded text-sm text-center">
-                                <span class="text-primary-orange">
-                                    💡 Performa meglio ${stats.indoor.avgScore > stats.outdoor.avgScore ? 'Indoor' : 'Outdoor'} 
-                                    di ${Math.abs(stats.indoor.avgScore - stats.outdoor.avgScore).toFixed(1)} punti in media
-                                </span>
-                            </div>
-                        ` : ''}
-                    </div>
-                ` : ''}
-
-                <!-- Analisi Fasce Orarie -->
-                <div class="stats-card mb-6">
-                    <h3 class="text-2xl font-bold mb-4 text-white">🕐 Prestazioni per Fascia Oraria</h3>
-                    <div class="space-y-3">
-                        ${Object.entries(stats.timeSlots)
-                            .filter(([_, data]) => data.count > 0)
-                            .sort((a, b) => b[1].avgScore - a[1].avgScore)
-                            .map(([slot, data], index) => {
-                                const maxAvg = Math.max(...Object.values(stats.timeSlots).map(s => s.avgScore));
-                                const percentage = (data.avgScore / maxAvg) * 100;
-                                return `
-                                    <div>
-                                        <div class="flex justify-between text-sm mb-1">
-                                            <span class="text-white font-bold">${index === 0 ? '⭐ ' : ''}${data.name}</span>
-                                            <span class="text-primary-orange">${data.avgScore.toFixed(1)} media | ${data.count} sessioni</span>
-                                        </div>
-                                        <div class="progress-bar">
-                                            <div class="progress-fill ${index === 0 ? 'bg-green-500' : ''}" style="width: ${percentage}%"></div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                    </div>
-                    ${(() => {
-                        const bestSlot = Object.entries(stats.timeSlots)
-                            .filter(([_, data]) => data.count > 0)
-                            .sort((a, b) => b[1].avgScore - a[1].avgScore)[0];
-                        return bestSlot ? `
-                            <div class="mt-3 p-2 bg-green-900 bg-opacity-30 rounded text-sm text-center border border-green-500">
-                                <span class="text-green-400">
-                                    💡 Tendi a tirare meglio ${bestSlot[1].name.toLowerCase()}
-                                </span>
-                            </div>
-                        ` : '';
-                    })()}
-                </div>
-
-                <!-- Trend Miglioramento -->
-                ${stats.trend ? `
-                    <div class="stats-card mb-6">
-                        <h3 class="text-2xl font-bold mb-4 text-white">📈 Trend di Miglioramento</h3>
-                        <div class="bg-gray-800 p-4 rounded-lg">
-                            <div class="text-center">
-                                <div class="text-sm text-primary-orange mb-2">Prime 10 sessioni vs Ultime 10 sessioni</div>
-                                <div class="text-5xl font-bold ${stats.trend.improvement >= 0 ? 'text-green-400' : 'text-red-400'} mb-2">
-                                    ${stats.trend.improvement >= 0 ? '↑' : '↓'} ${Math.abs(stats.trend.improvement).toFixed(1)}
-                                </div>
-                                <div class="text-xl ${stats.trend.improvement >= 0 ? 'text-green-400' : 'text-red-400'}">
-                                    ${stats.trend.improvement >= 0 ? '+' : ''}${stats.trend.percentChange.toFixed(1)}%
-                                </div>
-                                <div class="text-xs text-gray-400 mt-2">
-                                    ${stats.trend.improvement >= 0 ? '🎉 Stai migliorando!' : '⚠️ Necessario più allenamento'}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-
-                <!-- Correlazione Durata-Prestazione -->
-                ${stats.durationCorrelation ? `
-                    <div class="stats-card mb-6">
-                        <h3 class="text-2xl font-bold mb-4 text-white">⏱️ Durata Sessione vs Prestazione</h3>
-                        <div class="grid grid-cols-3 gap-3">
-                            ${stats.durationCorrelation.short ? `
-                                <div class="bg-gray-800 p-3 rounded-lg text-center">
-                                    <div class="text-xs text-primary-orange mb-1">≤ 1 ora</div>
-                                    <div class="text-2xl font-bold text-white">${stats.durationCorrelation.short.avg.toFixed(1)}</div>
-                                    <div class="text-xs text-gray-400">${stats.durationCorrelation.short.count} sessioni</div>
-                                </div>
-                            ` : ''}
-                            ${stats.durationCorrelation.medium ? `
-                                <div class="bg-gray-800 p-3 rounded-lg text-center">
-                                    <div class="text-xs text-primary-orange mb-1">1-2 ore</div>
-                                    <div class="text-2xl font-bold text-white">${stats.durationCorrelation.medium.avg.toFixed(1)}</div>
-                                    <div class="text-xs text-gray-400">${stats.durationCorrelation.medium.count} sessioni</div>
-                                </div>
-                            ` : ''}
-                            ${stats.durationCorrelation.long ? `
-                                <div class="bg-gray-800 p-3 rounded-lg text-center">
-                                    <div class="text-xs text-primary-orange mb-1">> 2 ore</div>
-                                    <div class="text-2xl font-bold text-white">${stats.durationCorrelation.long.avg.toFixed(1)}</div>
-                                    <div class="text-xs text-gray-400">${stats.durationCorrelation.long.count} sessioni</div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('mainMenu')">
-                    Torna al Menu
-                </button>
-            `;
-
-            document.getElementById('content-view').innerHTML = html;
-        }
-        // FINE PARTE4G
+        // 2. Funzione per la formattazione rapida della data (se non già presente altrove)
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+        };
+        
+        // --- FINE PARTE 4G ---
 // PARTE4H - Grafici Multipli
         function renderMultipleCharts() {
 if (!appState.loggedInArcher) {
@@ -5279,9 +4959,88 @@ window.showMigrationModal = migrateSessionsAddBowType;
             document.getElementById('month-stats').innerHTML = html;
         }
         // FINE PARTE4J
-        // Inizializza l'applicazione al caricamento dell'autenticazione
-        window.setView('login');
+// 1. DEFINISCI LA FUNZIONE PRIMA DI USARLA
+    window.updateDashboardStats = () => {
+        const period = document.getElementById('stats-period').value;
+        const now = new Date();
+        
+        const filteredSessions = appState.sessionData.filter(s => {
+            if (period === 'all') return true;
+            const sDate = new Date(s.data);
+            const diffMonths = (now.getFullYear() - sDate.getFullYear()) * 12 + (now.getMonth() - sDate.getMonth());
+            if (period === 'month') return diffMonths < 1;
+            if (period === '3months') return diffMonths < 3;
+            if (period === 'year') return diffMonths < 12;
+            return true;
+        }).sort((a, b) => new Date(a.data) - new Date(b.data));
+
+        const scoringSessions = filteredSessions.filter(s => !s.trainingWithoutScore);
+        const totalSessions = filteredSessions.length;
+        const avgScore = scoringSessions.length > 0 
+            ? scoringSessions.reduce((acc, s) => acc + (s.totalScore || 0), 0) / scoringSessions.length 
+            : 0;
+        const maxScore = scoringSessions.length > 0 
+            ? Math.max(...scoringSessions.map(s => s.totalScore || 0)) 
+            : 0;
+        const gare = filteredSessions.filter(s => s.type === 'Gara').length;
+
+        const summaryGrid = document.getElementById('stats-summary-grid');
+        if (summaryGrid) {
+            summaryGrid.innerHTML = `
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange uppercase mb-1">Sessioni</div>
+                    <div class="text-xl font-bold text-white">${totalSessions}</div>
+                </div>
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange uppercase mb-1">Media</div>
+                    <div class="text-xl font-bold text-white">${avgScore.toFixed(1)}</div>
+                </div>
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange uppercase mb-1">Record</div>
+                    <div class="text-xl font-bold text-green-400">${maxScore}</div>
+                </div>
+                <div class="bg-gray-800 p-3 rounded-lg text-center border border-gray-700">
+                    <div class="text-[10px] text-primary-orange uppercase mb-1">Gare</div>
+                    <div class="text-xl font-bold text-blue-400">${gare}</div>
+                </div>
+            `;
+        }
+
+        const ctx = document.getElementById('mainStatsChart');
+        if (ctx) {
+            if (window.chartInstance) window.chartInstance.destroy();
+            window.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: scoringSessions.map(s => formatDate(s.data)),
+                    datasets: [{
+                        label: 'Punti',
+                        data: scoringSessions.map(s => s.totalScore),
+                        borderColor: '#fdb927',
+                        backgroundColor: 'rgba(253, 185, 39, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#fdb927'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#333' }, ticks: { color: '#aaa', font: { size: 10 } } },
+                        x: { grid: { display: false }, ticks: { color: '#aaa', font: { size: 9 } } }
+                    }
+                }
+            });
+        }
     };
+
+    // 2. ORA PUOI FAR PARTIRE L'APP
+    window.setView('login');
+}; // Chiusura finale di initializeApp
 </script>
 </body>
 </html>
