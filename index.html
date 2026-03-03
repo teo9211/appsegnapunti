@@ -132,13 +132,113 @@
 </head>
 <body class="bg-background-dark text-primary-orange">
 
-<button id="back-button" 
-            onclick="window.goBack()" 
-            class="hidden fixed top-4 left-4 z-[60] bg-gray-900 border-2 border-primary-orange text-primary-orange p-2 rounded-full shadow-2xl hover:bg-primary-orange hover:text-black transition-all">
+<!-- Freccia indietro: visibile nelle sezioni normali, nascosta durante scoring -->
+<button id="back-button"
+            onclick="window.goBack()"
+            class="hidden fixed top-4 left-4 z-[70] bg-gray-900 border-2 border-primary-orange text-primary-orange p-2 rounded-full shadow-2xl hover:bg-primary-orange hover:text-black transition-all">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
     </button>
+
+    <!-- Hamburger: sempre visibile quando loggato (tranne login/mainMenu) -->
+    <button id="nav-menu-btn"
+            onclick="window.toggleNavDrawer()"
+            class="hidden fixed top-4 z-[70] bg-gray-900 border-2 border-primary-orange text-primary-orange p-2 rounded-full shadow-2xl hover:bg-primary-orange hover:text-black transition-all"
+            style="left:3.5rem">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
+
+    <!-- Bottone Riprendi: appare a destra quando hai una sessione in pausa -->
+    <button id="resume-session-btn"
+            onclick="window.resumeActiveSession()"
+            class="hidden fixed top-4 right-4 z-[70] bg-green-600 hover:bg-green-500 text-white text-sm font-bold px-3 py-2 rounded-full shadow-2xl transition-all flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span id="resume-session-label">Riprendi</span>
+    </button>
+
+    <div id="nav-overlay" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[65]" onclick="window.closeNavDrawer()"></div>
+
+    <div id="nav-drawer" class="fixed top-0 left-0 h-full w-72 bg-gray-900 border-r-2 border-primary-orange z-[66] transform -translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
+        <div class="p-4">
+            <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-700">
+                <div>
+                    <h2 class="text-lg font-bold text-primary-orange">&#127996; Archery Tracker</h2>
+                    <p id="drawer-user-name" class="text-xs text-gray-400 mt-1"></p>
+                </div>
+                <button onclick="window.closeNavDrawer()" class="text-gray-400 hover:text-white p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div id="drawer-session-banner" class="hidden mb-4 p-3 bg-green-900 bg-opacity-40 border border-green-500 rounded-xl">
+                <p class="text-xs font-bold text-green-400 mb-1">&#127919; SESSIONE IN CORSO</p>
+                <p id="drawer-session-info" class="text-xs text-white mb-2"></p>
+                <button onclick="window.resumeActiveSession()" 
+                        class="w-full bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-3 rounded-lg">
+                    &#9654;&#65039; Torna alla sessione
+                </button>
+            </div>
+
+            <nav class="space-y-1">
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Registra Sessione</p>
+                <button onclick="window.navDrawerGo('registrationForm', {type:'Allenamento'})" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#127919; Allenamento
+                </button>
+                <button onclick="window.navDrawerGo('registrationForm', {type:'Gara'})" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#127942; Gara
+                </button>
+
+                <div class="border-t border-gray-700 my-3"></div>
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Analisi</p>
+                <button onclick="window.navDrawerGo('dataSummary')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#129534; Riepilogo Dati
+                </button>
+                <button onclick="window.navDrawerGo('compareSessionsView')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#9878;&#65039; Confronta Sessioni
+                </button>
+
+                <div class="border-t border-gray-700 my-3"></div>
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Obiettivi</p>
+                <button onclick="window.navDrawerGo('goals')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#127885; I Miei Obiettivi
+                </button>
+                <button onclick="window.navDrawerGo('calendar')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#128197; Calendario
+                </button>
+
+                <div class="border-t border-gray-700 my-3"></div>
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Dati</p>
+                <button onclick="window.navDrawerGo('exportData')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    &#128229; Esporta &amp; Backup
+                </button>
+                <button onclick="window.navDrawerGo('mainMenu')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-all text-sm">
+                    &#127968; Menu Principale
+                </button>
+
+                <div class="border-t border-gray-700 my-3"></div>
+                <button onclick="window.logout()" 
+                        class="w-full text-left px-3 py-3 rounded-lg text-red-400 hover:bg-red-900 hover:bg-opacity-30 transition-all text-sm">
+                    &#128682; Logout
+                </button>
+            </nav>
+        </div>
+    </div>
 
     <div id="app" class="app-container p-4 max-w-4xl mx-auto">
         <header class="text-center mb-8">
@@ -204,13 +304,6 @@ window.goBack = () => {
         case 'exportData':
         case 'compareSessionsView':
             window.setView('mainMenu');
-            break;
-        case 'scoring':
-        case 'quickScore':
-        case 'trainingNotes':
-            if(confirm("Vuoi davvero uscire? I dati non salvati andranno persi.")) {
-                window.setView('mainMenu');
-            }
             break;
         case 'detailedSummary':
             window.setView('dataSummary');
@@ -476,17 +569,51 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
 window.setView = (viewName, data = {}) => {
     appState.view = viewName;
     
-    // Gestione visibilità tasto indietro con "Paracadute"
+    // Gestione visibilita pulsanti navigazione
+    const SESSION_VIEWS_NAV = ['scoring', 'quickScore', 'trainingNotes'];
+    const isLoginOrMenu = (viewName === 'login' || viewName === 'mainMenu');
+    const isSessionView = SESSION_VIEWS_NAV.includes(viewName);
+
+    // Freccia indietro: visibile solo nelle sezioni normali
     const backBtn = document.getElementById('back-button');
-    
-    // Aggiungiamo questo "if" per evitare l'errore se il tasto non esiste ancora
     if (backBtn) {
-        if (viewName === 'login' || viewName === 'mainMenu') {
+        if (isLoginOrMenu || isSessionView) {
             backBtn.classList.add('hidden');
         } else {
             backBtn.classList.remove('hidden');
         }
     }
+
+    // Hamburger: visibile ovunque tranne login e mainMenu
+    const navMenuBtn = document.getElementById('nav-menu-btn');
+    if (navMenuBtn) {
+        if (isLoginOrMenu) {
+            navMenuBtn.classList.add('hidden');
+        } else {
+            navMenuBtn.style.left = isSessionView ? '1rem' : '3.5rem';
+            navMenuBtn.classList.remove('hidden');
+        }
+    }
+
+    // Bottone Riprendi: visibile fuori dalla sessione se c esiste una bozza
+    const resumeBtn = document.getElementById('resume-session-btn');
+    if (resumeBtn) {
+        const hasDraft = !!localStorage.getItem('archery_tracker_draft');
+        const hasActiveSession = !!(typeof appState !== undefined && appState.currentSession);
+        if (!isLoginOrMenu && !isSessionView && (hasDraft || hasActiveSession)) {
+            const labelEl = document.getElementById('resume-session-label');
+            if (labelEl && appState.currentSession) {
+                const t = appState.currentSession.type;
+                labelEl.textContent = t === 'Gara' ? 'Riprendi Gara' : 'Riprendi Allenamento';
+            }
+            resumeBtn.classList.remove('hidden');
+        } else {
+            resumeBtn.classList.add('hidden');
+        }
+    }
+
+    // Chiudi il drawer se aperto
+    window.closeNavDrawer && window.closeNavDrawer();
 
     document.getElementById('content-view').innerHTML = '';
             closeModal();
@@ -1344,6 +1471,87 @@ function renderMainMenu() {
             localStorage.removeItem('archery_tracker_draft');
         };
         // ────────────────────────────────────────────────────────────────
+
+
+        // --- NAVIGATION DRAWER ---
+        window.toggleNavDrawer = () => {
+            const drawer  = document.getElementById('nav-drawer');
+            const overlay = document.getElementById('nav-overlay');
+            const isOpen  = !drawer.classList.contains('-translate-x-full');
+            if (isOpen) {
+                window.closeNavDrawer();
+            } else {
+                const nameEl = document.getElementById('drawer-user-name');
+                if (nameEl && appState.loggedInArcher) {
+                    nameEl.textContent = 'Loggato: ' + appState.loggedInArcher.nome;
+                }
+                const banner  = document.getElementById('drawer-session-banner');
+                const infoEl  = document.getElementById('drawer-session-info');
+                const SESSION_VIEWS = ['scoring', 'quickScore', 'trainingNotes'];
+                const inSession = SESSION_VIEWS.includes(appState.view) || !!appState.currentSession;
+                if (banner) {
+                    if (inSession && appState.currentSession) {
+                        const s = appState.currentSession;
+                        if (infoEl) infoEl.textContent = (s.type||'') + (s.distanza ? ' - '+s.distanza : '') + (s.tipoTarga ? ' / '+s.tipoTarga : '') + ' - Turno ' + (appState.currentTurn||1);
+                        banner.classList.remove('hidden');
+                    } else {
+                        banner.classList.add('hidden');
+                    }
+                }
+                drawer.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            }
+        };
+
+        window.closeNavDrawer = () => {
+            const drawer  = document.getElementById('nav-drawer');
+            const overlay = document.getElementById('nav-overlay');
+            if (drawer)  drawer.classList.add('-translate-x-full');
+            if (overlay) overlay.classList.add('hidden');
+        };
+
+        window.navDrawerGo = (viewName, data={}) => {
+            window.closeNavDrawer();
+            const SESSION_VIEWS = ['scoring', 'quickScore', 'trainingNotes'];
+            const inSession = SESSION_VIEWS.includes(appState.view);
+            if (inSession) autoSaveCurrentSession();
+            if (inSession && (viewName === 'registrationForm' || viewName === 'mainMenu')) {
+                showModal('Sessione in corso',
+                    '<p class="text-white">Hai una sessione in corso salvata automaticamente.<br>Puoi consultare le altre sezioni e tornare dal pulsante verde nel menu.<br><br>Se vuoi avviare qualcosa di nuovo, la sessione attuale resta in pausa.</p>',
+                    [
+                        { text: 'Annulla', handler: () => {} },
+                        { text: 'Vai comunque', handler: () => window.setView(viewName, data) }
+                    ]
+                );
+                return;
+            }
+            window.setView(viewName, data);
+        };
+
+        window.resumeActiveSession = () => {
+            window.closeNavDrawer();
+            const SESSION_VIEWS = ['scoring', 'quickScore', 'trainingNotes'];
+            if (SESSION_VIEWS.includes(appState.view)) return;
+            if (!appState.currentSession) return;
+            const draft = localStorage.getItem('archery_tracker_draft');
+            if (draft) {
+                try {
+                    const sv = JSON.parse(draft);
+                    appState.currentSession  = sv.currentSession;
+                    appState.currentTurn     = sv.currentTurn;
+                    appState.scoringGrid     = sv.scoringGrid;
+                    appState.volleyNotes     = sv.volleyNotes || {};
+                    scoringState.rows        = sv.scoringState.rows;
+                    scoringState.cols        = sv.scoringState.cols;
+                    scoringState.format      = sv.scoringState.format;
+                    scoringState.activeCell  = sv.scoringState.activeCell;
+                    scoringState.startTime   = sv.scoringState.startTime;
+                    scoringState.personalAverage = sv.scoringState.personalAverage;
+                } catch(e) { console.warn('Restore draft error:', e); }
+            }
+            window.setView('scoring');
+        };
+        // --- END NAVIGATION DRAWER ---
 
         window.handleCellClick = (row, col) => {
             scoringState.activeCell = { row, col };
