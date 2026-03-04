@@ -1052,11 +1052,6 @@ function renderMainMenu() {
                             <textarea id="esercizConsigliati" name="esercizConsigliati" class="input-style h-24 text-sm"
                                       placeholder="Esercizi consigliati dall'allenatore o pianificati per questa sessione...">${session.esercizConsigliati || ''}</textarea>
                         </div>
-                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
-                            <label for="esercizSvolti" class="block text-sm font-bold mb-2 text-green-400">✅ Esercizi Svolti <span class="text-gray-400 text-xs font-normal">(compila durante/dopo)</span></label>
-                            <textarea id="esercizSvolti" name="esercizSvolti" class="input-style h-24 text-sm"
-                                      placeholder="Esercizi effettivamente svolti, tecniche praticate...">${session.esercizSvolti || ''}</textarea>
-                        </div>
                     ` : ''}
 
                     <div class="mt-8 flex flex-col space-y-3">
@@ -1088,7 +1083,6 @@ function renderMainMenu() {
                 // Leggi esercizi se presenti nel form
                 if (type === 'Allenamento') {
                     session.esercizConsigliati = document.getElementById('esercizConsigliati')?.value || '';
-                    session.esercizSvolti = document.getElementById('esercizSvolti')?.value || '';
                 }
 
                 appState.currentSession = session;
@@ -2002,6 +1996,12 @@ function renderMainMenu() {
                                       placeholder="Condizioni fisiche, stanchezza, meteo, note generali..."
                                       oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche || ''}</textarea>
                         </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label class="block text-sm font-bold mb-2 text-green-400">✅ Esercizi Svolti</label>
+                            <textarea id="scoring-eserciz-svolti" class="input-style h-24 text-sm"
+                                      placeholder="Esercizi effettivamente svolti, tecniche praticate, obiettivi raggiunti..."
+                                      oninput="appState.currentSession.esercizSvolti=this.value">${session.esercizSvolti || ''}</textarea>
+                        </div>
                     ` : `
                         <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-yellow-400">
                             <label class="block text-sm font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</label>
@@ -2058,6 +2058,8 @@ function renderMainMenu() {
             // Leggi Note e Condizioni Fisiche dalla UI prima di salvare
             const noteEl = document.getElementById('scoring-note-condizioni') || document.getElementById('scoring-note-condizioni-gara');
             if (noteEl) appState.currentSession.noteCondizioniFisiche = noteEl.value;
+            const esercizSvoltiEl = document.getElementById('scoring-eserciz-svolti');
+            if (esercizSvoltiEl) appState.currentSession.esercizSvolti = esercizSvoltiEl.value;
             const preGaraEl = document.getElementById('scoring-note-pregara');
             if (preGaraEl) appState.currentSession.notePreGara = preGaraEl.value;
             const postGaraEl = document.getElementById('scoring-note-postgara');
