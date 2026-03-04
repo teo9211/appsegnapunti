@@ -4247,24 +4247,17 @@ window.showMigrationModal = migrateSessionsAddBowType;
         // FINE PARTE4I
 // PARTE4J - Calendario Sessioni
         function countArrowsForSession(session) {
-            // Conta frecce tirate in base al formato + aggiuntive
             let arrows = 0;
             if (session.trainingWithoutScore) {
-                // Allenamento tecnico: solo frecce aggiuntive se specificate
                 arrows = parseInt(session.frecceAggiuntive) || 0;
             } else if (session.quickScore) {
-                // Quick score: deriviamo dal formato o usiamo le aggiuntive
                 const formatMap = { '36 frecce (6x6)': 36, '60 frecce (10x6)': 60, '72 frecce (6x12)': 72, '18 frecce (3x6)': 18 };
                 arrows = formatMap[session.formatoGara] || 36;
                 arrows += parseInt(session.frecceAggiuntive) || 0;
             } else {
-                // Sessione normale: calcoliamo dalle volée
-                const t1 = session.turn1?.summary?.frecceTirate || 0;
-                const t2 = session.turn2?.summary?.frecceTirate || 0;
+                const t1 = parseInt(session.turn1?.summary?.frecceTirate) || 0;
+                const t2 = parseInt(session.turn2?.summary?.frecceTirate) || 0;
                 arrows = t1 + t2 + (parseInt(session.frecceAggiuntive) || 0);
-            }
-            if (session.frecceProgrammate && arrows === 0) {
-                arrows = parseInt(session.frecceProgrammate) || 0;
             }
             return arrows;
         }
@@ -5194,7 +5187,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     return `<span style="${isActive ? 'font-weight:bold;text-decoration:underline;' : ''}">${d}</span>`;
                 }).join(' – ');
 
-                const frecceInfo = `Frecce Programmate: <u>${s.frecceProgrammate || '___'}</u> &nbsp;&nbsp; Frecce Tirate: <u>${s.frecceAggiuntive || (isTech ? (s.frecceAggiuntive||'___') : countArrowsForSession(s)) || '___'}</u>`;
+                const totalFrecce = countArrowsForSession(s);
+                const frecceInfo = `Frecce Programmate: <u>${s.frecceProgrammate || '___'}</u> &nbsp;&nbsp; Frecce Tirate: <u>${totalFrecce || '___'}</u>`;
 
                 const esConsigliati = s.esercizConsigliati || '';
                 const esSvolti = s.esercizSvolti || s.trainingContent || '';
@@ -5394,3 +5388,4 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
+
