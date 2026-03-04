@@ -1293,39 +1293,59 @@ function renderMainMenu() {
             }
 
             const session = appState.currentSession;
-            const savedNotes = session.trainingContent || '';
 
             const html = `
-                <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico</h2>
-                <p class="text-sm mb-6 text-primary-orange">Descrivi le attività svolte durante l'allenamento</p>
-                
-                <div class="bg-secondary-dark p-6 rounded-xl shadow-lg mb-6">
-                    <h3 class="text-xl font-bold mb-4 text-white">Informazioni Sessione</h3>
+                <h2 class="text-3xl font-bold mb-4 text-white">📋 Allenamento Tecnico</h2>
+                <p class="text-sm mb-4 text-primary-orange">${formatDate(session.data)} | ${session.luogo} | ${session.tipoLuogo}</p>
+
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-4 border border-gray-600">
                     <div class="grid grid-cols-2 gap-3 text-sm">
-                        <div><strong>Data:</strong> ${formatDate(session.data)}</div>
-                        <div><strong>Ora:</strong> ${session.ora}</div>
-                        <div><strong>Luogo:</strong> ${session.luogo}</div>
-                        <div><strong>Tipo:</strong> ${session.tipoLuogo}</div>
+                        <div><strong class="text-primary-orange">Data:</strong> <span class="text-white">${formatDate(session.data)}</span></div>
+                        <div><strong class="text-primary-orange">Ora:</strong> <span class="text-white">${session.ora || session.startTime || ''}</span></div>
+                        <div><strong class="text-primary-orange">Luogo:</strong> <span class="text-white">${session.luogo}</span></div>
+                        <div><strong class="text-primary-orange">Tipo Luogo:</strong> <span class="text-white">${session.tipoLuogo}</span></div>
+                        ${session.frecceProgrammate > 0 ? `<div><strong class="text-primary-orange">Frecce Programmate:</strong> <span class="text-white">${session.frecceProgrammate}</span></div>` : ''}
                     </div>
                 </div>
-                
-                <form id="trainingNotesForm" class="space-y-4">
-                    <div>
-                        <label for="trainingContent" class="block text-lg font-medium mb-2 text-white">
-                            Contenuto Allenamento <span class="text-red-500">*</span>
-                        </label>
-                        <textarea id="trainingContent" name="trainingContent" 
-                                  class="input-style h-64" 
-                                  required
-                                  placeholder="Descrivi gli esercizi svolti, tecniche praticate, obiettivi raggiunti, problemi riscontrati, ecc...">${savedNotes}</textarea>
-                        <p class="text-xs text-primary-orange mt-1">Sii dettagliato: questo ti aiuterà a monitorare i progressi nel tempo</p>
-                    </div>
-                    
-                    <div class="mt-8 flex flex-col space-y-3">
-                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg">
-                            Salva Allenamento
-                        </button>
 
+                <form id="trainingNotesForm" class="space-y-5">
+
+                    <!-- ESERCIZI CONSIGLIATI -->
+                    <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-primary-orange">
+                        <label for="esercizConsigliati" class="block text-base font-bold mb-2 text-primary-orange">
+                            🎯 Esercizi Consigliati
+                        </label>
+                        <textarea id="esercizConsigliati" name="esercizConsigliati"
+                                  class="input-style h-28"
+                                  placeholder="Esercizi consigliati dall'allenatore o pianificati per questa sessione...">${session.esercizConsigliati || ''}</textarea>
+                    </div>
+
+                    <!-- ESERCIZI SVOLTI -->
+                    <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                        <label for="esercizSvolti" class="block text-base font-bold mb-2 text-green-400">
+                            ✅ Esercizi Svolti <span class="text-red-400">*</span>
+                        </label>
+                        <textarea id="esercizSvolti" name="esercizSvolti"
+                                  class="input-style h-32"
+                                  required
+                                  placeholder="Descrivi gli esercizi effettivamente svolti durante la sessione, tecniche praticate, obiettivi raggiunti...">${session.esercizSvolti || session.trainingContent || ''}</textarea>
+                        <p class="text-xs text-gray-400 mt-1">Sii dettagliato: ti aiuterà a monitorare i progressi</p>
+                    </div>
+
+                    <!-- NOTE E CONDIZIONI FISICHE -->
+                    <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                        <label for="noteCondizioniFisiche" class="block text-base font-bold mb-2 text-blue-400">
+                            🩺 Note e Condizioni Fisiche
+                        </label>
+                        <textarea id="noteCondizioniFisiche" name="noteCondizioniFisiche"
+                                  class="input-style h-24"
+                                  placeholder="Condizioni fisiche, stanchezza, dolori, stato mentale, meteo, note generali...">${session.noteCondizioniFisiche || session.note || ''}</textarea>
+                    </div>
+
+                    <div class="mt-6 flex flex-col space-y-3">
+                        <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg font-bold">
+                            💾 Salva Allenamento
+                        </button>
                     </div>
                 </form>
             `;
@@ -1334,10 +1354,10 @@ function renderMainMenu() {
 
             document.getElementById('trainingNotesForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const trainingContent = document.getElementById('trainingContent').value.trim();
+                const esercizSvolti = document.getElementById('esercizSvolti').value.trim();
 
-                if (!trainingContent) {
-                    showModal("Errore", "Inserisci una descrizione dell'allenamento.", [
+                if (!esercizSvolti) {
+                    showModal("Errore", "Inserisci almeno gli esercizi svolti.", [
                         { text: "Ok", handler: () => {} }
                     ]);
                     return;
@@ -1346,16 +1366,22 @@ function renderMainMenu() {
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-                appState.currentSession.trainingContent = trainingContent;
+                appState.currentSession.esercizConsigliati = document.getElementById('esercizConsigliati').value.trim();
+                appState.currentSession.esercizSvolti = esercizSvolti;
+                appState.currentSession.noteCondizioniFisiche = document.getElementById('noteCondizioniFisiche').value.trim();
+                // Keep trainingContent for backward compatibility
+                appState.currentSession.trainingContent = esercizSvolti;
+                appState.currentSession.note = appState.currentSession.noteCondizioniFisiche;
 
                 const sessionIdBeforeSave = appState.currentSession.id;
 
                 const modalBody = `
-                    <p class="text-white mb-3">Allenamento tecnico salvato con successo!</p>
-                    <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
-                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
+                    <p class="text-white mb-2 font-bold">Allenamento salvato!</p>
+                    <p class="text-sm text-primary-orange mb-4">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                    <div class="p-3 bg-gray-800 rounded-lg border border-primary-orange">
                         <p class="text-white text-sm mb-2">🪃 Quante frecce hai tirato durante questo allenamento?</p>
                         <input type="number" id="tech-arrows-input" class="input-style text-center text-xl font-bold" min="0" max="500" placeholder="0" value="0">
+                        <p class="text-xs text-gray-400 mt-1">Includi tutte le frecce tirate, non solo quelle con punteggio</p>
                     </div>
                 `;
 
@@ -1387,6 +1413,9 @@ function renderMainMenu() {
                     note: session.note || '',
                     trainingWithoutScore: true,
                     trainingContent: session.trainingContent,
+                    esercizConsigliati: session.esercizConsigliati || '',
+                    esercizSvolti: session.esercizSvolti || '',
+                    noteCondizioniFisiche: session.noteCondizioniFisiche || '',
                     frecceAggiuntive: session.frecceAggiuntive || 0,
                     timestamp: serverTimestamp(),
                     totalScore: 0,
@@ -1974,21 +2003,35 @@ function renderMainMenu() {
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
                 showModal("Turno Salvato!", modalBody, [
                     { text: "Secondo Turno", handler: () => startNextTurn() },
-                    { text: "Fine e Vedi Riepilogo", handler: () => {
+                    { text: "Fine e Salva", handler: () => {
                         closeModal();
                         const endTime = new Date();
                         appState.currentSession.endTime = getFormattedTime(endTime);
                         appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-
                         const sessionIdBeforeSave = appState.currentSession.id;
-                        saveSessionToFirestore();
 
-                        setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
+                        // Ask about extra arrows
+                        const extraBody = `
+                            <p class="text-white mb-2 font-bold">Sessione completata (solo 1° turno).</p>
+                            <p class="text-sm text-primary-orange mb-4">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                            <div class="p-3 bg-gray-800 rounded-lg border border-primary-orange">
+                                <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive non conteggiate nel punteggio?</p>
+                                <input type="number" id="extra-arrows-t1" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
+                            </div>
+                        `;
+                        showModal("Frecce Aggiuntive?", extraBody, [
+                            { text: "Nessuna", handler: () => {
+                                appState.currentSession.frecceAggiuntive = 0;
+                                saveSessionToFirestore();
+                                setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
+                            }},
+                            { text: "Salva con extra ✓", handler: () => {
+                                const extra = parseInt(document.getElementById('extra-arrows-t1')?.value) || 0;
+                                appState.currentSession.frecceAggiuntive = extra;
+                                saveSessionToFirestore();
+                                setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
+                            }}
+                        ]);
                     }}
                 ]);
             } else {
@@ -1997,18 +2040,26 @@ function renderMainMenu() {
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
 
                 const sessionIdBeforeSave = appState.currentSession.id;
-                saveSessionToFirestore();
 
-                modalBody += `<p class="mt-4 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                modalBody += `<p class="mt-3 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                modalBody += `
+                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
+                        <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive non conteggiate nel punteggio?</p>
+                        <input type="number" id="extra-arrows-else" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
+                    </div>
+                `;
 
                 showModal("Turno Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
-                        setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
+                    { text: "Salva senza extra", handler: () => {
+                        appState.currentSession.frecceAggiuntive = 0;
+                        saveSessionToFirestore();
+                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
+                    }},
+                    { text: "Salva con extra ✓", handler: () => {
+                        const extra = parseInt(document.getElementById('extra-arrows-else')?.value) || 0;
+                        appState.currentSession.frecceAggiuntive = extra;
+                        saveSessionToFirestore();
+                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
                     }}
                 ]);
             }
@@ -2260,38 +2311,46 @@ renderDataSummaryTable();
 
             if (isTrainingWithoutScore) {
                 const html = `
-                    <h2 class="text-3xl font-bold mb-4 text-white">Allenamento Tecnico del ${formatDate(session.data)}</h2>
-                    <p class="text-xl mb-6 text-primary-orange">${session.luogo} (${session.tipoLuogo})</p>
-                    <div class="space-y-6">
+                    <h2 class="text-3xl font-bold mb-4 text-white">📋 Allenamento Tecnico del ${formatDate(session.data)}</h2>
+                    <p class="text-xl mb-4 text-primary-orange">${session.luogo} (${session.tipoLuogo})</p>
+                    <div class="space-y-5">
                         <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                            <h3 class="text-2xl font-bold mb-3 text-white">Informazioni Sessione</h3>
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div><strong>Data:</strong> ${formatDate(session.data)}</div>
-                                <div><strong>Ora Inizio:</strong> ${session.startTime}</div>
-                                <div><strong>Ora Fine:</strong> ${session.endTime}</div>
-                                <div><strong>Durata:</strong> ${durationToString(session.duration)}</div>
-                                <div><strong>Luogo:</strong> ${session.luogo}</div>
-                                <div><strong>Tipo Luogo:</strong> ${session.tipoLuogo}</div>
+                            <h3 class="text-lg font-bold mb-3 text-white">ℹ️ Informazioni Sessione</h3>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div><strong class="text-primary-orange">Data:</strong> <span class="text-white">${formatDate(session.data)}</span></div>
+                                <div><strong class="text-primary-orange">Ora Inizio:</strong> <span class="text-white">${session.startTime}</span></div>
+                                <div><strong class="text-primary-orange">Ora Fine:</strong> <span class="text-white">${session.endTime}</span></div>
+                                <div><strong class="text-primary-orange">Durata:</strong> <span class="text-white">${durationToString(session.duration)}</span></div>
+                                <div><strong class="text-primary-orange">Luogo:</strong> <span class="text-white">${session.luogo}</span></div>
+                                <div><strong class="text-primary-orange">Tipo Luogo:</strong> <span class="text-white">${session.tipoLuogo}</span></div>
+                                ${session.frecceAggiuntive > 0 ? `<div><strong class="text-primary-orange">🪃 Frecce Tirate:</strong> <span class="text-white font-bold">${session.frecceAggiuntive}</span></div>` : ''}
+                                ${session.frecceProgrammate > 0 ? `<div><strong class="text-primary-orange">Frecce Programmate:</strong> <span class="text-white">${session.frecceProgrammate}</span></div>` : ''}
                             </div>
                         </div>
-                        ${session.note ? `
-                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                                <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
-                                <p class="text-white whitespace-pre-wrap">${session.note}</p>
+
+                        ${session.esercizConsigliati ? `
+                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-primary-orange">
+                                <h3 class="text-base font-bold mb-2 text-primary-orange">🎯 Esercizi Consigliati</h3>
+                                <p class="text-white whitespace-pre-wrap text-sm">${session.esercizConsigliati}</p>
                             </div>
                         ` : ''}
-                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-2 border-primary-orange">
-                            <h3 class="text-2xl font-bold mb-3 text-white">Contenuto Allenamento</h3>
-                            <div class="bg-gray-800 p-4 rounded-lg">
-                                <p class="text-white whitespace-pre-wrap">${session.trainingContent || 'Nessun contenuto inserito.'}</p>
-                            </div>
+
+                        <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-green-500">
+                            <h3 class="text-base font-bold mb-2 text-green-400">✅ Esercizi Svolti</h3>
+                            <p class="text-white whitespace-pre-wrap text-sm">${session.esercizSvolti || session.trainingContent || 'Nessun contenuto inserito.'}</p>
                         </div>
+
+                        ${(session.noteCondizioniFisiche || session.note) ? `
+                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                <h3 class="text-base font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</h3>
+                                <p class="text-white whitespace-pre-wrap text-sm">${session.noteCondizioniFisiche || session.note}</p>
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="mt-8 space-y-3">
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
                             📝 Modifica Note
                         </button>
-
                         <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
@@ -4179,6 +4238,30 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     <!-- Contatore Frecce -->
                     <div id="arrow-counter-section"></div>
 
+                    <!-- Export PDF Agenda -->
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mt-4 border-2 border-primary-orange">
+                        <h3 class="text-lg font-bold mb-3 text-white">📄 Esporta Agenda Allenamenti (PDF)</h3>
+                        <p class="text-xs text-gray-400 mb-3">Genera un PDF in formato agenda con i dati delle sessioni di allenamento tecnico nel periodo scelto.</p>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Da</label>
+                                <input type="date" id="pdf-date-from" class="input-style text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">A</label>
+                                <input type="date" id="pdf-date-to" class="input-style text-sm">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mb-3">
+                            <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('week')">Questa Settimana</button>
+                            <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('month')">Questo Mese</button>
+                            <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('year')">Quest'Anno</button>
+                        </div>
+                        <button class="btn-primary w-full p-3 rounded-lg font-bold" onclick="window.exportAgendaPDF()">
+                            📥 Genera PDF Agenda
+                        </button>
+                    </div>
+
                 `;
 
                 document.getElementById('content-view').innerHTML = html;
@@ -4868,6 +4951,181 @@ window.showMigrationModal = migrateSessionsAddBowType;
             ]);
         };
 
+        window.setPdfPeriod = (period) => {
+            const now = new Date();
+            let from, to;
+            if (period === 'week') {
+                const day = now.getDay();
+                const diff = day === 0 ? -6 : 1 - day;
+                from = new Date(now); from.setDate(now.getDate() + diff);
+                to = new Date(from); to.setDate(from.getDate() + 6);
+            } else if (period === 'month') {
+                from = new Date(now.getFullYear(), now.getMonth(), 1);
+                to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            } else {
+                from = new Date(now.getFullYear(), 0, 1);
+                to = new Date(now.getFullYear(), 11, 31);
+            }
+            const fmt = d => d.toISOString().split('T')[0];
+            const fromEl = document.getElementById('pdf-date-from');
+            const toEl = document.getElementById('pdf-date-to');
+            if (fromEl) fromEl.value = fmt(from);
+            if (toEl) toEl.value = fmt(to);
+        };
+
+        window.exportAgendaPDF = () => {
+            const fromDate = document.getElementById('pdf-date-from')?.value;
+            const toDate = document.getElementById('pdf-date-to')?.value;
+
+            if (!fromDate || !toDate) {
+                showModal("Errore", "Seleziona un periodo o usa i pulsanti rapidi.", [{ text: "Ok", handler: () => {} }]);
+                return;
+            }
+
+            // Filtra sessioni nel periodo — mostra tutte le sessioni (non solo tecnico)
+            const filtered = appState.sessionData.filter(s => s.data >= fromDate && s.data <= toDate)
+                .sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            if (filtered.length === 0) {
+                showModal("Nessun Dato", "Nessuna sessione trovata nel periodo selezionato.", [{ text: "Ok", handler: () => {} }]);
+                return;
+            }
+
+            const archerName = appState.loggedInArcher.nome;
+            const DISTANZE = ['18', '20', '25', '30', '40', '50', '60', '70', '90'];
+
+            // Genera blocchi per ogni sessione
+            const sessionBlocks = filtered.map((s, idx) => {
+                const isTech = s.trainingWithoutScore;
+                const distanze = s.distanza ? `<span style="text-decoration:underline;">${s.distanza.replace('m','').replace(' ','')}</span>` : '';
+
+                const distRow = DISTANZE.map(d => {
+                    const isActive = s.distanza && s.distanza.includes(d);
+                    return `<span style="${isActive ? 'font-weight:bold;text-decoration:underline;' : ''}">${d}</span>`;
+                }).join(' – ');
+
+                const frecceInfo = `Frecce Programmate: <u>${s.frecceProgrammate || '___'}</u> &nbsp;&nbsp; Frecce Tirate: <u>${s.frecceAggiuntive || (isTech ? (s.frecceAggiuntive||'___') : countArrowsForSession(s)) || '___'}</u>`;
+
+                const esConsigliati = s.esercizConsigliati || '';
+                const esSvolti = s.esercizSvolti || s.trainingContent || '';
+                const noteCondizioni = s.noteCondizioniFisiche || s.note || '';
+                const punteggio = (!isTech && s.totalScore) ? `<br><span style="color:#888;font-size:12px;">Punteggio: ${s.totalScore}</span>` : '';
+
+                return `
+                    <div class="session-block" style="page-break-inside:avoid; margin-bottom: 36px; border-bottom: 1px solid #ccc; padding-bottom: 24px;">
+                        <table style="width:100%; font-size:13px; margin-bottom:6px;">
+                            <tr>
+                                <td style="width:45%;"><strong>Data:</strong> <u>${formatDate(s.data)}</u></td>
+                                <td style="width:30%;">${frecceInfo}</td>
+                            </tr>
+                        </table>
+                        <div style="margin-bottom:5px; font-size:13px;"><strong>Luogo e condizioni Meteo:</strong> <u>${s.luogo || ''} (${s.tipoLuogo || ''})</u>${punteggio}</div>
+                        <div style="margin-bottom:8px; font-size:13px;"><strong>Distanze:</strong> ${distRow} &nbsp;&nbsp; <strong>Altro:</strong> ______________________</div>
+
+                        <div style="margin-bottom:6px;">
+                            <div style="font-size:13px; font-weight:bold; margin-bottom:3px;">Esercizi Consigliati:</div>
+                            <div style="min-height:40px; border-bottom:1px solid #999; font-size:13px; padding-bottom:4px; white-space:pre-wrap;">${esConsigliati || ''}</div>
+                            <div style="border-bottom:1px solid #ddd; min-height:20px;"></div>
+                        </div>
+
+                        <div style="margin-bottom:6px;">
+                            <div style="font-size:13px; font-weight:bold; margin-bottom:3px;">Esercizi Svolti:</div>
+                            <div style="min-height:50px; border-bottom:1px solid #999; font-size:13px; padding-bottom:4px; white-space:pre-wrap;">${esSvolti || ''}</div>
+                            <div style="border-bottom:1px solid #ddd; min-height:20px;"></div>
+                        </div>
+
+                        <div>
+                            <div style="font-size:13px; font-weight:bold; margin-bottom:3px;">Note e Condizione Fisica:</div>
+                            <div style="min-height:40px; border-bottom:1px solid #999; font-size:13px; padding-bottom:4px; white-space:pre-wrap;">${noteCondizioni || ''}</div>
+                            <div style="border-bottom:1px solid #ddd; min-height:20px;"></div>
+                        </div>
+                    </div>
+                    ${(idx + 1) < filtered.length && (idx + 1) % 3 === 0 ? '<div style="page-break-after:always;"></div>' : ''}
+                `;
+            }).join('');
+
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="it">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Agenda Allenamenti – ${archerName}</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body {
+                            font-family: 'Crimson Text', Georgia, serif;
+                            background: #fff;
+                            color: #111;
+                            padding: 30px 40px;
+                            font-size: 14px;
+                            line-height: 1.5;
+                        }
+                        .cover {
+                            text-align: right;
+                            margin-bottom: 10px;
+                            font-family: 'Caveat', cursive;
+                            font-size: 18px;
+                            color: #555;
+                        }
+                        .report-header {
+                            text-align: center;
+                            margin-bottom: 30px;
+                            border-bottom: 2px solid #333;
+                            padding-bottom: 12px;
+                        }
+                        .report-header h1 {
+                            font-size: 22px;
+                            font-family: 'Caveat', cursive;
+                            font-weight: 600;
+                        }
+                        .report-header p { font-size: 13px; color: #555; margin-top: 4px; }
+                        .footer {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-top: 40px;
+                            padding-top: 10px;
+                            border-top: 1px solid #ccc;
+                            font-family: 'Caveat', cursive;
+                            font-size: 15px;
+                            color: #555;
+                        }
+                        @media print {
+                            .no-print { display: none !important; }
+                            body { padding: 15px 20px; }
+                        }
+                        .print-btn {
+                            position: fixed; bottom: 20px; right: 20px;
+                            background: #fdb927; border: none; padding: 12px 24px;
+                            border-radius: 8px; font-size: 16px; font-weight: bold;
+                            cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        }
+                        .oo-sep { text-align: center; color: #aaa; font-size: 18px; margin: 16px 0 8px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="cover">Agenda dell'allievo</div>
+                    <div class="report-header">
+                        <h1>🏹 Diario di Allenamento</h1>
+                        <p>${archerName} &nbsp;|&nbsp; ${formatDate(fromDate)} – ${formatDate(toDate)}</p>
+                        <p style="color:#888; font-size:12px;">${filtered.length} sessione/i</p>
+                    </div>
+
+                    ${sessionBlocks}
+
+                    <div class="footer">
+                        <span>${archerName}</span>
+                        <span>livello avanzato di tiro con l'arco</span>
+                    </div>
+
+                    <button class="print-btn no-print" onclick="window.print()">🖨️ Stampa / Salva PDF</button>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        };
+
         // FINE PARTE4J
 
     // ─── AVVIO APP: AUTO-LOGIN E RIPRISTINO BOZZA ───────────────────────
@@ -4946,4 +5204,5 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
+
 
