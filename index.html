@@ -221,6 +221,17 @@
                 </button>
 
                 <div class="border-t border-gray-700 my-3"></div>
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Attrezzatura</p>
+                <button onclick="window.navDrawerGo('equipment')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    🏹 Il Mio Materiale
+                </button>
+                <button onclick="window.navDrawerGo('arrowCounter')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
+                    🪃 Contatore Frecce
+                </button>
+
+                <div class="border-t border-gray-700 my-3"></div>
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Dati</p>
                 <button onclick="window.navDrawerGo('exportData')" 
                         class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
@@ -303,6 +314,8 @@ window.goBack = () => {
         case 'calendar':
         case 'exportData':
         case 'compareSessionsView':
+        case 'equipment':
+        case 'arrowCounter':
             window.setView('mainMenu');
             break;
         case 'detailedSummary':
@@ -680,6 +693,12 @@ window.setView = (viewName, data = {}) => {
                 case 'calendar':
                     renderCalendar();
                     break;
+                case 'equipment':
+                    renderEquipment();
+                    break;
+                case 'arrowCounter':
+                    renderArrowCounter();
+                    break;
             } // fine switch
         }; // fine setView
         // FINE PARTE2
@@ -910,6 +929,16 @@ function renderMainMenu() {
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('calendar')">
                     📅 Calendario Sessioni
                 </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('arrowCounter')">
+                    🪃 Contatore Frecce
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-primary-orange mb-3">🏹 Attrezzatura</h3>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('equipment')">
+                    🔧 Il Mio Materiale
+                </button>
             </div>
 
             <div class="mb-6">
@@ -1011,6 +1040,12 @@ function renderMainMenu() {
                         <textarea id="note" name="note" class="input-style h-20" placeholder="Dettagli aggiuntivi...">${session.note || ''}</textarea>
                     </div>
 
+                    <div id="frecce-programmate-section" style="display: ${isTrainingWithoutScore ? 'none' : 'block'}">
+                        <label for="frecceProgrammate" class="block text-sm font-medium mb-1">🪃 Frecce Programmate <span class="text-gray-400 text-xs">(opzionale)</span></label>
+                        <input type="number" id="frecceProgrammate" name="frecceProgrammate" class="input-style" min="0" max="500" value="${session.frecceProgrammate || ''}" placeholder="Es: 72 (quante frecce prevedi di tirare)">
+                        <p class="text-xs text-gray-400 mt-1">Inserisci le frecce che prevedi di tirare questa sessione</p>
+                    </div>
+
                     <div class="mt-8 flex flex-col space-y-3">
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg" id="submitBtn">
                             ${type === 'Allenamento' && isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
@@ -1051,14 +1086,17 @@ function renderMainMenu() {
         window.toggleTrainingMode = (isChecked) => {
             const conditionalFields = document.getElementById('conditionalFields');
             const submitBtn = document.getElementById('submitBtn');
+            const frecceProgrammate = document.getElementById('frecce-programmate-section');
             const requiredInputs = conditionalFields.querySelectorAll('select[required]');
 
             if (isChecked) {
                 conditionalFields.style.display = 'none';
+                if (frecceProgrammate) frecceProgrammate.style.display = 'none';
                 submitBtn.textContent = 'Continua';
                 requiredInputs.forEach(input => input.removeAttribute('required'));
             } else {
                 conditionalFields.style.display = 'block';
+                if (frecceProgrammate) frecceProgrammate.style.display = 'block';
                 submitBtn.textContent = 'Inizia Primo Turno';
                 requiredInputs.forEach(input => input.setAttribute('required', 'required'));
             }
@@ -1182,22 +1220,24 @@ function renderMainMenu() {
                 appState.currentSession.totalAverage = 0;
 
                 const sessionIdBeforeSave = appState.currentSession.id;
-                await saveQuickScoreToFirestore();
 
                 const modalBody = `
                     <p class="text-white mb-3">Quick Score salvato con successo!</p>
                     <p class="text-sm text-primary-orange">Totale: ${turn1Score + turn2Score} punti</p>
                     <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
+                        <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive non conteggiate nel punteggio?</p>
+                        <input type="number" id="qs-extra-arrows" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
+                    </div>
                 `;
 
                 showModal("Quick Score Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
-                        setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
+                    { text: "Salva", handler: () => {
+                        const extra = parseInt(document.getElementById('qs-extra-arrows')?.value) || 0;
+                        appState.currentSession.frecceAggiuntive = extra;
+                        saveQuickScoreToFirestore().then(() => {
+                            setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
+                        });
                     }}
                 ]);
             });
@@ -1231,6 +1271,8 @@ function renderMainMenu() {
                     totalTen: 0,
                     totalNine: 0,
                     totalAverage: 0,
+                    frecceAggiuntive: session.frecceAggiuntive || 0,
+                    frecceProgrammate: parseInt(session.frecceProgrammate) || 0,
                     timestamp: serverTimestamp(),
                 };
 
@@ -1307,21 +1349,22 @@ function renderMainMenu() {
                 appState.currentSession.trainingContent = trainingContent;
 
                 const sessionIdBeforeSave = appState.currentSession.id;
-                await saveTrainingWithoutScoreToFirestore();
 
                 const modalBody = `
                     <p class="text-white mb-3">Allenamento tecnico salvato con successo!</p>
                     <p class="text-sm text-primary-orange">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
+                        <p class="text-white text-sm mb-2">🪃 Quante frecce hai tirato durante questo allenamento?</p>
+                        <input type="number" id="tech-arrows-input" class="input-style text-center text-xl font-bold" min="0" max="500" placeholder="0" value="0">
+                    </div>
                 `;
 
                 showModal("Allenamento Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
-                        setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
+                    { text: "Salva", handler: async () => {
+                        const extraArrows = parseInt(document.getElementById('tech-arrows-input')?.value) || 0;
+                        appState.currentSession.frecceAggiuntive = extraArrows;
+                        await saveTrainingWithoutScoreToFirestore();
+                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
                     }}
                 ]);
             });
@@ -1344,6 +1387,7 @@ function renderMainMenu() {
                     note: session.note || '',
                     trainingWithoutScore: true,
                     trainingContent: session.trainingContent,
+                    frecceAggiuntive: session.frecceAggiuntive || 0,
                     timestamp: serverTimestamp(),
                     totalScore: 0,
                     totalX: 0,
@@ -1905,18 +1949,26 @@ function renderMainMenu() {
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
 
                 const sessionIdBeforeSave = appState.currentSession.id;
-                saveSessionToFirestore();
 
                 modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
+                modalBody += `
+                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
+                        <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive (warm-up, prova, ecc.) non conteggiate nel punteggio?</p>
+                        <input type="number" id="extra-arrows-input" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
+                    </div>
+                `;
 
                 showModal("Turno Salvato!", modalBody, [
-                    { text: "Vedi Riepilogo", handler: () => {
-                        setTimeout(() => {
-                            fetchSessions();
-                            setTimeout(() => {
-                                window.setView('detailedSummary', { sessionId: sessionIdBeforeSave });
-                            }, 500);
-                        }, 300);
+                    { text: "Salva senza extra", handler: () => {
+                        appState.currentSession.frecceAggiuntive = 0;
+                        saveSessionToFirestore();
+                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
+                    }},
+                    { text: "Salva con extra ✓", handler: () => {
+                        const extra = parseInt(document.getElementById('extra-arrows-input')?.value) || 0;
+                        appState.currentSession.frecceAggiuntive = extra;
+                        saveSessionToFirestore();
+                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
                     }}
                 ]);
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
@@ -2005,6 +2057,8 @@ function renderMainMenu() {
                 const finalSessionData = {
                     ...session,
                     ...results,
+                    frecceAggiuntive: session.frecceAggiuntive || 0,
+                    frecceProgrammate: parseInt(session.frecceProgrammate) || 0,
                     timestamp: serverTimestamp(),
                     archerId: appState.loggedInArcher.id,
                     arciere: appState.loggedInArcher.nome,
@@ -2319,6 +2373,8 @@ renderDataSummaryTable();
                                 <div><strong>Luogo:</strong> ${session.luogo} (${session.tipoLuogo})</div>
                                 <div><strong>Punteggio:</strong> <span class="text-white font-extrabold">${session.totalScore}</span></div>
                                 <div><strong>Media:</strong> <span class="text-white font-extrabold">${session.totalAverage.toFixed(2)}</span></div>
+                                ${countArrowsForSession(session) > 0 ? `<div><strong>🪃 Frecce Tirate:</strong> <span class="text-primary-orange font-extrabold">${countArrowsForSession(session)}</span>${session.frecceAggiuntive > 0 ? ` <span class="text-xs text-gray-400">(+${session.frecceAggiuntive} aggiuntive)</span>` : ''}</div>` : ''}
+                                ${session.frecceProgrammate > 0 ? `<div><strong>Frecce Programmate:</strong> ${session.frecceProgrammate}</div>` : ''}
                             </div>
                             <div class="mt-3 p-2 bg-gray-800 rounded-lg">
                                 <strong>X-10/9:</strong> 
@@ -2750,7 +2806,7 @@ function renderGoals() {
                         <div class="flex justify-between text-sm mb-1">
                             <span class="text-white">Progresso</span>
                             <span class="font-bold ${isCompleted ? 'text-green-400' : 'text-primary-orange'}">
-                                ${progress.current} / ${progress.target} ${goal.type === 'score' ? 'punti' : goal.type === 'sessions' ? 'sessioni' : 'allenamenti'}
+                                ${progress.current} / ${progress.target} ${goal.type === 'score' ? 'punti' : goal.type === 'arrows' ? 'frecce' : goal.type === 'sessions' ? 'sessioni' : 'allenamenti'}
                             </span>
                         </div>
                         <div class="progress-bar">
@@ -2796,6 +2852,7 @@ function renderGoals() {
 
             const relevantSessions = appState.sessionData.filter(session => {
                 if (session.data < startDateStr || session.data > endDateStr) return false;
+                if (goal.type === 'arrows') return true; // conta tutte le sessioni per le frecce
                 if (session.trainingWithoutScore) {
                     return goal.type === 'training';
                 }
@@ -2813,6 +2870,8 @@ function renderGoals() {
                 const bestSession = relevantSessions.reduce((max, s) => 
                     (s.totalScore || 0) > max ? (s.totalScore || 0) : max, 0);
                 current = bestSession;
+            } else if (goal.type === 'arrows') {
+                current = relevantSessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
             } else {
                 current = relevantSessions.length;
             }
@@ -2844,6 +2903,7 @@ function renderGoals() {
                             <option value="score">🎯 Punteggio Target</option>
                             <option value="sessions">📅 Numero Sessioni</option>
                             <option value="training">🎓 Numero Allenamenti</option>
+                            <option value="arrows">🪃 Frecce da Tirare</option>
                         </select>
                     </div>
 
@@ -3937,6 +3997,116 @@ async function executeMigration(bowType) {
 window.showMigrationModal = migrateSessionsAddBowType;
         // FINE PARTE4I
 // PARTE4J - Calendario Sessioni
+        function countArrowsForSession(session) {
+            // Conta frecce tirate in base al formato + aggiuntive
+            let arrows = 0;
+            if (session.trainingWithoutScore) {
+                // Allenamento tecnico: solo frecce aggiuntive se specificate
+                arrows = parseInt(session.frecceAggiuntive) || 0;
+            } else if (session.quickScore) {
+                // Quick score: deriviamo dal formato o usiamo le aggiuntive
+                const formatMap = { '36 frecce (6x6)': 36, '60 frecce (10x6)': 60, '72 frecce (6x12)': 72, '18 frecce (3x6)': 18 };
+                arrows = formatMap[session.formatoGara] || 36;
+                arrows += parseInt(session.frecceAggiuntive) || 0;
+            } else {
+                // Sessione normale: calcoliamo dalle volée
+                const t1 = session.turn1?.summary?.frecceTirate || 0;
+                const t2 = session.turn2?.summary?.frecceTirate || 0;
+                arrows = t1 + t2 + (parseInt(session.frecceAggiuntive) || 0);
+            }
+            if (session.frecceProgrammate && arrows === 0) {
+                arrows = parseInt(session.frecceProgrammate) || 0;
+            }
+            return arrows;
+        }
+
+        function renderArrowCounterStats() {
+            const sessions = appState.sessionData;
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            // Calcola inizio settimana (lunedì)
+            const dayOfWeek = today.getDay();
+            const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() + diffToMon);
+            weekStart.setHours(0,0,0,0);
+            const weekStartStr = weekStart.toISOString().split('T')[0];
+
+            const monthStartStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
+            const yearStartStr = `${today.getFullYear()}-01-01`;
+
+            let arrowsToday = 0, arrowsWeek = 0, arrowsMonth = 0, arrowsYear = 0;
+
+            sessions.forEach(s => {
+                const arrows = countArrowsForSession(s);
+                if (s.data === todayStr) arrowsToday += arrows;
+                if (s.data >= weekStartStr) arrowsWeek += arrows;
+                if (s.data >= monthStartStr) arrowsMonth += arrows;
+                if (s.data >= yearStartStr) arrowsYear += arrows;
+            });
+
+            // Raggruppa per settimane nel mese corrente
+            const weeklyData = {};
+            sessions.filter(s => s.data >= monthStartStr).forEach(s => {
+                const d = new Date(s.data);
+                const weekNum = Math.ceil(d.getDate() / 7);
+                if (!weeklyData[weekNum]) weeklyData[weekNum] = 0;
+                weeklyData[weekNum] += countArrowsForSession(s);
+            });
+
+            // Obiettivo frecce
+            const arrowGoal = appState.userGoals?.find(g => g.type === 'arrows' && !g.completed);
+
+            return `
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-4 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-4 text-white">🪃 Frecce Tirate</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div class="bg-gray-800 p-3 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Oggi</div>
+                            <div class="text-3xl font-bold text-white">${arrowsToday}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Questa Settimana</div>
+                            <div class="text-3xl font-bold text-white">${arrowsWeek}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Questo Mese</div>
+                            <div class="text-3xl font-bold text-white">${arrowsMonth}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg text-center">
+                            <div class="text-xs text-primary-orange mb-1">Quest'Anno</div>
+                            <div class="text-3xl font-bold text-white">${arrowsYear}</div>
+                        </div>
+                    </div>
+                    ${arrowGoal ? `
+                        <div class="mb-4">
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-white">🎯 Obiettivo: ${arrowGoal.title}</span>
+                                <span class="text-primary-orange font-bold">${arrowGoal.period === 'weekly' ? arrowsWeek : arrowsMonth} / ${arrowGoal.targetValue}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${Math.min(100, ((arrowGoal.period === 'weekly' ? arrowsWeek : arrowsMonth)/arrowGoal.targetValue)*100)}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${Object.keys(weeklyData).length > 0 ? `
+                        <div class="mt-3">
+                            <p class="text-sm text-primary-orange mb-2 font-bold">Settimane del mese corrente:</p>
+                            <div class="space-y-1">
+                                ${Object.entries(weeklyData).map(([w, count]) => `
+                                    <div class="flex justify-between text-sm bg-gray-800 px-3 py-2 rounded">
+                                        <span class="text-white">Settimana ${w}</span>
+                                        <span class="text-primary-orange font-bold">${count} frecce</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
         function renderCalendar() {
             if (!appState.loggedInArcher) {
                 window.setView('login');
@@ -4006,6 +4176,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
                         <!-- Le statistiche verranno inserite qui -->
                     </div>
 
+                    <!-- Contatore Frecce -->
+                    <div id="arrow-counter-section"></div>
 
                 `;
 
@@ -4109,6 +4281,11 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     if (sessions.length > 3) {
                         sessionIndicators += `<div class="text-xs text-primary-orange text-center">+${sessions.length - 3}</div>`;
                     }
+                    // Conta frecce totali del giorno
+                    const dayArrows = sessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
+                    if (dayArrows > 0) {
+                        sessionIndicators += `<div class="text-xs text-green-400 text-center font-bold mt-1">${dayArrows}🪃</div>`;
+                    }
                 }
 
                 calendarHTML += `
@@ -4130,6 +4307,12 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
             // Statistiche mensili
             renderMonthStats(monthSessions);
+
+            // Contatore frecce
+            const arrowSection = document.getElementById('arrow-counter-section');
+            if (arrowSection) {
+                arrowSection.innerHTML = renderArrowCounterStats();
+            }
         }
 
         window.showDayDetails = (day) => {
@@ -4269,6 +4452,302 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
             document.getElementById('month-stats').innerHTML = html;
         }
+        function renderArrowCounter() {
+            if (!appState.loggedInArcher) { window.setView('login'); return; }
+            fetchSessions();
+
+            setTimeout(() => {
+                const sessions = appState.sessionData;
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+
+                const dayOfWeek = today.getDay();
+                const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() + diffToMon);
+                const weekStartStr = weekStart.toISOString().split('T')[0];
+
+                const monthStartStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
+                const yearStartStr = `${today.getFullYear()}-01-01`;
+
+                // Raggruppa per mese nell'anno
+                const monthlyData = {};
+                const monthNames = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+                for (let m = 0; m < 12; m++) {
+                    const ms = `${today.getFullYear()}-${String(m+1).padStart(2,'0')}-01`;
+                    const me = `${today.getFullYear()}-${String(m+1).padStart(2,'0')}-${new Date(today.getFullYear(), m+1, 0).getDate()}`;
+                    const mArrows = sessions.filter(s => s.data >= ms && s.data <= me).reduce((sum,s) => sum + countArrowsForSession(s), 0);
+                    monthlyData[monthNames[m]] = mArrows;
+                }
+
+                // Sessioni recenti con frecce
+                const recentWithArrows = [...sessions].reverse().slice(0,10).map(s => ({
+                    data: s.data,
+                    type: s.type,
+                    arrows: countArrowsForSession(s),
+                    programmate: parseInt(s.frecceProgrammate) || 0,
+                    aggiuntive: parseInt(s.frecceAggiuntive) || 0,
+                    trainingWithoutScore: s.trainingWithoutScore
+                }));
+
+                const arrowsToday = sessions.filter(s => s.data === todayStr).reduce((sum,s) => sum + countArrowsForSession(s), 0);
+                const arrowsWeek = sessions.filter(s => s.data >= weekStartStr).reduce((sum,s) => sum + countArrowsForSession(s), 0);
+                const arrowsMonth = sessions.filter(s => s.data >= monthStartStr).reduce((sum,s) => sum + countArrowsForSession(s), 0);
+                const arrowsYear = sessions.filter(s => s.data >= yearStartStr).reduce((sum,s) => sum + countArrowsForSession(s), 0);
+
+                const maxBarVal = Math.max(...Object.values(monthlyData), 1);
+
+                const html = `
+                    <h2 class="text-3xl font-bold mb-6 text-white">🪃 Contatore Frecce</h2>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                        <div class="stats-card text-center">
+                            <div class="text-xs text-primary-orange mb-1">Oggi</div>
+                            <div class="text-4xl font-bold text-white">${arrowsToday}</div>
+                        </div>
+                        <div class="stats-card text-center">
+                            <div class="text-xs text-primary-orange mb-1">Questa Settimana</div>
+                            <div class="text-4xl font-bold text-white">${arrowsWeek}</div>
+                        </div>
+                        <div class="stats-card text-center">
+                            <div class="text-xs text-primary-orange mb-1">Questo Mese</div>
+                            <div class="text-4xl font-bold text-white">${arrowsMonth}</div>
+                        </div>
+                        <div class="stats-card text-center">
+                            <div class="text-xs text-primary-orange mb-1">Quest'Anno ${today.getFullYear()}</div>
+                            <div class="text-4xl font-bold text-primary-orange">${arrowsYear}</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6">
+                        <h3 class="text-lg font-bold mb-4 text-white">📊 Frecce per Mese (${today.getFullYear()})</h3>
+                        <div class="space-y-2">
+                            ${Object.entries(monthlyData).map(([month, count]) => `
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs text-primary-orange w-8">${month}</span>
+                                    <div class="flex-1 bg-gray-800 rounded h-6 relative">
+                                        <div class="bg-primary-orange h-6 rounded transition-all" style="width: ${(count/maxBarVal*100).toFixed(1)}%"></div>
+                                    </div>
+                                    <span class="text-white text-xs font-bold w-10 text-right">${count}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg">
+                        <h3 class="text-lg font-bold mb-4 text-white">📋 Dettaglio Sessioni Recenti</h3>
+                        <div class="space-y-2">
+                            ${recentWithArrows.filter(s => s.arrows > 0).map(s => `
+                                <div class="bg-gray-800 p-3 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <span class="text-white font-bold text-sm">${formatDate(s.data)}</span>
+                                        <span class="text-xs text-primary-orange ml-2">${s.type || ''}${s.trainingWithoutScore ? ' 🎓' : ''}</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-white font-bold">${s.arrows} frecce</div>
+                                        ${s.aggiuntive > 0 ? `<div class="text-xs text-gray-400">+${s.aggiuntive} aggiuntive</div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('') || '<p class="text-gray-400 text-center">Nessuna freccia registrata ancora.</p>'}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('content-view').innerHTML = html;
+            }, 300);
+        }
+
+        async function renderEquipment() {
+            if (!appState.loggedInArcher) { window.setView('login'); return; }
+
+            // Carica equipaggiamento da localStorage (per semplicità, potremmo usare Firestore)
+            const equipKey = `archery_equipment_${appState.loggedInArcher.id}`;
+            let equipment = {};
+            try {
+                equipment = JSON.parse(localStorage.getItem(equipKey)) || {};
+            } catch(e) { equipment = {}; }
+
+            const bowTypes = ['Ricurvo', 'Compound', 'Longbow', 'Barebow', 'Altro'];
+
+            const html = `
+                <h2 class="text-3xl font-bold mb-6 text-white">🏹 Il Mio Materiale</h2>
+
+                <!-- ARCO -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">🏹 Arco</h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Tipo Arco</label>
+                                <select id="eq-tipoArco" class="input-style">
+                                    ${bowTypes.map(t => `<option value="${t}" ${equipment.tipoArco === t ? 'selected':''}>${t}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Marca / Modello</label>
+                                <input type="text" id="eq-marcaArco" class="input-style" placeholder="Es: Hoyt Formula XI" value="${equipment.marcaArco || ''}">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Peso Libbre (lb)</label>
+                                <input type="number" id="eq-peso" class="input-style" placeholder="Es: 40" min="0" max="100" value="${equipment.peso || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Allungo (pollici)</label>
+                                <input type="number" id="eq-allungo" class="input-style" placeholder="Es: 28.5" min="0" max="35" step="0.5" value="${equipment.allungo || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Misura Arco</label>
+                                <input type="text" id="eq-misuraArco" class="input-style" placeholder="Es: 25\"" value="${equipment.misuraArco || ''}">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Braccetto (risers)</label>
+                                <input type="text" id="eq-braccetto" class="input-style" placeholder="Marca/modello braccetto" value="${equipment.braccetto || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Rami (limbs)</label>
+                                <input type="text" id="eq-rami" class="input-style" placeholder="Marca/modello rami" value="${equipment.rami || ''}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FRECCE -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">🪃 Frecce</h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Marca / Modello</label>
+                                <input type="text" id="eq-marcaFrecce" class="input-style" placeholder="Es: Easton X10" value="${equipment.marcaFrecce || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Spine</label>
+                                <input type="text" id="eq-spine" class="input-style" placeholder="Es: 500" value="${equipment.spine || ''}">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Lunghezza (pollici)</label>
+                                <input type="text" id="eq-lunghezzaFreccia" class="input-style" placeholder="Es: 29\"" value="${equipment.lunghezzaFreccia || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Peso Punta (grani)</label>
+                                <input type="number" id="eq-pesoPunta" class="input-style" placeholder="Es: 100" min="0" value="${equipment.pesoPunta || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Diametro (mm)</label>
+                                <input type="text" id="eq-diametro" class="input-style" placeholder="Es: 5.5mm" value="${equipment.diametro || ''}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MIRINO & ACCESSORI -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">🔭 Mirino & Accessori</h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Mirino</label>
+                                <input type="text" id="eq-mirino" class="input-style" placeholder="Marca/modello mirino" value="${equipment.mirino || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Stabilizzatori</label>
+                                <input type="text" id="eq-stabilizzatori" class="input-style" placeholder="Es: Cartel Doosung" value="${equipment.stabilizzatori || ''}">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Cocca / Nocking Point</label>
+                                <input type="text" id="eq-cocca" class="input-style" placeholder="Tipo/marca cocca" value="${equipment.cocca || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Corda</label>
+                                <input type="text" id="eq-corda" class="input-style" placeholder="Marca/materiale corda" value="${equipment.corda || ''}">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-primary-orange mb-1">Note Tecniche / Setup</label>
+                            <textarea id="eq-note" class="input-style h-20" placeholder="Impostazioni, regolazioni, note tecniche...">${equipment.note || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IMPOSTAZIONI TECNICCHE -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-4 text-primary-orange">⚙️ Impostazioni Tecniche</h3>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Tiller (mm)</label>
+                                <input type="text" id="eq-tiller" class="input-style" placeholder="Es: +2" value="${equipment.tiller || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Brace Height (mm)</label>
+                                <input type="text" id="eq-braceHeight" class="input-style" placeholder="Es: 230mm" value="${equipment.braceHeight || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Plung / Pressure Button</label>
+                                <input type="text" id="eq-plung" class="input-style" placeholder="Impostazione" value="${equipment.plung || ''}">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Peso Totale Arco (g)</label>
+                                <input type="number" id="eq-pesoTotale" class="input-style" placeholder="Peso con accessori" min="0" value="${equipment.pesoTotale || ''}">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Ultimo Aggiornamento Setup</label>
+                                <input type="date" id="eq-dataSetup" class="input-style" value="${equipment.dataSetup || ''}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-primary w-full p-3 rounded-lg text-lg mb-4" onclick="window.saveEquipment()">
+                    💾 Salva Configurazione
+                </button>
+            `;
+
+            document.getElementById('content-view').innerHTML = html;
+        }
+
+        window.saveEquipment = () => {
+            const equipKey = `archery_equipment_${appState.loggedInArcher.id}`;
+            const equipment = {
+                tipoArco: document.getElementById('eq-tipoArco')?.value || '',
+                marcaArco: document.getElementById('eq-marcaArco')?.value || '',
+                peso: document.getElementById('eq-peso')?.value || '',
+                allungo: document.getElementById('eq-allungo')?.value || '',
+                misuraArco: document.getElementById('eq-misuraArco')?.value || '',
+                braccetto: document.getElementById('eq-braccetto')?.value || '',
+                rami: document.getElementById('eq-rami')?.value || '',
+                marcaFrecce: document.getElementById('eq-marcaFrecce')?.value || '',
+                spine: document.getElementById('eq-spine')?.value || '',
+                lunghezzaFreccia: document.getElementById('eq-lunghezzaFreccia')?.value || '',
+                pesoPunta: document.getElementById('eq-pesoPunta')?.value || '',
+                diametro: document.getElementById('eq-diametro')?.value || '',
+                mirino: document.getElementById('eq-mirino')?.value || '',
+                stabilizzatori: document.getElementById('eq-stabilizzatori')?.value || '',
+                cocca: document.getElementById('eq-cocca')?.value || '',
+                corda: document.getElementById('eq-corda')?.value || '',
+                note: document.getElementById('eq-note')?.value || '',
+                tiller: document.getElementById('eq-tiller')?.value || '',
+                braceHeight: document.getElementById('eq-braceHeight')?.value || '',
+                plung: document.getElementById('eq-plung')?.value || '',
+                pesoTotale: document.getElementById('eq-pesoTotale')?.value || '',
+                dataSetup: document.getElementById('eq-dataSetup')?.value || '',
+                updatedAt: new Date().toISOString().split('T')[0]
+            };
+            localStorage.setItem(equipKey, JSON.stringify(equipment));
+            showModal("✅ Salvato!", "Configurazione materiale salvata con successo!", [
+                { text: "Ok", handler: () => {} }
+            ]);
+        };
+
         // FINE PARTE4J
 
     // ─── AVVIO APP: AUTO-LOGIN E RIPRISTINO BOZZA ───────────────────────
