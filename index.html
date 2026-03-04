@@ -5184,7 +5184,9 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
                 const distRow = DISTANZE.map(d => {
                     const isActive = s.distanza && s.distanza.includes(d);
-                    return `<span style="${isActive ? 'font-weight:bold;text-decoration:underline;' : ''}">${d}</span>`;
+                    return isActive
+                        ? `<span style="font-weight:bold; border:1.5px solid #333; border-radius:50%; padding:1px 5px;">${d}</span>`
+                        : `<span>${d}</span>`;
                 }).join(' – ');
 
                 const totalFrecce = countArrowsForSession(s);
@@ -5193,36 +5195,39 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 const esConsigliati = s.esercizConsigliati || '';
                 const esSvolti = s.esercizSvolti || s.trainingContent || '';
                 const noteCondizioni = s.noteCondizioniFisiche || s.note || '';
-                const punteggio = (!isTech && s.totalScore) ? `<br><span style="color:#888;font-size:12px;">Punteggio: ${s.totalScore}</span>` : '';
+                const punteggio = (!isTech && s.totalScore) ? ` &nbsp; <strong style="font-size:13px;">Punteggio: ${s.totalScore}</strong>` : '';
+
+                // Altezza adattiva: se c'è testo usa padding, altrimenti linee vuote fisse
+                const fieldHtml = (label, content) => {
+                    if (content) {
+                        return `
+                        <div style="margin-bottom:5px;">
+                            <span style="font-size:13px; font-weight:bold;">${label}</span>
+                            <div style="font-size:13px; padding:3px 0 4px 0; white-space:pre-wrap; border-bottom:1px solid #aaa;">${content}</div>
+                        </div>`;
+                    } else {
+                        return `
+                        <div style="margin-bottom:5px;">
+                            <span style="font-size:13px; font-weight:bold;">${label}</span>
+                            <div style="border-bottom:1px solid #aaa; height:20px; margin-top:2px;"></div>
+                            <div style="border-bottom:1px solid #ddd; height:20px;"></div>
+                        </div>`;
+                    }
+                };
 
                 return `
-                    <div class="session-block" style="page-break-inside:avoid; margin-bottom: 36px; border-bottom: 1px solid #ccc; padding-bottom: 24px;">
-                        <table style="width:100%; font-size:13px; margin-bottom:6px;">
+                    <div class="session-block" style="page-break-inside:avoid; margin-bottom: 28px; border-bottom: 1px solid #ccc; padding-bottom: 18px;">
+                        <table style="width:100%; font-size:13px; margin-bottom:5px;">
                             <tr>
                                 <td style="width:45%;"><strong>Data:</strong> <u>${formatDate(s.data)}</u></td>
-                                <td style="width:30%;">${frecceInfo}</td>
+                                <td style="width:55%;">${frecceInfo}</td>
                             </tr>
                         </table>
-                        <div style="margin-bottom:5px; font-size:13px;"><strong>Luogo e condizioni Meteo:</strong> <u>${s.luogo || ''} (${s.tipoLuogo || ''})</u>${punteggio}</div>
-                        <div style="margin-bottom:8px; font-size:13px;"><strong>Distanze:</strong> ${distRow} &nbsp;&nbsp; <strong>Altro:</strong> ______________________</div>
-
-                        <div style="margin-bottom:6px;">
-                            <div style="font-size:13px; font-weight:bold; margin-bottom:3px;">Esercizi Consigliati:</div>
-                            <div style="min-height:40px; border-bottom:1px solid #999; font-size:13px; padding-bottom:4px; white-space:pre-wrap;">${esConsigliati || ''}</div>
-                            <div style="border-bottom:1px solid #ddd; min-height:20px;"></div>
-                        </div>
-
-                        <div style="margin-bottom:6px;">
-                            <div style="font-size:13px; font-weight:bold; margin-bottom:3px;">Esercizi Svolti:</div>
-                            <div style="min-height:50px; border-bottom:1px solid #999; font-size:13px; padding-bottom:4px; white-space:pre-wrap;">${esSvolti || ''}</div>
-                            <div style="border-bottom:1px solid #ddd; min-height:20px;"></div>
-                        </div>
-
-                        <div>
-                            <div style="font-size:13px; font-weight:bold; margin-bottom:3px;">Note e Condizione Fisica:</div>
-                            <div style="min-height:40px; border-bottom:1px solid #999; font-size:13px; padding-bottom:4px; white-space:pre-wrap;">${noteCondizioni || ''}</div>
-                            <div style="border-bottom:1px solid #ddd; min-height:20px;"></div>
-                        </div>
+                        <div style="margin-bottom:4px; font-size:13px;"><strong>Luogo:</strong> ${s.luogo || ''} (${s.tipoLuogo || ''})${punteggio}</div>
+                        <div style="margin-bottom:6px; font-size:13px;"><strong>Distanze:</strong> ${distRow} &nbsp;&nbsp; <strong>Altro:</strong> ______________________</div>
+                        ${fieldHtml('Esercizi Consigliati:', esConsigliati)}
+                        ${fieldHtml('Esercizi Svolti:', esSvolti)}
+                        ${fieldHtml('Note e Condizione Fisica:', noteCondizioni)}
                     </div>
                     ${(idx + 1) < filtered.length && (idx + 1) % 3 === 0 ? '<div style="page-break-after:always;"></div>' : ''}
                 `;
@@ -5388,4 +5393,3 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
-
