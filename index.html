@@ -1046,6 +1046,19 @@ function renderMainMenu() {
                         <p class="text-xs text-gray-400 mt-1">Inserisci le frecce che prevedi di tirare questa sessione</p>
                     </div>
 
+                    ${type === 'Allenamento' ? `
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-primary-orange">
+                            <label for="esercizConsigliati" class="block text-sm font-bold mb-2 text-primary-orange">🎯 Esercizi Consigliati <span class="text-gray-400 text-xs font-normal">(opzionale)</span></label>
+                            <textarea id="esercizConsigliati" name="esercizConsigliati" class="input-style h-24 text-sm"
+                                      placeholder="Esercizi consigliati dall'allenatore o pianificati per questa sessione...">${session.esercizConsigliati || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label for="esercizSvolti" class="block text-sm font-bold mb-2 text-green-400">✅ Esercizi Svolti <span class="text-gray-400 text-xs font-normal">(compila durante/dopo)</span></label>
+                            <textarea id="esercizSvolti" name="esercizSvolti" class="input-style h-24 text-sm"
+                                      placeholder="Esercizi effettivamente svolti, tecniche praticate...">${session.esercizSvolti || ''}</textarea>
+                        </div>
+                    ` : ''}
+
                     <div class="mt-8 flex flex-col space-y-3">
                         <button type="submit" class="btn-primary w-full p-3 rounded-lg text-lg" id="submitBtn">
                             ${type === 'Allenamento' && isTrainingWithoutScore ? 'Continua' : 'Inizia Primo Turno'}
@@ -1072,6 +1085,11 @@ function renderMainMenu() {
                 session.startTime = scoringState.startTime;
                 session.id = Date.now();
                 session.trainingWithoutScore = document.getElementById('trainingWithoutScore')?.checked || false;
+                // Leggi esercizi se presenti nel form
+                if (type === 'Allenamento') {
+                    session.esercizConsigliati = document.getElementById('esercizConsigliati')?.value || '';
+                    session.esercizSvolti = document.getElementById('esercizSvolti')?.value || '';
+                }
 
                 appState.currentSession = session;
 
@@ -1178,6 +1196,45 @@ function renderMainMenu() {
                     </form>
                 </div>
 
+                <!-- Note sessione -->
+                ${session.type === 'Gara' ? `
+                    <div class="space-y-3 mb-4">
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-yellow-400">
+                            <label class="block text-sm font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</label>
+                            <textarea id="qs-note-pregara" class="input-style h-20 text-sm"
+                                      placeholder="Aspettative, tattica, condizioni iniziali...">${session.notePreGara || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label class="block text-sm font-bold mb-2 text-green-400">🏆 Note Post-Gara</label>
+                            <textarea id="qs-note-postgara" class="input-style h-24 text-sm"
+                                      placeholder="Come è andata, cosa hai imparato, cosa migliorare...">${session.notePostGara || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="qs-note-condizioni" class="input-style h-20 text-sm"
+                                      placeholder="Condizioni fisiche, meteo, tensione, riscaldamento...">${session.noteCondizioniFisiche || ''}</textarea>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="space-y-3 mb-4">
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-primary-orange">
+                            <label class="block text-sm font-bold mb-2 text-primary-orange">🎯 Esercizi Consigliati</label>
+                            <textarea id="qs-eserciz-consigliati" class="input-style h-20 text-sm"
+                                      placeholder="Esercizi consigliati dall'allenatore...">${session.esercizConsigliati || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label class="block text-sm font-bold mb-2 text-green-400">✅ Esercizi Svolti</label>
+                            <textarea id="qs-eserciz-svolti" class="input-style h-24 text-sm"
+                                      placeholder="Esercizi effettivamente svolti...">${session.esercizSvolti || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="qs-note-condizioni" class="input-style h-20 text-sm"
+                                      placeholder="Condizioni fisiche, meteo, note generali...">${session.noteCondizioniFisiche || ''}</textarea>
+                        </div>
+                    </div>
+                `}
+
                 <div class="bg-yellow-900 bg-opacity-30 p-4 rounded-xl border border-yellow-500">
                     <p class="text-sm text-yellow-200">
                         ℹ️ <strong>Nota:</strong> Con Quick Score non avrai la griglia dettagliata dei punteggi, 
@@ -1218,6 +1275,17 @@ function renderMainMenu() {
                 appState.currentSession.totalTen = 0;
                 appState.currentSession.totalNine = 0;
                 appState.currentSession.totalAverage = 0;
+
+                // Leggi note dalla UI
+                if (appState.currentSession.type === 'Gara') {
+                    appState.currentSession.notePreGara = document.getElementById('qs-note-pregara')?.value || '';
+                    appState.currentSession.notePostGara = document.getElementById('qs-note-postgara')?.value || '';
+                    appState.currentSession.noteCondizioniFisiche = document.getElementById('qs-note-condizioni')?.value || '';
+                } else {
+                    appState.currentSession.esercizConsigliati = document.getElementById('qs-eserciz-consigliati')?.value || '';
+                    appState.currentSession.esercizSvolti = document.getElementById('qs-eserciz-svolti')?.value || '';
+                    appState.currentSession.noteCondizioniFisiche = document.getElementById('qs-note-condizioni')?.value || '';
+                }
 
                 const sessionIdBeforeSave = appState.currentSession.id;
 
@@ -1273,6 +1341,11 @@ function renderMainMenu() {
                     totalAverage: 0,
                     frecceAggiuntive: session.frecceAggiuntive || 0,
                     frecceProgrammate: parseInt(session.frecceProgrammate) || 0,
+                    esercizConsigliati: session.esercizConsigliati || '',
+                    esercizSvolti: session.esercizSvolti || '',
+                    noteCondizioniFisiche: session.noteCondizioniFisiche || '',
+                    notePreGara: session.notePreGara || '',
+                    notePostGara: session.notePostGara || '',
                     timestamp: serverTimestamp(),
                 };
 
@@ -1917,18 +1990,52 @@ function renderMainMenu() {
             }
 
             const sessionType = appState.sessionType;
+            const isGara = session.type === 'Gara';
+
+            // --- Form note sessione (persistente in appState) ---
+            const sessionNotesHtml = `
+                <div class="mt-6 space-y-3">
+                    ${!isGara ? `
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="scoring-note-condizioni" class="input-style h-20 text-sm"
+                                      placeholder="Condizioni fisiche, stanchezza, meteo, note generali..."
+                                      oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche || ''}</textarea>
+                        </div>
+                    ` : `
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-yellow-400">
+                            <label class="block text-sm font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</label>
+                            <textarea id="scoring-note-pregara" class="input-style h-20 text-sm"
+                                      placeholder="Aspettative, tattica, condizioni iniziali..."
+                                      oninput="appState.currentSession.notePreGara=this.value">${session.notePreGara || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label class="block text-sm font-bold mb-2 text-green-400">🏆 Note Post-Gara</label>
+                            <textarea id="scoring-note-postgara" class="input-style h-24 text-sm"
+                                      placeholder="Come è andata, cosa hai imparato, cosa migliorare..."
+                                      oninput="appState.currentSession.notePostGara=this.value">${session.notePostGara || ''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="scoring-note-condizioni-gara" class="input-style h-20 text-sm"
+                                      placeholder="Condizioni fisiche, meteo, tensione, riscaldamento..."
+                                      oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche || ''}</textarea>
+                        </div>
+                    `}
+                </div>
+            `;
+
             const actionsHtml = `
-                <div class="mt-8 flex flex-col space-y-3">
+                <div class="mt-6 flex flex-col space-y-3">
                     ${(appState.currentTurn === 2 && format !== '6x12') || (format === '6x12' && appState.currentTurn === 1) ? `
                         <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.saveTurn(true)">
-                            Fine ${sessionType} (Salva Risultati)
+                            Fine ${session.type} (Salva Risultati)
                         </button>
                     ` : `
                         <button class="btn-primary w-full p-3 rounded-lg text-lg" onclick="window.saveTurn(false)">
                             Salva Turno
                         </button>
                     `}
-
                 </div>
             `;
 
@@ -1939,6 +2046,7 @@ function renderMainMenu() {
                 ${keypadHtml}
                 ${liveStatsHtml}
                 ${turn1SummaryHtml}
+                ${sessionNotesHtml}
                 ${actionsHtml}
             `;
         }
@@ -1946,6 +2054,14 @@ function renderMainMenu() {
         window.saveTurn = (isFinal) => {
             const turnKey = `turn${appState.currentTurn}`;
             const turnResults = calculateTurnScores(appState.scoringGrid);
+
+            // Leggi Note e Condizioni Fisiche dalla UI prima di salvare
+            const noteEl = document.getElementById('scoring-note-condizioni') || document.getElementById('scoring-note-condizioni-gara');
+            if (noteEl) appState.currentSession.noteCondizioniFisiche = noteEl.value;
+            const preGaraEl = document.getElementById('scoring-note-pregara');
+            if (preGaraEl) appState.currentSession.notePreGara = preGaraEl.value;
+            const postGaraEl = document.getElementById('scoring-note-postgara');
+            if (postGaraEl) appState.currentSession.notePostGara = postGaraEl.value;
 
             if (turnResults.frecceTirate !== (scoringState.rows * scoringState.cols)) {
                 showModal("Turno Incompleto", "Non tutte le volée hanno frecce. Salvare comunque?", [
@@ -1961,102 +2077,83 @@ function renderMainMenu() {
             appState.currentSession[turnKey].summary = turnResults;
             appState.currentSession[turnKey].volleyNotes = appState.volleyNotes;
 
-            let modalBody = `
-                <p class="text-lg font-bold mb-3 text-white">Riepilogo Turno ${appState.currentTurn}</p>
-                <ul class="space-y-1 text-sm">
-                    <li><strong>Punteggio:</strong> <span class="text-primary-orange font-bold">${turnResults.score}</span> / ${turnResults.maxScore}</li>
-                    <li><strong>Media:</strong> <span class="text-primary-orange font-bold">${turnResults.average.toFixed(2)}</span></li>
-                    <li><strong>X:</strong> ${turnResults.X} | <strong>10:</strong> ${turnResults.Ten} | <strong>9:</strong> ${turnResults.Nine}</li>
-                </ul>
+            const scoreInfo = `
+                <div class="bg-gray-800 rounded-lg p-3 mb-3">
+                    <p class="text-center text-3xl font-extrabold text-primary-orange mb-1">${turnResults.score}</p>
+                    <p class="text-center text-xs text-gray-400">/ ${turnResults.maxScore} &nbsp;|&nbsp; Media: ${turnResults.average.toFixed(2)} &nbsp;|&nbsp; X:${turnResults.X} 10:${turnResults.Ten} 9:${turnResults.Nine}</p>
+                </div>
+            `;
+            const frecceField = `
+                <div class="mt-3 p-3 bg-gray-900 rounded-lg border border-primary-orange">
+                    <p class="text-white text-sm mb-2">🪃 Frecce aggiuntive tirate (warm-up, prove…)?</p>
+                    <input type="number" id="modal-extra-arrows" class="input-style text-center text-xl font-bold" min="0" max="500" placeholder="0" value="0">
+                    <p class="text-xs text-gray-400 mt-1">Lascia 0 se non ne hai tirate</p>
+                </div>
             `;
 
             const format = appState.currentSession.formatoGara;
 
             if (isFinal) {
+                // ── TURNO FINALE (turno 2, o turno unico 6x12) ────────────────
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-
                 const sessionIdBeforeSave = appState.currentSession.id;
 
-                modalBody += `<p class="mt-4 text-white">Sessione completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                modalBody += `
-                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
-                        <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive (warm-up, prova, ecc.) non conteggiate nel punteggio?</p>
-                        <input type="number" id="extra-arrows-input" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
-                    </div>
+                const modalBody = `
+                    <p class="text-base font-bold mb-3 text-white">Turno ${appState.currentTurn} completato</p>
+                    ${scoreInfo}
+                    <p class="text-sm text-primary-orange mb-3">Durata totale: ${durationToString(appState.currentSession.duration)}</p>
+                    ${frecceField}
                 `;
-
-                showModal("Turno Salvato!", modalBody, [
-                    { text: "Salva senza extra", handler: () => {
-                        appState.currentSession.frecceAggiuntive = 0;
-                        saveSessionToFirestore();
-                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
-                    }},
-                    { text: "Salva con extra ✓", handler: () => {
-                        const extra = parseInt(document.getElementById('extra-arrows-input')?.value) || 0;
+                showModal("✅ Sessione Completata!", modalBody, [
+                    { text: "💾 Salva e Vedi Riepilogo", handler: () => {
+                        const extra = parseInt(document.getElementById('modal-extra-arrows')?.value) || 0;
                         appState.currentSession.frecceAggiuntive = extra;
                         saveSessionToFirestore();
                         setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
                     }}
                 ]);
+
             } else if (appState.currentTurn === 1 && format !== '72 frecce (6x12)') {
-                showModal("Turno Salvato!", modalBody, [
-                    { text: "Secondo Turno", handler: () => startNextTurn() },
+                // ── FINE TURNO 1 — scelta: 2° turno OPPURE chiudi qui ─────────
+                const modalBody = `
+                    <p class="text-base font-bold mb-3 text-white">Turno 1 completato</p>
+                    ${scoreInfo}
+                    ${frecceField}
+                    <p class="text-xs text-gray-400 mt-3">Le frecce aggiuntive vengono conteggiate solo se scegli "Fine e Salva"</p>
+                `;
+                showModal("Turno 1 Salvato!", modalBody, [
+                    { text: "2° Turno ▶", handler: () => startNextTurn() },
                     { text: "Fine e Salva", handler: () => {
-                        closeModal();
                         const endTime = new Date();
                         appState.currentSession.endTime = getFormattedTime(endTime);
                         appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+                        const extra = parseInt(document.getElementById('modal-extra-arrows')?.value) || 0;
+                        appState.currentSession.frecceAggiuntive = extra;
                         const sessionIdBeforeSave = appState.currentSession.id;
-
-                        // Ask about extra arrows
-                        const extraBody = `
-                            <p class="text-white mb-2 font-bold">Sessione completata (solo 1° turno).</p>
-                            <p class="text-sm text-primary-orange mb-4">Durata: ${durationToString(appState.currentSession.duration)}</p>
-                            <div class="p-3 bg-gray-800 rounded-lg border border-primary-orange">
-                                <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive non conteggiate nel punteggio?</p>
-                                <input type="number" id="extra-arrows-t1" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
-                            </div>
-                        `;
-                        showModal("Frecce Aggiuntive?", extraBody, [
-                            { text: "Nessuna", handler: () => {
-                                appState.currentSession.frecceAggiuntive = 0;
-                                saveSessionToFirestore();
-                                setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
-                            }},
-                            { text: "Salva con extra ✓", handler: () => {
-                                const extra = parseInt(document.getElementById('extra-arrows-t1')?.value) || 0;
-                                appState.currentSession.frecceAggiuntive = extra;
-                                saveSessionToFirestore();
-                                setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
-                            }}
-                        ]);
+                        closeModal();
+                        saveSessionToFirestore();
+                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
                     }}
                 ]);
+
             } else {
+                // ── FORMATO 72 FRECCE 6x12 (turno unico) ──────────────────────
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
                 appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-
                 const sessionIdBeforeSave = appState.currentSession.id;
 
-                modalBody += `<p class="mt-3 text-white">Completata. Durata: ${durationToString(appState.currentSession.duration)}.</p>`;
-                modalBody += `
-                    <div class="mt-4 p-3 bg-gray-800 rounded-lg border border-primary-orange">
-                        <p class="text-white text-sm mb-2">🪃 Hai tirato frecce aggiuntive non conteggiate nel punteggio?</p>
-                        <input type="number" id="extra-arrows-else" class="input-style text-center text-xl font-bold" min="0" max="200" placeholder="0" value="0">
-                    </div>
+                const modalBody = `
+                    <p class="text-base font-bold mb-3 text-white">Sessione completata</p>
+                    ${scoreInfo}
+                    <p class="text-sm text-primary-orange mb-3">Durata: ${durationToString(appState.currentSession.duration)}</p>
+                    ${frecceField}
                 `;
-
-                showModal("Turno Salvato!", modalBody, [
-                    { text: "Salva senza extra", handler: () => {
-                        appState.currentSession.frecceAggiuntive = 0;
-                        saveSessionToFirestore();
-                        setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
-                    }},
-                    { text: "Salva con extra ✓", handler: () => {
-                        const extra = parseInt(document.getElementById('extra-arrows-else')?.value) || 0;
+                showModal("✅ Sessione Completata!", modalBody, [
+                    { text: "💾 Salva e Vedi Riepilogo", handler: () => {
+                        const extra = parseInt(document.getElementById('modal-extra-arrows')?.value) || 0;
                         appState.currentSession.frecceAggiuntive = extra;
                         saveSessionToFirestore();
                         setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
@@ -2110,6 +2207,11 @@ function renderMainMenu() {
                     ...results,
                     frecceAggiuntive: session.frecceAggiuntive || 0,
                     frecceProgrammate: parseInt(session.frecceProgrammate) || 0,
+                    esercizConsigliati: session.esercizConsigliati || '',
+                    esercizSvolti: session.esercizSvolti || '',
+                    noteCondizioniFisiche: session.noteCondizioniFisiche || '',
+                    notePreGara: session.notePreGara || '',
+                    notePostGara: session.notePostGara || '',
                     timestamp: serverTimestamp(),
                     archerId: appState.loggedInArcher.id,
                     arciere: appState.loggedInArcher.nome,
@@ -2405,12 +2507,57 @@ renderDataSummaryTable();
                                 Non sono disponibili dettagli per singola freccia o volée.
                             </p>
                         </div>
+
+                        ${session.type === 'Gara' ? `
+                            ${session.notePreGara ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-yellow-400">
+                                    <h3 class="text-base font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.notePreGara}</p>
+                                </div>
+                            ` : ''}
+                            ${session.notePostGara ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-green-500">
+                                    <h3 class="text-base font-bold mb-2 text-green-400">🏆 Note Post-Gara</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.notePostGara}</p>
+                                </div>
+                            ` : ''}
+                            ${session.noteCondizioniFisiche ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                    <h3 class="text-base font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.noteCondizioniFisiche}</p>
+                                </div>
+                            ` : ''}
+                        ` : `
+                            ${session.esercizConsigliati ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-primary-orange">
+                                    <h3 class="text-base font-bold mb-2 text-primary-orange">🎯 Esercizi Consigliati</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.esercizConsigliati}</p>
+                                </div>
+                            ` : ''}
+                            ${session.esercizSvolti ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-green-500">
+                                    <h3 class="text-base font-bold mb-2 text-green-400">✅ Esercizi Svolti</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.esercizSvolti}</p>
+                                </div>
+                            ` : ''}
+                            ${session.noteCondizioniFisiche ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                    <h3 class="text-base font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.noteCondizioniFisiche}</p>
+                                </div>
+                            ` : ''}
+                        `}
+                        ${(!session.notePreGara && !session.notePostGara && !session.noteCondizioniFisiche && !session.esercizSvolti && session.note) ? `
+                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                                <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
+                                <p class="text-white whitespace-pre-wrap">${session.note}</p>
+                            </div>
+                        ` : ''}
                     </div>
                     <div class="mt-8 space-y-3">
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
                             📝 Modifica Note
                         </button>
-
                         <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
@@ -2421,6 +2568,7 @@ renderDataSummaryTable();
                 `;
                 document.getElementById('content-view').innerHTML = html;
             } else {
+                const isGara = session.type === 'Gara';
                 const html = `
                     <h2 class="text-3xl font-bold mb-4 text-white">${session.type} del ${formatDate(session.data)}</h2>
                     <p class="text-xl mb-6 text-primary-orange">${session.distanza} | ${session.tipoTarga}</p>
@@ -2440,12 +2588,53 @@ renderDataSummaryTable();
                                 <span class="text-white font-extrabold">${session.totalX}-${session.totalTen}</span> / 9: ${session.totalNine}
                             </div>
                         </div>
-                        ${session.note ? `
-                            <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
-                                <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
-                                <p class="text-white whitespace-pre-wrap">${session.note}</p>
-                            </div>
-                        ` : ''}
+
+                        ${!isGara ? `
+                            ${session.esercizConsigliati ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-primary-orange">
+                                    <h3 class="text-base font-bold mb-2 text-primary-orange">🎯 Esercizi Consigliati</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.esercizConsigliati}</p>
+                                </div>
+                            ` : ''}
+                            ${(session.esercizSvolti || session.note) ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-green-500">
+                                    <h3 class="text-base font-bold mb-2 text-green-400">✅ Esercizi Svolti</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.esercizSvolti || session.note}</p>
+                                </div>
+                            ` : ''}
+                            ${session.noteCondizioniFisiche ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                    <h3 class="text-base font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.noteCondizioniFisiche}</p>
+                                </div>
+                            ` : ''}
+                        ` : `
+                            ${session.notePreGara ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-yellow-400">
+                                    <h3 class="text-base font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.notePreGara}</p>
+                                </div>
+                            ` : ''}
+                            ${session.notePostGara ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-green-500">
+                                    <h3 class="text-base font-bold mb-2 text-green-400">🏆 Note Post-Gara</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.notePostGara}</p>
+                                </div>
+                            ` : ''}
+                            ${session.noteCondizioniFisiche ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                    <h3 class="text-base font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</h3>
+                                    <p class="text-white whitespace-pre-wrap text-sm">${session.noteCondizioniFisiche}</p>
+                                </div>
+                            ` : ''}
+                            ${(!session.notePreGara && !session.notePostGara && !session.noteCondizioniFisiche && session.note) ? `
+                                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg border border-primary-orange">
+                                    <h3 class="text-xl font-bold mb-3 text-white">Note</h3>
+                                    <p class="text-white whitespace-pre-wrap">${session.note}</p>
+                                </div>
+                            ` : ''}
+                        `}
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             ${renderTurnSummaryCard(session.turn1, 'Primo Turno')}
                             ${hasTurn2 ? renderTurnSummaryCard(session.turn2, 'Secondo Turno') : ''}
@@ -2458,7 +2647,6 @@ renderDataSummaryTable();
                         <button class="btn-primary w-full p-3 rounded-lg" onclick="window.setView('editNotes', { sessionId: '${session.id}' })">
                             📝 Modifica Note
                         </button>
-
                         <button class="btn-primary w-full p-3 rounded-lg bg-secondary-dark text-primary-orange border border-primary-orange" onclick="window.setView('dataSummary')">
                             Torna al Riepilogo
                         </button>
@@ -5204,5 +5392,3 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
-
-
