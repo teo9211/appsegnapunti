@@ -673,7 +673,7 @@ window.setView = (viewName, data = {}) => {
                     break;
                 case 'detailedSummary':
                     const sessionToView = appState.sessionData.find(s => 
-                        String(s.id) === String(data.sessionId)
+                        s.docId === data.sessionId || String(s.id) === String(data.sessionId)
                     );
                     
                     if (!sessionToView) {
@@ -2407,7 +2407,7 @@ renderDataSummaryTable();
                             const isQuickScore = session.quickScore === true;
                             return `
                             <tr class="${session.type === 'Gara' ? 'bg-orange-900 bg-opacity-30' : isTrainingWithoutScore ? 'bg-blue-900 bg-opacity-30' : isQuickScore ? 'bg-purple-900 bg-opacity-30' : 'bg-gray-800'} hover:bg-secondary-dark cursor-pointer text-xs sm:text-sm"
-                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.docId || session.id}' })">
                                 <td class="font-bold text-primary-orange">${formatDate(session.data)}</td>
                                 <td>${session.type}${isTrainingWithoutScore ? ' 🎓' : isQuickScore ? ' ⚡' : ''}</td>
                                 <td class="font-extrabold text-white">${isTrainingWithoutScore ? '-' : (session.totalScore || 0)}</td>
@@ -2847,7 +2847,7 @@ renderDataSummaryTable();
             
             const html = `
                 <div class="max-w-2xl mx-auto">
-                    <button class="text-primary-orange underline mb-4" onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                    <button class="text-primary-orange underline mb-4" onclick="window.setView('detailedSummary', { sessionId: '${session.docId || session.id}' })">
                         ← Torna alla Sessione
                     </button>
                     
@@ -2878,7 +2878,7 @@ renderDataSummaryTable();
                     
                     <div class="flex gap-3">
                         <button type="button" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold" 
-                                onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                onclick="window.setView('detailedSummary', { sessionId: '${session.docId || session.id}' })">
                             Annulla
                         </button>
                         <button type="submit" class="flex-1 btn-primary p-3 rounded-lg">
@@ -2916,7 +2916,7 @@ renderDataSummaryTable();
                 }
                 
                 showModal("Successo", "Le note sono state aggiornate con successo!", [
-                    { text: "Ok", handler: () => { window.setView('detailedSummary', { sessionId: session.id }); }}
+                    { text: "Ok", handler: () => { window.setView('detailedSummary', { sessionId: session.docId || session.id }); }}
                 ]);
                 
             } catch (error) {
@@ -4627,7 +4627,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 <div class="space-y-3">
                     ${daySessions.map(session => `
                         <div class="bg-gray-800 p-3 rounded-lg cursor-pointer hover:bg-gray-700"
-                             onclick="window.setView('detailedSummary', { sessionId: '${session.id}' }); window.closeModal();">
+                             onclick="window.setView('detailedSummary', { sessionId: '${session.docId || session.id}' }); window.closeModal();">
                             <div class="font-bold text-white">${session.type}${session.trainingWithoutScore ? ' 🎓' : session.quickScore ? ' ⚡' : ''}</div>
                             <div class="text-sm text-primary-orange">
                                 ${session.trainingWithoutScore ? 'Allenamento Tecnico' : `${session.totalScore} punti`} | 
@@ -4670,7 +4670,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
                         return `
                             <div class="${bgColor} p-3 rounded-lg cursor-pointer hover:opacity-80"
-                                 onclick="window.setView('detailedSummary', { sessionId: '${session.id}' })">
+                                 onclick="window.setView('detailedSummary', { sessionId: '${session.docId || session.id}' })">
                                 <div class="flex justify-between items-center">
                                     <div>
                                         <span class="font-bold text-white">${formatDate(session.data)}</span>
@@ -5235,9 +5235,10 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     // ── ALLENAMENTO TECNICO ──────────────────────────────────
                     return `
                         <div class="session-block" style="page-break-inside:avoid; margin-bottom: 28px; border-bottom: 1px solid #ccc; padding-bottom: 18px;">
+                            <div style="font-size:12px; font-weight:bold; letter-spacing:0.5px; color:#555; text-transform:uppercase; margin-bottom:4px;">🎓 Allenamento Tecnico</div>
                             <table style="width:100%; font-size:13px; margin-bottom:5px;">
                                 <tr>
-                                    <td style="width:45%;"><strong>Data:</strong> <u>${formatDate(s.data)}</u> &nbsp; <span style="font-size:11px; background:#eee; padding:1px 6px; border-radius:4px;">🎓 Allenamento Tecnico</span></td>
+                                    <td style="width:45%;"><strong>Data:</strong> <u>${formatDate(s.data)}</u></td>
                                     <td style="width:55%;">${frecceInfo}</td>
                                 </tr>
                             </table>
@@ -5446,4 +5447,3 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
-
