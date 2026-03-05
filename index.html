@@ -240,9 +240,9 @@
 
                 <div class="border-t border-gray-700 my-3"></div>
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-2">Dati</p>
-                <button onclick="window.navDrawerGo('exportData')" 
+                <button onclick="window.navDrawerGo('settings')" 
                         class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
-                    &#128229; Esporta &amp; Backup
+                    ⚙️ Impostazioni
                 </button>
                 <button onclick="window.navDrawerGo('mainMenu')" 
                         class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-all text-sm">
@@ -320,6 +320,7 @@ window.goBack = () => {
         case 'goals':
         case 'calendar':
         case 'exportData':
+        case 'settings':
         case 'compareSessionsView':
         case 'equipment':
         case 'arrowCounter':
@@ -697,6 +698,9 @@ window.setView = (viewName, data = {}) => {
                 case 'exportData':
                     renderExportData();
                     break;
+                case 'settings':
+                    renderSettings();
+                    break;
                 case 'calendar':
                     renderCalendar();
                     break;
@@ -949,12 +953,9 @@ function renderMainMenu() {
             </div>
 
             <div class="mb-6">
-                <h3 class="text-lg font-bold text-primary-orange mb-3">💾 Gestione Dati</h3>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('exportData')">
-                    📥 Esporta & Backup
-                </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2 bg-blue-600 hover:bg-blue-700" onclick="window.showMigrationModal()">
-                    🔄 Migrazione Dati (Aggiungi Tipo Arco)
+                <h3 class="text-lg font-bold text-primary-orange mb-3">⚙️ Impostazioni</h3>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('settings')">
+                    ⚙️ Impostazioni
                 </button>
             </div>
             
@@ -3699,6 +3700,160 @@ async function saveNewGoal() {
         };
         // FINE PARTE4F   
 // PARTE4I - Export, Backup e Condivisione Dati
+
+        // ── IMPOSTAZIONI ────────────────────────────────────────────────────
+        async function renderSettings() {
+            if (!appState.loggedInArcher) { window.setView('login'); return; }
+
+            // Carica sessioni se non ancora caricate
+            if (!appState.sessionData || appState.sessionData.length === 0) {
+                await fetchSessions();
+                await new Promise(r => setTimeout(r, 600));
+            }
+
+            const sessions = (appState.sessionData || [])
+                .filter(s => !s.trainingWithoutScore) // solo allenamenti con punteggio
+                .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+            const sessionsOptions = sessions.map(s =>
+                `<option value="${s.docId || s.id}">${s.data} — ${s.type} ${s.luogo} (${s.distanza || 'tech'})</option>`
+            ).join('');
+
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-6 text-white">⚙️ Impostazioni</h2>
+
+                <!-- MODIFICA MASSIVA SESSIONI -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-2 text-primary-orange">✏️ Modifica Massiva Sessioni</h3>
+                    <p class="text-xs text-gray-400 mb-4">Seleziona una o più sessioni e compila i campi che vuoi aggiornare. Lascia vuoti i campi che non vuoi modificare.</p>
+
+                    <!-- Selezione sessioni -->
+                    <div class="mb-4">
+                        <label class="block text-xs text-primary-orange mb-1 font-bold">Sessioni da modificare</label>
+                        <div class="flex gap-2 mb-2">
+                            <button onclick="window.selectAllSessions()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded-lg">Seleziona tutte</button>
+                            <button onclick="window.deselectAllSessions()" class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded-lg">Deseleziona tutte</button>
+                        </div>
+                        <div id="session-checkboxes" class="max-h-48 overflow-y-auto space-y-1 bg-gray-800 rounded-lg p-2">
+                            ${sessions.length === 0 ? '<p class="text-gray-400 text-xs p-2">Nessuna sessione disponibile.</p>' :
+                                sessions.map(s => `
+                                    <label class="flex items-start gap-2 cursor-pointer hover:bg-gray-700 rounded p-1">
+                                        <input type="checkbox" class="session-cb mt-0.5 flex-shrink-0" value="${s.docId || s.id}" data-docid="${s.docId || s.id}">
+                                        <span class="text-xs text-white">${s.data} — <span class="text-primary-orange">${s.type}${s.trainingWithoutScore ? ' 🎓' : ''}</span> | ${s.luogo} ${s.distanza ? '('+s.distanza+')' : ''}</span>
+                                    </label>
+                                `).join('')
+                            }
+                        </div>
+                        <p id="selected-count" class="text-xs text-gray-400 mt-1">0 sessioni selezionate</p>
+                    </div>
+
+                    <!-- Campi da compilare -->
+                    <div class="space-y-3">
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <label class="block text-xs text-primary-orange font-bold mb-1">🪃 Frecce Programmate</label>
+                            <input type="number" id="bulk-frecce" class="input-style text-sm" min="0" max="500" placeholder="Lascia vuoto per non modificare">
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border-l-4 border-primary-orange">
+                            <label class="block text-xs text-primary-orange font-bold mb-1">🎯 Esercizi Consigliati</label>
+                            <textarea id="bulk-eserciz-consigliati" class="input-style text-sm h-20" placeholder="Lascia vuoto per non modificare"></textarea>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border-l-4 border-green-500">
+                            <label class="block text-xs text-green-400 font-bold mb-1">✅ Esercizi Svolti</label>
+                            <textarea id="bulk-eserciz-svolti" class="input-style text-sm h-20" placeholder="Lascia vuoto per non modificare"></textarea>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border-l-4 border-blue-500">
+                            <label class="block text-xs text-blue-400 font-bold mb-1">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="bulk-note" class="input-style text-sm h-20" placeholder="Lascia vuoto per non modificare"></textarea>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary w-full p-3 rounded-lg font-bold mt-4" onclick="window.applyBulkEdit()">
+                        💾 Applica a Sessioni Selezionate
+                    </button>
+                </div>
+
+                <!-- ESPORTA & BACKUP -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border border-gray-600">
+                    <h3 class="text-xl font-bold mb-3 text-white">📥 Esporta & Backup</h3>
+                    <button class="btn-primary w-full p-3 rounded-lg mb-2" onclick="window.setView('exportData')">
+                        📥 Apri Esporta & Backup
+                    </button>
+                </div>
+
+                <!-- MIGRAZIONE DATI -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border border-gray-600">
+                    <h3 class="text-xl font-bold mb-3 text-white">🔄 Migrazione Dati</h3>
+                    <button class="btn-primary w-full p-3 rounded-lg bg-blue-600 hover:bg-blue-700 border-0" onclick="window.showMigrationModal()">
+                        🔄 Migrazione Dati (Aggiungi Tipo Arco)
+                    </button>
+                </div>
+            `;
+
+            // Contatore selezioni
+            document.getElementById('session-checkboxes').addEventListener('change', () => {
+                const count = document.querySelectorAll('.session-cb:checked').length;
+                document.getElementById('selected-count').textContent = `${count} session${count === 1 ? 'e' : 'i'} selezionat${count === 1 ? 'a' : 'e'}`;
+            });
+        }
+
+        window.selectAllSessions = () => {
+            document.querySelectorAll('.session-cb').forEach(cb => cb.checked = true);
+            const count = document.querySelectorAll('.session-cb').length;
+            document.getElementById('selected-count').textContent = `${count} sessioni selezionate`;
+        };
+
+        window.deselectAllSessions = () => {
+            document.querySelectorAll('.session-cb').forEach(cb => cb.checked = false);
+            document.getElementById('selected-count').textContent = '0 sessioni selezionate';
+        };
+
+        window.applyBulkEdit = async () => {
+            const selected = [...document.querySelectorAll('.session-cb:checked')].map(cb => cb.dataset.docid);
+            if (selected.length === 0) {
+                showModal("Attenzione", "Seleziona almeno una sessione.", [{ text: "Ok", handler: () => {} }]);
+                return;
+            }
+
+            const frecce = document.getElementById('bulk-frecce')?.value.trim();
+            const esercizConsigliati = document.getElementById('bulk-eserciz-consigliati')?.value.trim();
+            const esercizSvolti = document.getElementById('bulk-eserciz-svolti')?.value.trim();
+            const note = document.getElementById('bulk-note')?.value.trim();
+
+            if (!frecce && !esercizConsigliati && !esercizSvolti && !note) {
+                showModal("Attenzione", "Compila almeno un campo da applicare.", [{ text: "Ok", handler: () => {} }]);
+                return;
+            }
+
+            showModal("Conferma", `Vuoi aggiornare ${selected.length} session${selected.length > 1 ? 'i' : 'e'} con i dati inseriti?`, [
+                { text: "Annulla", handler: () => {} },
+                { text: "Sì, aggiorna", handler: async () => {
+                    try {
+                        const updates = {};
+                        if (frecce !== '') updates.frecceProgrammate = parseInt(frecce) || 0;
+                        if (esercizConsigliati !== '') updates.esercizConsigliati = esercizConsigliati;
+                        if (esercizSvolti !== '') updates.esercizSvolti = esercizSvolti;
+                        if (note !== '') updates.noteCondizioniFisiche = note;
+
+                        const archerId = appState.loggedInArcher.id;
+                        let done = 0;
+                        for (const docId of selected) {
+                            const docRef = doc(db, "artifacts", appId, "archers", archerId, "sessions", docId);
+                            await updateDoc(docRef, updates);
+                            done++;
+                        }
+
+                        showModal("✅ Completato!", `${done} session${done > 1 ? 'i' : 'e'} aggiornate con successo.`, [
+                            { text: "Ok", handler: () => { fetchSessions(); renderSettings(); } }
+                        ]);
+                    } catch(e) {
+                        console.error(e);
+                        showModal("Errore", "Impossibile aggiornare le sessioni: " + e.message, [{ text: "Ok", handler: () => {} }]);
+                    }
+                }}
+            ]);
+        };
+        // ── FINE IMPOSTAZIONI ────────────────────────────────────────────────
+
         function renderExportData() {
             if (!appState.loggedInArcher) {
                 window.setView('login');
