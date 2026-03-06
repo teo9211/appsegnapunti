@@ -5015,16 +5015,35 @@ window.showMigrationModal = migrateSessionsAddBowType;
         }
 
         function testBuildMagnifierBg() {
+            // Usa un canvas offscreen per generare un'immagine fedele della targa
+            const size = 340;
+            const offscreen = document.createElement('canvas');
+            offscreen.width = size; offscreen.height = size;
+            const ctx = offscreen.getContext('2d');
+            const cx = size / 2, cy = size / 2;
+
             const rings = testGetRings();
+            // Disegna dall'esterno verso l'interno
+            [...rings].reverse().forEach(r => {
+                ctx.beginPath();
+                ctx.arc(cx, cy, r.r, 0, Math.PI * 2);
+                ctx.fillStyle = r.c;
+                ctx.fill();
+                // Bordo visibile tra anelli
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+            // Linee croce centrale
+            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, size); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(size, cy); ctx.stroke();
+
             const mag = document.getElementById('test-magnifier');
             if (!mag) return;
-            let grad = 'radial-gradient(circle, ';
-            rings.forEach(r => {
-                const p = (r.r / 170) * 100;
-                grad += `${r.c} ${(p-0.2).toFixed(2)}%, #222 ${p.toFixed(2)}%, ${r.c} ${(p+0.2).toFixed(2)}%, `;
-            });
-            grad += 'transparent 100%)';
-            mag.style.backgroundImage = grad;
+            mag.style.backgroundImage = `url(${offscreen.toDataURL()})`;
+            mag._targetSize = size;
         }
 
         function testDrawTarget() {
@@ -5068,31 +5087,61 @@ window.showMigrationModal = migrateSessionsAddBowType;
             const clientY = e.clientY ?? (e.touches?.[0]?.clientY);
             if (clientX == null) return;
 
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
+            // Posizione del dito sul canvas
+            let fingerX = clientX - rect.left;
+            let fingerY = clientY - rect.top;
 
             // Clamp al cerchio
-            const dist = Math.sqrt((x-170)**2 + (y-170)**2);
-            if (dist > 170) {
-                const angle = Math.atan2(y-170, x-170);
-                x = 170 + 170 * Math.cos(angle);
-                y = 170 + 170 * Math.sin(angle);
+            const distFinger = Math.sqrt((fingerX-170)**2 + (fingerY-170)**2);
+            if (distFinger > 170) {
+                const angle = Math.atan2(fingerY-170, fingerX-170);
+                fingerX = 170 + 170 * Math.cos(angle);
+                fingerY = 170 + 170 * Math.sin(angle);
             }
 
-            testState.lastX = x; testState.lastY = y;
+            // La lente è posizionata: left = clientX - 110, top = clientY - 270
+            // Il centro del mirino (crosshair) è al centro fisico della lente: +110, +110
+            // → posizione schermo del mirino: (clientX, clientY - 160)
+            // Convertiamo in coordinate canvas:
+            const ZOOM = 4;
+            const MAG_RADIUS = 110; // metà lente
+            const LIFT = 270;       // quanto la lente sale sopra il dito
 
-            // Lente: appare sopra il dito, centrata orizzontalmente sul touch
+            // Il background-position bg = (MAG_RADIUS - fingerX*ZOOM, MAG_RADIUS - fingerY*ZOOM)
+            // Il centro della lente (MAG_RADIUS, MAG_RADIUS) punta a:
+            //   bgX + MAG_RADIUS = point_on_bg_x  →  point_on_bg_x = fingerX * ZOOM
+            //   canvas_x = point_on_bg_x / ZOOM = fingerX
+            // PERÒ la lente è alzata di LIFT - MAG_RADIUS = 160px rispetto al dito
+            // Quindi il mirino punta 160px sopra il dito nello schermo
+            // In termini canvas: 160 / zoom = 40px sopra il punto del dito
+            const CROSSHAIR_OFFSET_Y = (LIFT - MAG_RADIUS) / ZOOM; // = 40px
+
+            let aimX = fingerX;
+            let aimY = fingerY - CROSSHAIR_OFFSET_Y;
+
+            // Clamp al cerchio anche il punto mirino
+            const distAim = Math.sqrt((aimX-170)**2 + (aimY-170)**2);
+            if (distAim > 170) {
+                const angle = Math.atan2(aimY-170, aimX-170);
+                aimX = 170 + 170 * Math.cos(angle);
+                aimY = 170 + 170 * Math.sin(angle);
+            }
+
+            testState.lastX = aimX;
+            testState.lastY = aimY;
+
+            // Aggiorna background-position: il centro della lente deve mostrare aimX, aimY
             const mag = document.getElementById('test-magnifier');
             if (mag) {
                 mag.style.display = 'block';
-                mag.style.left = (clientX - 110) + 'px';
-                mag.style.top  = (clientY - 270) + 'px';
-                // Background-position: il centro della lente (110px) deve puntare a (x,y) * zoom(4)
-                mag.style.backgroundPosition = `${110 - x * 4}px ${110 - y * 4}px`;
+                mag.style.left = (clientX - MAG_RADIUS) + 'px';
+                mag.style.top  = (clientY - LIFT) + 'px';
+                mag.style.backgroundSize = `${340 * ZOOM}px ${340 * ZOOM}px`;
+                mag.style.backgroundPosition = `${MAG_RADIUS - aimX * ZOOM}px ${MAG_RADIUS - aimY * ZOOM}px`;
             }
 
-            // Punteggio live
-            const dFromCenter = Math.sqrt((x-170)**2 + (y-170)**2) - 3;
+            // Punteggio dal punto del mirino
+            const dFromCenter = Math.sqrt((aimX-170)**2 + (aimY-170)**2);
             const score = testScoreFromDist(dFromCenter);
             testState.lastScore = score;
 
