@@ -112,6 +112,34 @@
             height: 100%;
             transition: width 0.3s ease;
         }
+
+        /* ── TEST BERSAGLIO ─────────────────────────── */
+        #test-magnifier {
+            position: fixed;
+            width: 220px; height: 220px;
+            border: 4px solid #f97316;
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+            z-index: 9999;
+            background-repeat: no-repeat;
+            background-size: 1360px 1360px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 10px 40px rgba(0,0,0,0.8);
+        }
+        .test-ch-v { position:absolute; top:0; left:50%; width:2px; height:100%; background:white; mix-blend-mode:difference; transform:translateX(-50%); }
+        .test-ch-h { position:absolute; top:50%; left:0; width:100%; height:2px; background:white; mix-blend-mode:difference; transform:translateY(-50%); }
+        .test-ch-dot { position:absolute; top:50%; left:50%; width:18px; height:18px; border:2px solid white; border-radius:50%; mix-blend-mode:difference; transform:translate(-50%,-50%); }
+        .test-arrow-dot {
+            position:absolute; width:11px; height:11px;
+            background:#ff4500; border:2px solid white;
+            border-radius:50%; transform:translate(-50%,-50%);
+            z-index:50; pointer-events:none;
+        }
+        #test-target-canvas {
+            position:relative; width:340px; height:340px;
+            border-radius:50%; overflow:hidden;
+            border:2px solid #334155; touch-action:none;
+        }
     </style>
     <script>
         tailwind.config = {
@@ -152,6 +180,13 @@
     </button>
 
     <!-- Bottone Riprendi: appare a destra quando hai una sessione in pausa -->
+    <!-- Lente mirino per Test Bersaglio -->
+    <div id="test-magnifier">
+        <div class="test-ch-v"></div>
+        <div class="test-ch-h"></div>
+        <div class="test-ch-dot"></div>
+    </div>
+
     <button id="resume-session-btn"
             onclick="window.resumeActiveSession()"
             class="hidden fixed top-4 right-4 z-[70] bg-green-600 hover:bg-green-500 text-white text-sm font-bold px-3 py-2 rounded-full shadow-2xl transition-all flex items-center gap-2">
@@ -203,6 +238,10 @@
                 <button onclick="window.navDrawerGo('registrationForm', {type:'Gara'})" 
                         class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
                     &#127942; Gara
+                </button>
+                <button onclick="window.navDrawerGo('test')" 
+                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-purple-300 hover:bg-purple-900 hover:text-purple-200 transition-all text-sm">
+                    🔬 Test Bersaglio
                 </button>
 
                 <div class="border-t border-gray-700 my-3"></div>
@@ -321,6 +360,7 @@ window.goBack = () => {
         case 'calendar':
         case 'exportData':
         case 'settings':
+        case 'test':
         case 'compareSessionsView':
         case 'equipment':
         case 'arrowCounter':
@@ -710,6 +750,9 @@ window.setView = (viewName, data = {}) => {
                 case 'arrowCounter':
                     renderArrowCounter();
                     break;
+                case 'test':
+                    renderTestView();
+                    break;
             } // fine switch
         }; // fine setView
         // FINE PARTE2
@@ -919,6 +962,9 @@ function renderMainMenu() {
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('registrationForm', { type: 'Gara' })">
                     🏆 Gara 🥇
                 </button>
+                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#8b5cf6;" onclick="window.setView('test')">
+                    🔬 Test Bersaglio
+                </button>
             </div>
 
 <div class="mb-6">
@@ -1070,6 +1116,9 @@ function renderMainMenu() {
                             <button type="button" class="btn-primary w-full p-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border-0" onclick="window.startQuickScore()">
                                 ⚡ Quick Score (Inserimento Rapido)
                             </button>
+                            <button type="button" class="btn-primary w-full p-3 rounded-lg border-0 text-white" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);" onclick="window.startTestMode()">
+                                🔬 Test Bersaglio (Touch)
+                            </button>
                         ` : ''}
 
                     </div>
@@ -1097,6 +1146,8 @@ function renderMainMenu() {
 
                 if (session.trainingWithoutScore) {
                     window.setView('trainingNotes');
+                } else if (session.testMode) {
+                    window.setView('test');
                 } else {
                     window.setView('scoring');
                 }
@@ -1144,6 +1195,33 @@ function renderMainMenu() {
 
             appState.currentSession = session;
             window.setView('quickScore');
+        };
+
+        window.startTestMode = () => {
+            const formData = new FormData(document.getElementById('registrationForm'));
+            const session = Object.fromEntries(formData.entries());
+
+            if (!session.data || !session.ora || !session.luogo || !session.tipoLuogo ||
+                !session.distanza || !session.tipoTarga || !session.formatoGara) {
+                showModal("Errore", "Compila tutti i campi obbligatori prima di procedere.", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+                return;
+            }
+
+            session.type = appState.sessionType;
+            session.arciere = appState.loggedInArcher.nome;
+            session.archerId = appState.loggedInArcher.id;
+            session.startTime = scoringState.startTime;
+            session.id = Date.now();
+            session.testMode = true;
+            // Leggi esercizi consigliati se presenti
+            if (session.type === 'Allenamento') {
+                session.esercizConsigliati = document.getElementById('esercizConsigliati')?.value || '';
+            }
+
+            appState.currentSession = session;
+            window.setView('test');
         };
 
         function renderQuickScore() {
@@ -4898,6 +4976,481 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
             document.getElementById('month-stats').innerHTML = html;
         }
+        // ── TEST BERSAGLIO ────────────────────────────────────────────────────
+        // Stato globale del test
+        const testState = {
+            configType: 'singola',
+            currentVolee: [],   // frecce della volée corrente
+            allVolleys: [],     // tutte le volée completate [{scores:[…], arrows:[{x,y,score}]}]
+            cols: 3,            // frecce per volée
+            totalScore: 0,
+            totalX: 0, total10: 0, total9: 0,
+            frecceTirate: 0,
+            isActive: false,
+            lastX: 170, lastY: 170, lastScore: 'M',
+        };
+
+        const TEST_RINGS_SINGOLA = [
+            { s:'X',  r:15.4,  c:'#fbbf24' }, { s:'10', r:30.9,  c:'#fbbf24' }, { s:'9',  r:46.3,  c:'#fbbf24' },
+            { s:'8',  r:61.8,  c:'#ef4444' }, { s:'7',  r:77.2,  c:'#ef4444' }, { s:'6',  r:92.7,  c:'#3b82f6' },
+            { s:'5',  r:108.1, c:'#3b82f6' }, { s:'4',  r:123.6, c:'#111111' }, { s:'3',  r:139,   c:'#111111' },
+            { s:'2',  r:154.5, c:'#e2e8f0' }, { s:'1',  r:170,   c:'#e2e8f0' },
+        ];
+        const TEST_RINGS_TRIPLA = TEST_RINGS_SINGOLA.slice(0, 6);
+
+        function testGetRings() {
+            return testState.configType === 'singola' ? TEST_RINGS_SINGOLA : TEST_RINGS_TRIPLA;
+        }
+
+        function testScoreFromDist(dist) {
+            const rings = testGetRings();
+            for (const r of rings) { if (dist <= r.r) return r.s; }
+            return 'M';
+        }
+
+        function testScoreValue(s) {
+            if (s === 'X') return 10;
+            if (s === 'M') return 0;
+            return parseInt(s) || 0;
+        }
+
+        function testBuildMagnifierBg() {
+            const rings = testGetRings();
+            const mag = document.getElementById('test-magnifier');
+            if (!mag) return;
+            let grad = 'radial-gradient(circle, ';
+            rings.forEach(r => {
+                const p = (r.r / 170) * 100;
+                grad += `${r.c} ${(p-0.2).toFixed(2)}%, #222 ${p.toFixed(2)}%, ${r.c} ${(p+0.2).toFixed(2)}%, `;
+            });
+            grad += 'transparent 100%)';
+            mag.style.backgroundImage = grad;
+        }
+
+        function testDrawTarget() {
+            const canvas = document.getElementById('test-target-canvas');
+            if (!canvas) return;
+            // Pulisci lasciando solo i ring (rimuovi arrow dots)
+            canvas.querySelectorAll('.test-arrow-dot').forEach(d => d.remove());
+            // Ricostruisci rings
+            canvas.querySelectorAll('.test-ring').forEach(d => d.remove());
+            const rings = testGetRings();
+            [...rings].reverse().forEach(r => {
+                const el = document.createElement('div');
+                el.className = 'test-ring';
+                el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;
+                    width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
+                canvas.appendChild(el);
+            });
+            // Ridisegna i punti freccia di tutte le volée
+            testState.allVolleys.forEach(v => {
+                v.arrows.forEach(a => { if (a.score !== 'M') testPlaceDot(canvas, a.x, a.y); });
+            });
+            // Frecce della volée corrente
+            testState.currentVolee.forEach(a => { if (a.score !== 'M') testPlaceDot(canvas, a.x, a.y); });
+            testBuildMagnifierBg();
+        }
+
+        function testPlaceDot(canvas, x, y) {
+            const dot = document.createElement('div');
+            dot.className = 'test-arrow-dot';
+            dot.style.left = x + 'px';
+            dot.style.top  = y + 'px';
+            canvas.appendChild(dot);
+        }
+
+        function testHandlePointer(e) {
+            if (!testState.isActive) return;
+            const canvas = document.getElementById('test-target-canvas');
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX ?? (e.touches?.[0]?.clientX);
+            const clientY = e.clientY ?? (e.touches?.[0]?.clientY);
+            if (clientX == null) return;
+
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+
+            // Clamp al cerchio
+            const dist = Math.sqrt((x-170)**2 + (y-170)**2);
+            if (dist > 170) {
+                const angle = Math.atan2(y-170, x-170);
+                x = 170 + 170 * Math.cos(angle);
+                y = 170 + 170 * Math.sin(angle);
+            }
+
+            testState.lastX = x; testState.lastY = y;
+
+            // Lente: appare sopra il dito, centrata orizzontalmente sul touch
+            const mag = document.getElementById('test-magnifier');
+            if (mag) {
+                mag.style.display = 'block';
+                mag.style.left = (clientX - 110) + 'px';
+                mag.style.top  = (clientY - 270) + 'px';
+                // Background-position: il centro della lente (110px) deve puntare a (x,y) * zoom(4)
+                mag.style.backgroundPosition = `${110 - x * 4}px ${110 - y * 4}px`;
+            }
+
+            // Punteggio live
+            const dFromCenter = Math.sqrt((x-170)**2 + (y-170)**2) - 3;
+            const score = testScoreFromDist(dFromCenter);
+            testState.lastScore = score;
+
+            const liveEl = document.getElementById('test-live-score');
+            if (liveEl) {
+                liveEl.textContent = score;
+                liveEl.style.color = score === 'X' || score === '10' ? '#fbbf24' : score === 'M' ? '#ef4444' : '#ffffff';
+            }
+        }
+
+        function testSetupPointerEvents() {
+            const canvas = document.getElementById('test-target-canvas');
+            if (!canvas || canvas._testEventsAttached) return;
+            canvas._testEventsAttached = true;
+
+            canvas.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                testState.isActive = true;
+                testHandlePointer(e);
+            }, { passive: false });
+
+            window.addEventListener('pointermove', (e) => {
+                if (testState.isActive) testHandlePointer(e);
+            });
+
+            window.addEventListener('pointerup', () => {
+                if (!testState.isActive) return;
+                testState.isActive = false;
+                const mag = document.getElementById('test-magnifier');
+                if (mag) mag.style.display = 'none';
+                testRegisterArrow(testState.lastScore, testState.lastX, testState.lastY);
+            });
+        }
+
+        function testRegisterArrow(score, x, y) {
+            testState.currentVolee.push({ score, x, y });
+
+            const canvas = document.getElementById('test-target-canvas');
+            if (score !== 'M' && canvas) testPlaceDot(canvas, x, y);
+
+            testUpdateVoleeUI();
+
+            // Volée completa
+            if (testState.currentVolee.length >= testState.cols) {
+                setTimeout(() => testCompleteVolee(), 300);
+            }
+        }
+
+        function testCompleteVolee() {
+            const scores = testState.currentVolee.map(a => a.score);
+            // Ordina decrescente (X > 10 > 9 … > M)
+            scores.sort((a, b) => testScoreValue(b) - testScoreValue(a));
+            const voleeScore  = scores.reduce((s, v) => s + testScoreValue(v), 0);
+            testState.totalScore += voleeScore;
+            testState.frecceTirate += scores.length;
+            scores.forEach(s => {
+                if (s === 'X') { testState.totalX++; testState.total10++; }
+                else if (s === '10') testState.total10++;
+                else if (s === '9') testState.total9++;
+            });
+
+            testState.allVolleys.push({
+                scores,
+                arrows: [...testState.currentVolee],
+                total: testState.totalScore,
+            });
+
+            testState.currentVolee = [];
+            testRenderView();   // ridisegna tutto
+        }
+
+        function testUpdateVoleeUI() {
+            const cells = document.querySelectorAll('.test-volee-cell');
+            cells.forEach((c, i) => {
+                const a = testState.currentVolee[i];
+                if (a) {
+                    c.textContent = a.score;
+                    c.className = 'test-volee-cell w-12 h-12 flex items-center justify-center rounded-full font-black text-lg ' +
+                        (a.score === 'X' || a.score === '10' ? 'bg-yellow-500 text-black' :
+                         a.score === 'M' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white');
+                } else {
+                    c.textContent = '-';
+                    c.className = 'test-volee-cell w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 border border-gray-600 text-gray-500';
+                }
+            });
+        }
+
+        window.testAddMiss = () => {
+            testRegisterArrow('M', 0, 0);
+        };
+
+        window.testUndoLast = () => {
+            if (testState.currentVolee.length > 0) {
+                testState.currentVolee.pop();
+                testRenderView();
+            } else if (testState.allVolleys.length > 0) {
+                const last = testState.allVolleys.pop();
+                // Ripristina totali
+                last.scores.forEach(s => {
+                    testState.totalScore -= testScoreValue(s);
+                    testState.frecceTirate--;
+                    if (s === 'X') { testState.totalX--; testState.total10--; }
+                    else if (s === '10') testState.total10--;
+                    else if (s === '9') testState.total9--;
+                });
+                testRenderView();
+            }
+        };
+
+        window.testChangeType = (t) => {
+            testState.configType = t;
+            document.getElementById('test-btn-singola').className = t === 'singola'
+                ? 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm'
+                : 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm';
+            document.getElementById('test-btn-tripla').className = t === 'tripla'
+                ? 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm'
+                : 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm';
+            testDrawTarget();
+        };
+
+        function testRenderView() {
+            const session = appState.currentSession;
+            if (!session) { window.setView('mainMenu'); return; }
+
+            const isGara = session.type === 'Gara';
+            const avg = testState.frecceTirate > 0
+                ? (testState.totalScore / testState.frecceTirate).toFixed(2) : '—';
+
+            const volleeTableRows = testState.allVolleys.map((v, i) => {
+                const rowBg = i % 2 === 0 ? 'bg-gray-800' : 'bg-gray-700';
+                return `<tr class="${rowBg} text-xs">
+                    <td class="font-bold text-primary-orange p-1">${i+1}</td>
+                    <td class="text-white p-1">${v.scores.join(' – ')}</td>
+                    <td class="font-bold text-white p-1">${v.scores.reduce((s,x)=>s+testScoreValue(x),0)}</td>
+                    <td class="font-bold text-white p-1">${v.total}</td>
+                </tr>`;
+            }).join('');
+
+            // Note sessione (stessa struttura di scoring)
+            const sessionNotesHtml = `
+                <div class="mt-6 space-y-3">
+                    ${!isGara ? `
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="test-note-condizioni" class="input-style h-20 text-sm"
+                                placeholder="Condizioni fisiche, stanchezza, meteo..."
+                                oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche||''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label class="block text-sm font-bold mb-2 text-green-400">✅ Esercizi Svolti</label>
+                            <textarea id="test-eserciz-svolti" class="input-style h-24 text-sm"
+                                placeholder="Esercizi effettivamente svolti, tecniche praticate..."
+                                oninput="appState.currentSession.esercizSvolti=this.value">${session.esercizSvolti||''}</textarea>
+                        </div>
+                    ` : `
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-yellow-400">
+                            <label class="block text-sm font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</label>
+                            <textarea id="test-note-pregara" class="input-style h-20 text-sm"
+                                placeholder="Aspettative, tattica..."
+                                oninput="appState.currentSession.notePreGara=this.value">${session.notePreGara||''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
+                            <label class="block text-sm font-bold mb-2 text-green-400">🏆 Note Post-Gara</label>
+                            <textarea id="test-note-postgara" class="input-style h-24 text-sm"
+                                placeholder="Come è andata..."
+                                oninput="appState.currentSession.notePostGara=this.value">${session.notePostGara||''}</textarea>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
+                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
+                            <textarea id="test-note-condizioni-gara" class="input-style h-20 text-sm"
+                                placeholder="Condizioni fisiche, meteo..."
+                                oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche||''}</textarea>
+                        </div>
+                    `}
+                </div>`;
+
+            document.getElementById('content-view').innerHTML = `
+                <h2 class="text-3xl font-bold mb-1 text-white">${session.type} <span class="text-purple-400 text-xl">🔬 Test Bersaglio</span></h2>
+                <p class="text-sm mb-4 text-primary-orange">${session.distanza} | ${session.formatoGara}</p>
+
+                <!-- Selettore tipo targa -->
+                <div class="flex gap-2 mb-4">
+                    <button onclick="window.testChangeType('singola')" id="test-btn-singola"
+                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm">SINGOLA</button>
+                    <button onclick="window.testChangeType('tripla')" id="test-btn-tripla"
+                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm">TRIPLA</button>
+                </div>
+
+                <!-- Bersaglio -->
+                <div style="display:flex;justify-content:center;margin-bottom:8px;">
+                    <div id="test-target-canvas"></div>
+                </div>
+
+                <!-- Score live + punteggio volée corrente -->
+                <div class="bg-gray-900 p-4 rounded-2xl border border-gray-700 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="text-center flex-1">
+                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Mirino</p>
+                            <div id="test-live-score" class="text-5xl font-black text-white">—</div>
+                        </div>
+                        <div class="text-center flex-1">
+                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Totale</p>
+                            <div class="text-4xl font-black text-primary-orange">${testState.totalScore}</div>
+                        </div>
+                        <div class="text-center flex-1">
+                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Media</p>
+                            <div class="text-2xl font-bold text-white">${avg}</div>
+                        </div>
+                    </div>
+                    <!-- Celle volée corrente -->
+                    <div class="flex justify-around gap-2">
+                        ${Array(testState.cols).fill(0).map((_, i) => {
+                            const a = testState.currentVolee[i];
+                            if (a) {
+                                const cls = a.score === 'X' || a.score === '10'
+                                    ? 'bg-yellow-500 text-black'
+                                    : a.score === 'M' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white';
+                                return `<div class="test-volee-cell w-12 h-12 flex items-center justify-center rounded-full font-black text-lg ${cls}">${a.score}</div>`;
+                            }
+                            return `<div class="test-volee-cell w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 border border-gray-600 text-gray-500">-</div>`;
+                        }).join('')}
+                    </div>
+                    <!-- Azioni rapide -->
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="window.testAddMiss()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">M (Mancata)</button>
+                        <button onclick="window.testUndoLast()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">↩ Annulla</button>
+                    </div>
+                </div>
+
+                <!-- Statistiche live -->
+                ${testState.frecceTirate > 0 ? `
+                    <div class="stats-card mb-4">
+                        <h3 class="text-lg font-bold mb-3 text-white">📊 Statistiche Live</h3>
+                        <div class="grid grid-cols-4 gap-2 text-center text-sm">
+                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">Frecce</div><div class="font-bold text-white">${testState.frecceTirate}</div></div>
+                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">Totale</div><div class="font-bold text-white">${testState.totalScore}</div></div>
+                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">X-10</div><div class="font-bold text-white">${testState.totalX}-${testState.total10}</div></div>
+                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">9</div><div class="font-bold text-white">${testState.total9}</div></div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Tabella volée completate -->
+                ${testState.allVolleys.length > 0 ? `
+                    <div class="bg-secondary-dark p-4 rounded-xl mb-4 border border-gray-700">
+                        <h3 class="text-base font-bold mb-2 text-white">📋 Volée Completate</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full border-collapse text-xs">
+                                <thead><tr class="text-primary-orange">
+                                    <th class="p-1 text-left">Vol.</th>
+                                    <th class="p-1 text-left">Punteggi</th>
+                                    <th class="p-1">Parz.</th>
+                                    <th class="p-1">Tot.</th>
+                                </tr></thead>
+                                <tbody>${volleeTableRows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${sessionNotesHtml}
+
+                <!-- Bottone salva -->
+                <div class="mt-6">
+                    <button class="btn-primary w-full p-3 rounded-lg text-lg font-bold" onclick="window.saveTestSession()">
+                        💾 Fine e Salva Risultati
+                    </button>
+                </div>
+            `;
+
+            // Setup target dopo il render
+            requestAnimationFrame(() => {
+                testDrawTarget();
+                testSetupPointerEvents();
+                testBuildMagnifierBg();
+            });
+        }
+
+        function renderTestView() {
+            if (!appState.loggedInArcher) { window.setView('login'); return; }
+            if (!appState.currentSession) { window.setView('registrationForm', { type: 'Allenamento' }); return; }
+
+            // Reset stato test all'entrata nella view
+            testState.currentVolee = [];
+            testState.allVolleys = [];
+            testState.totalScore = 0;
+            testState.totalX = 0; testState.total10 = 0; testState.total9 = 0;
+            testState.frecceTirate = 0;
+            testState.configType = 'singola';
+
+            testRenderView();
+        }
+
+        window.saveTestSession = () => {
+            // Leggi note dalla UI
+            const noteCondizioniEl = document.getElementById('test-note-condizioni') || document.getElementById('test-note-condizioni-gara');
+            if (noteCondizioniEl) appState.currentSession.noteCondizioniFisiche = noteCondizioniEl.value;
+            const esercizEl = document.getElementById('test-eserciz-svolti');
+            if (esercizEl) appState.currentSession.esercizSvolti = esercizEl.value;
+            const preGaraEl = document.getElementById('test-note-pregara');
+            if (preGaraEl) appState.currentSession.notePreGara = preGaraEl.value;
+            const postGaraEl = document.getElementById('test-note-postgara');
+            if (postGaraEl) appState.currentSession.notePostGara = postGaraEl.value;
+
+            if (testState.frecceTirate === 0) {
+                showModal("Attenzione", "Non hai ancora registrato nessuna freccia.", [{ text: "Ok", handler: () => {} }]);
+                return;
+            }
+
+            const endTime = new Date();
+            appState.currentSession.endTime = getFormattedTime(endTime);
+            appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
+
+            const scoreInfo = `
+                <div class="bg-gray-800 rounded-lg p-3 mb-3">
+                    <p class="text-center text-3xl font-extrabold text-primary-orange mb-1">${testState.totalScore}</p>
+                    <p class="text-center text-xs text-gray-400">Frecce: ${testState.frecceTirate} | Media: ${(testState.totalScore/testState.frecceTirate).toFixed(2)} | X:${testState.totalX} 10:${testState.total10} 9:${testState.total9}</p>
+                </div>`;
+            const frecceField = `
+                <div class="mt-3 p-3 bg-gray-900 rounded-lg border border-primary-orange">
+                    <p class="text-white text-sm mb-2">🪃 Frecce aggiuntive (warm-up, prove…)?</p>
+                    <input type="number" id="test-extra-arrows" class="input-style text-center text-xl font-bold" min="0" max="500" placeholder="0" value="0">
+                </div>`;
+
+            showModal("✅ Test Completato!", scoreInfo + frecceField, [
+                { text: "💾 Salva e Vedi Riepilogo", handler: () => {
+                    const extra = parseInt(document.getElementById('test-extra-arrows')?.value) || 0;
+                    appState.currentSession.frecceAggiuntive = extra;
+                    // Costruisci dati compatibili con il formato normale
+                    const volleeGrid = testState.allVolleys.map(v => v.scores);
+                    const maxScore = testState.frecceTirate * 10;
+                    appState.currentSession.turn1 = {
+                        grid: volleeGrid,
+                        summary: {
+                            score: testState.totalScore,
+                            maxScore,
+                            frecceTirate: testState.frecceTirate,
+                            average: testState.frecceTirate > 0 ? testState.totalScore / testState.frecceTirate : 0,
+                            X: testState.totalX,
+                            Ten: testState.total10,
+                            Nine: testState.total9,
+                        },
+                    };
+                    appState.currentSession.totalScore = testState.totalScore;
+                    appState.currentSession.totalAverage = testState.frecceTirate > 0 ? testState.totalScore / testState.frecceTirate : 0;
+                    appState.currentSession.totalX = testState.totalX;
+                    appState.currentSession.totalTen = testState.total10;
+                    appState.currentSession.totalNine = testState.total9;
+                    appState.currentSession.turn1Score = testState.totalScore;
+                    appState.currentSession.testMode = true;
+                    const sessionIdBeforeSave = appState.currentSession.id;
+                    saveSessionToFirestore();
+                    setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
+                }}
+            ]);
+        };
+        // ── FINE TEST BERSAGLIO ───────────────────────────────────────────────
+
         function renderArrowCounter() {
             if (!appState.loggedInArcher) { window.setView('login'); return; }
             fetchSessions();
