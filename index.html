@@ -5004,10 +5004,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
         function testScoreFromDist(dist) {
             const rings = testGetRings();
-            // Sul bordo tra due anelli si assegna sempre il valore maggiore (anello interno)
-            // Tolleranza di 1.5px per coprire imprecisioni touch e pixel border
-            const BORDER_TOL = 1.5;
-            for (const r of rings) { if (dist <= r.r + BORDER_TOL) return r.s; }
+            // Tolleranza minima solo per errori floating-point sul bordo esatto
+            for (const r of rings) { if (dist <= r.r + 0.5) return r.s; }
             return 'M';
         }
 
@@ -5090,11 +5088,12 @@ window.showMigrationModal = migrateSessionsAddBowType;
             const clientY = e.clientY ?? (e.touches?.[0]?.clientY);
             if (clientX == null) return;
 
-            // Posizione del dito sul canvas
-            let fingerX = clientX - rect.left;
-            let fingerY = clientY - rect.top;
+            // Coordinate relative al contenuto del canvas (escluso border 2px)
+            const borderW = 2;
+            let fingerX = clientX - rect.left - borderW;
+            let fingerY = clientY - rect.top  - borderW;
 
-            // Clamp al cerchio
+            // Clamp al cerchio (raggio 170, centro 170,170)
             const distFinger = Math.sqrt((fingerX-170)**2 + (fingerY-170)**2);
             if (distFinger > 170) {
                 const angle = Math.atan2(fingerY-170, fingerX-170);
@@ -5102,38 +5101,27 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 fingerY = 170 + 170 * Math.sin(angle);
             }
 
-            // La lente è posizionata: left = clientX - 110, top = clientY - 270
-            // Il centro del mirino (crosshair) è al centro fisico della lente: +110, +110
-            // → posizione schermo del mirino: (clientX, clientY - 160)
-            // Convertiamo in coordinate canvas:
             const ZOOM = 4;
-            const MAG_RADIUS = 110; // metà lente
-            const LIFT = 270;       // quanto la lente sale sopra il dito
+            const MAG_RADIUS = 110; // metà lente (220/2)
+            const LIFT = 270;       // px che la lente sale sopra il dito
 
-            // Il background-position bg = (MAG_RADIUS - fingerX*ZOOM, MAG_RADIUS - fingerY*ZOOM)
-            // Il centro della lente (MAG_RADIUS, MAG_RADIUS) punta a:
-            //   bgX + MAG_RADIUS = point_on_bg_x  →  point_on_bg_x = fingerX * ZOOM
-            //   canvas_x = point_on_bg_x / ZOOM = fingerX
-            // PERÒ la lente è alzata di LIFT - MAG_RADIUS = 160px rispetto al dito
-            // Quindi il mirino punta 160px sopra il dito nello schermo
-            // In termini canvas: 160 / zoom = 40px sopra il punto del dito
-            const CROSSHAIR_OFFSET_Y = (LIFT - MAG_RADIUS) / ZOOM; // = 40px
-
-            let aimX = fingerX;
-            let aimY = fingerY - CROSSHAIR_OFFSET_Y;
-
-            // Clamp al cerchio anche il punto mirino
-            const distAim = Math.sqrt((aimX-170)**2 + (aimY-170)**2);
-            if (distAim > 170) {
-                const angle = Math.atan2(aimY-170, aimX-170);
-                aimX = 170 + 170 * Math.cos(angle);
-                aimY = 170 + 170 * Math.sin(angle);
-            }
+            // Il mirino è al centro fisico della lente.
+            // La lente è alzata di LIFT px sopra il dito (clientY),
+            // quindi il mirino si trova a clientY - LIFT + MAG_RADIUS = clientY - 160 px sullo schermo.
+            // In coordinate canvas: 160px schermo / zoom(1) = 160px → ma il canvas NON è zoomato,
+            // la lente mostra la targa ingrandita. L'offset in canvas è:
+            // (LIFT - MAG_RADIUS) / 1  = 160px verso l'alto nel canvas... NO.
+            // Ragionamento corretto:
+            //   Il background-position è impostato così che fingerX,fingerY del canvas
+            //   appaia al centro della lente. Quindi il mirino punta a fingerX, fingerY.
+            //   Non c'è offset Y — il mirino mostra esattamente il punto toccato.
+            const aimX = fingerX;
+            const aimY = fingerY;
 
             testState.lastX = aimX;
             testState.lastY = aimY;
 
-            // Aggiorna background-position: il centro della lente deve mostrare aimX, aimY
+            // Background-position: centro lente (MAG_RADIUS, MAG_RADIUS) = fingerX*ZOOM, fingerY*ZOOM
             const mag = document.getElementById('test-magnifier');
             if (mag) {
                 mag.style.display = 'block';
