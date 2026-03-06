@@ -140,6 +140,7 @@
             position:relative; width:340px; height:340px;
             border-radius:50%; overflow:hidden;
             border:2px solid #334155; touch-action:none;
+            flex-shrink:0;
         }
     </style>
     <script>
@@ -5005,16 +5006,57 @@ window.showMigrationModal = migrateSessionsAddBowType;
             { s:'5',  r:108.1, c:'#3b82f6' }, { s:'4',  r:123.6, c:'#111111' }, { s:'3',  r:139,   c:'#111111' },
             { s:'2',  r:154.5, c:'#e2e8f0' }, { s:'1',  r:170,   c:'#e2e8f0' },
         ];
-        const TEST_RINGS_TRIPLA = TEST_RINGS_SINGOLA.slice(0, 6);
+
+        // Tripla: 3 bersagli sovrapposti verticalmente, anelli X‑6 scalati a raggio 80px
+        const TRIPLA_R     = 80;
+        const TRIPLA_GAP   = 12;
+        const TRIPLA_W     = TRIPLA_R * 2 + 4; // 164
+        const TRIPLA_H     = TRIPLA_R * 6 + TRIPLA_GAP * 2 + 4; // 508
+        const TRIPLA_CX    = TRIPLA_W / 2;
+        const TRIPLA_CY    = [
+            2 + TRIPLA_R,
+            2 + TRIPLA_R * 3 + TRIPLA_GAP,
+            2 + TRIPLA_R * 5 + TRIPLA_GAP * 2,
+        ];
+        const _TS = 92.7; // raggio anello-6 singola
+        const TEST_RINGS_TRIPLA_SHAPE = [
+            { s:'X',  r: +(15.4  / _TS * TRIPLA_R).toFixed(1), c:'#fbbf24' },
+            { s:'10', r: +(30.9  / _TS * TRIPLA_R).toFixed(1), c:'#fbbf24' },
+            { s:'9',  r: +(46.3  / _TS * TRIPLA_R).toFixed(1), c:'#fbbf24' },
+            { s:'8',  r: +(61.8  / _TS * TRIPLA_R).toFixed(1), c:'#ef4444' },
+            { s:'7',  r: +(77.2  / _TS * TRIPLA_R).toFixed(1), c:'#ef4444' },
+            { s:'6',  r: TRIPLA_R,                              c:'#3b82f6' },
+        ];
 
         function testGetRings() {
-            return testState.configType === 'singola' ? TEST_RINGS_SINGOLA : TEST_RINGS_TRIPLA;
+            return testState.configType === 'singola' ? TEST_RINGS_SINGOLA : TEST_RINGS_TRIPLA_SHAPE;
         }
 
-        function testScoreFromDist(dist) {
-            const rings = testGetRings();
-            for (const r of rings) { if (dist <= r.r) return r.s; }
+        function testScoreFromDist(dist, rings) {
+            const r = rings || testGetRings();
+            for (const ring of r) { if (dist <= ring.r + 0.5) return ring.s; }
             return 'M';
+        }
+
+        // Score + closest-center logic for tripla
+        function testScoreFromXY(x, y) {
+            if (testState.configType === 'singola') {
+                const dist = Math.sqrt((x - 170) ** 2 + (y - 170) ** 2);
+                return { score: testScoreFromDist(dist), dist, cx: 170, cy: 170 };
+            }
+            // Tripla: find which sub-target is hit (prefer closest center)
+            let best = null;
+            TRIPLA_CY.forEach(cy => {
+                const dist = Math.sqrt((x - TRIPLA_CX) ** 2 + (y - cy) ** 2);
+                if (dist <= TRIPLA_R + 1) {
+                    if (!best || dist < best.dist) {
+                        best = { dist, cy };
+                    }
+                }
+            });
+            if (!best) return { score: 'M', dist: 999, cx: TRIPLA_CX, cy: TRIPLA_CY[1] };
+            const score = testScoreFromDist(best.dist, TEST_RINGS_TRIPLA_SHAPE);
+            return { score, dist: best.dist, cx: TRIPLA_CX, cy: best.cy };
         }
 
         function testScoreValue(s) {
@@ -5037,38 +5079,90 @@ window.showMigrationModal = migrateSessionsAddBowType;
         }
 
         function testBuildMagnifierBg() {
-            const size = 340;
+            const isTripla = testState.configType === 'tripla';
+            const W = isTripla ? TRIPLA_W : 340;
+            const H = isTripla ? TRIPLA_H : 340;
             const offscreen = document.createElement('canvas');
-            offscreen.width = size; offscreen.height = size;
+            offscreen.width = W; offscreen.height = H;
             const ctx = offscreen.getContext('2d');
-            const cx = size / 2, cy = size / 2;
-            const rings = testGetRings();
-            [...rings].reverse().forEach(r => {
-                ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, Math.PI * 2);
-                ctx.fillStyle = r.c; ctx.fill();
-                ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
-            });
-            ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,size); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(size,cy); ctx.stroke();
+
+            if (isTripla) {
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, W, H);
+                TRIPLA_CY.forEach(cy => {
+                    [...TEST_RINGS_TRIPLA_SHAPE].reverse().forEach(r => {
+                        ctx.beginPath(); ctx.arc(TRIPLA_CX, cy, r.r, 0, Math.PI * 2);
+                        ctx.fillStyle = r.c; ctx.fill();
+                        ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 0.8; ctx.stroke();
+                    });
+                    // Croce centrale
+                    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5;
+                    ctx.beginPath(); ctx.moveTo(TRIPLA_CX - TRIPLA_R, cy); ctx.lineTo(TRIPLA_CX + TRIPLA_R, cy); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(TRIPLA_CX, cy - TRIPLA_R); ctx.lineTo(TRIPLA_CX, cy + TRIPLA_R); ctx.stroke();
+                });
+            } else {
+                const cx = 170, cy = 170;
+                [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
+                    ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, Math.PI * 2);
+                    ctx.fillStyle = r.c; ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+                });
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5;
+                ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,340); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(340,cy); ctx.stroke();
+            }
             const mag = document.getElementById('test-magnifier');
             if (!mag) return;
             mag.style.backgroundImage = `url(${offscreen.toDataURL()})`;
+            mag._bgW = W; mag._bgH = H;
         }
 
         function testDrawTarget() {
+            const isTripla = testState.configType === 'tripla';
             const canvas = document.getElementById('test-target-canvas');
             if (!canvas) return;
-            canvas.querySelectorAll('.test-arrow-dot,.test-ring').forEach(d => d.remove());
-            const rings = testGetRings();
-            [...rings].reverse().forEach(r => {
-                const el = document.createElement('div');
-                el.className = 'test-ring';
-                el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;
-                    width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
-                canvas.appendChild(el);
-            });
-            // Frecce T1 in grigio se siamo al T2
+
+            // Ridimensiona il canvas wrapper in base al tipo
+            if (isTripla) {
+                canvas.style.width  = TRIPLA_W + 'px';
+                canvas.style.height = TRIPLA_H + 'px';
+                canvas.style.borderRadius = '12px';
+            } else {
+                canvas.style.width  = '340px';
+                canvas.style.height = '340px';
+                canvas.style.borderRadius = '50%';
+            }
+
+            canvas.querySelectorAll('.test-arrow-dot,.test-ring,.test-tripla-bg').forEach(d => d.remove());
+
+            if (isTripla) {
+                // Sfondo scuro
+                const bg = document.createElement('div');
+                bg.className = 'test-tripla-bg';
+                bg.style.cssText = `position:absolute;inset:0;background:#1e293b;border-radius:10px;`;
+                canvas.appendChild(bg);
+                // Disegna i 3 bersagli come div circolari
+                TRIPLA_CY.forEach(cy => {
+                    [...TEST_RINGS_TRIPLA_SHAPE].reverse().forEach(r => {
+                        const el = document.createElement('div');
+                        el.className = 'test-ring';
+                        el.style.cssText = `position:absolute;border-radius:50%;
+                            width:${r.r*2}px;height:${r.r*2}px;background:${r.c};
+                            border:0.8px solid rgba(0,0,0,0.4);
+                            left:${TRIPLA_CX - r.r}px;top:${cy - r.r}px;`;
+                        canvas.appendChild(el);
+                    });
+                });
+            } else {
+                [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
+                    const el = document.createElement('div');
+                    el.className = 'test-ring';
+                    el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;
+                        width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
+                    canvas.appendChild(el);
+                });
+            }
+
+            // Frecce T1 in grigio
             if (testState.currentTurn === 2 && testState.turn1Data) {
                 testState.turn1Data.allVolleys.forEach(v => {
                     v.arrows.forEach(a => { if (a.score !== 'M') testPlaceDot(canvas, a.x, a.y, '#94a3b8'); });
@@ -5097,33 +5191,44 @@ window.showMigrationModal = migrateSessionsAddBowType;
             const clientX = e.clientX ?? (e.touches?.[0]?.clientX);
             const clientY = e.clientY ?? (e.touches?.[0]?.clientY);
             if (clientX == null) return;
+
             const borderW = 2;
-            let fingerX = clientX - rect.left - borderW;
-            let fingerY = clientY - rect.top  - borderW;
-            const distFinger = Math.sqrt((fingerX-170)**2 + (fingerY-170)**2);
-            if (distFinger > 170) {
-                const angle = Math.atan2(fingerY-170, fingerX-170);
-                fingerX = 170 + 170 * Math.cos(angle);
-                fingerY = 170 + 170 * Math.sin(angle);
-            }
-            const ZOOM = 4, MAG_RADIUS = 110, LIFT = 270;
-            const aimX = fingerX, aimY = fingerY;
-            testState.lastX = aimX; testState.lastY = aimY;
+            const isTripla = testState.configType === 'tripla';
+            let x = clientX - rect.left - borderW;
+            let y = clientY - rect.top  - borderW;
+
+            // Clamp al canvas
+            const cW = isTripla ? TRIPLA_W : 340;
+            const cH = isTripla ? TRIPLA_H : 340;
+            x = Math.max(0, Math.min(cW, x));
+            y = Math.max(0, Math.min(cH, y));
+
+            testState.lastX = x; testState.lastY = y;
+
+            // Punteggio: usa testScoreFromXY per singola e tripla
+            const hit = testScoreFromXY(x, y);
+            testState.lastScore = hit.score;
+
+            // Lente: ingrandisce la zona toccata
+            const ZOOM = 4;
+            const MAG_RADIUS = 110;
+            const LIFT = 270;
+            const bgW = isTripla ? TRIPLA_W : 340;
+            const bgH = isTripla ? TRIPLA_H : 340;
             const mag = document.getElementById('test-magnifier');
             if (mag) {
                 mag.style.display = 'block';
                 mag.style.left = (clientX - MAG_RADIUS) + 'px';
                 mag.style.top  = (clientY - LIFT) + 'px';
-                mag.style.backgroundSize = `${340 * ZOOM}px ${340 * ZOOM}px`;
-                mag.style.backgroundPosition = `${MAG_RADIUS - aimX * ZOOM}px ${MAG_RADIUS - aimY * ZOOM}px`;
+                mag.style.backgroundSize = `${bgW * ZOOM}px ${bgH * ZOOM}px`;
+                mag.style.backgroundPosition = `${MAG_RADIUS - x * ZOOM}px ${MAG_RADIUS - y * ZOOM}px`;
             }
-            const dFromCenter = Math.sqrt((aimX-170)**2 + (aimY-170)**2);
-            const score = testScoreFromDist(dFromCenter);
-            testState.lastScore = score;
+
             const liveEl = document.getElementById('test-live-score');
             if (liveEl) {
-                liveEl.textContent = score;
-                liveEl.style.color = score === 'X' || score === '10' ? '#fbbf24' : score === 'M' ? '#ef4444' : '#ffffff';
+                const s = hit.score;
+                liveEl.textContent = s;
+                liveEl.style.color = s === 'X' || s === '10' ? '#fbbf24' : s === 'M' ? '#ef4444' : '#ffffff';
             }
         }
 
@@ -6426,3 +6531,4 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
+
