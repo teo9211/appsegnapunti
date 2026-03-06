@@ -5004,7 +5004,10 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
         function testScoreFromDist(dist) {
             const rings = testGetRings();
-            for (const r of rings) { if (dist <= r.r) return r.s; }
+            // Sul bordo tra due anelli si assegna sempre il valore maggiore (anello interno)
+            // Tolleranza di 1.5px per coprire imprecisioni touch e pixel border
+            const BORDER_TOL = 1.5;
+            for (const r of rings) { if (dist <= r.r + BORDER_TOL) return r.s; }
             return 'M';
         }
 
