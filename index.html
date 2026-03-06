@@ -3787,6 +3787,30 @@ async function saveNewGoal() {
                         🔄 Migrazione Dati (Aggiungi Tipo Arco)
                     </button>
                 </div>
+
+                <!-- ESPORTA AGENDA PDF -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <h3 class="text-xl font-bold mb-2 text-white">📄 Esporta Agenda Allenamenti (PDF)</h3>
+                    <p class="text-xs text-gray-400 mb-3">Genera un PDF in formato agenda con i dati delle sessioni nel periodo scelto.</p>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs text-primary-orange mb-1">Da</label>
+                            <input type="date" id="pdf-date-from" class="input-style text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-primary-orange mb-1">A</label>
+                            <input type="date" id="pdf-date-to" class="input-style text-sm">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('week')">Questa Settimana</button>
+                        <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('month')">Questo Mese</button>
+                        <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('year')">Quest'Anno</button>
+                    </div>
+                    <button class="btn-primary w-full p-3 rounded-lg font-bold" onclick="window.exportAgendaPDF()">
+                        📥 Genera PDF Agenda
+                    </button>
+                </div>
             `;
 
             // Contatore selezioni
@@ -4601,30 +4625,6 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     <!-- Contatore Frecce -->
                     <div id="arrow-counter-section"></div>
 
-                    <!-- Export PDF Agenda -->
-                    <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mt-4 border-2 border-primary-orange">
-                        <h3 class="text-lg font-bold mb-3 text-white">📄 Esporta Agenda Allenamenti (PDF)</h3>
-                        <p class="text-xs text-gray-400 mb-3">Genera un PDF in formato agenda con i dati delle sessioni di allenamento tecnico nel periodo scelto.</p>
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div>
-                                <label class="block text-xs text-primary-orange mb-1">Da</label>
-                                <input type="date" id="pdf-date-from" class="input-style text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-primary-orange mb-1">A</label>
-                                <input type="date" id="pdf-date-to" class="input-style text-sm">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 mb-3">
-                            <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('week')">Questa Settimana</button>
-                            <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('month')">Questo Mese</button>
-                            <button class="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded-lg font-bold" onclick="window.setPdfPeriod('year')">Quest'Anno</button>
-                        </div>
-                        <button class="btn-primary w-full p-3 rounded-lg font-bold" onclick="window.exportAgendaPDF()">
-                            📥 Genera PDF Agenda
-                        </button>
-                    </div>
-
                 `;
 
                 document.getElementById('content-view').innerHTML = html;
@@ -4991,7 +4991,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                                     </div>
                                     <div class="text-right">
                                         <div class="text-white font-bold">${s.arrows} frecce</div>
-                                        ${s.aggiuntive > 0 ? `<div class="text-xs text-gray-400">+${s.aggiuntive} aggiuntive</div>` : ''}
+                                        ${s.aggiuntive > 0 && !s.trainingWithoutScore ? `<div class="text-xs text-gray-400">+${s.aggiuntive} aggiuntive</div>` : ''}
                                     </div>
                                 </div>
                             `).join('') || '<p class="text-gray-400 text-center">Nessuna freccia registrata ancora.</p>'}
