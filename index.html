@@ -5155,7 +5155,9 @@ window.showMigrationModal = migrateSessionsAddBowType;
         function testCompleteVolee() {
             const arrows = [...testState.currentVolee];
             const scores = arrows.map(a => a.score);
-            scores.sort((a, b) => testScoreValue(b) - testScoreValue(a));
+            // Ordine: X > 10 > 9 > 8 … > 1 > M
+            const sortOrder = s => s === 'X' ? 11 : s === 'M' ? 0 : parseInt(s) || 0;
+            scores.sort((a, b) => sortOrder(b) - sortOrder(a));
             const voleeScore = scores.reduce((s, v) => s + testScoreValue(v), 0);
             testState.totalScore += voleeScore;
             testState.frecceTirate += scores.length;
@@ -5184,7 +5186,6 @@ window.showMigrationModal = migrateSessionsAddBowType;
         function testPromptTurnEnd(isFinal) {
             const t1Score = isFinal && testState.turn1Data ? testState.turn1Data.totalScore : 0;
             const combinedScore = testState.totalScore + t1Score;
-            const label = isFinal ? 'Fine Sessione' : '2° Turno';
             const scoreInfo = `
                 <div class="bg-gray-800 rounded-lg p-3 mb-3">
                     <p class="text-center text-xs text-gray-400 mb-1">Turno ${testState.currentTurn}</p>
@@ -5197,21 +5198,27 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     <input type="number" id="test-extra-arrows" class="input-style text-center text-xl font-bold" min="0" max="500" placeholder="0" value="0">
                 </div>`;
 
-            const buttons = [];
-            if (!isFinal) {
-                buttons.push({ text: '2° Turno ▶', handler: () => testStartTurn2() });
-            }
-            buttons.push({ text: `💾 ${label}`, handler: () => {
+            const saveAndClose = () => {
                 const extra = parseInt(document.getElementById('test-extra-arrows')?.value) || 0;
                 appState.currentSession.frecceAggiuntive = (appState.currentSession.frecceAggiuntive || 0) + extra;
-                if (isFinal) {
-                    testFinalSave();
-                } else {
-                    testStartTurn2();
-                }
-            }});
+                testFinalSave();
+            };
+            const goTurn2 = () => {
+                const extra = parseInt(document.getElementById('test-extra-arrows')?.value) || 0;
+                appState.currentSession.frecceAggiuntive = (appState.currentSession.frecceAggiuntive || 0) + extra;
+                testStartTurn2();
+            };
 
-            showModal(`✅ Turno ${testState.currentTurn} Completato!`, scoreInfo, buttons);
+            if (isFinal) {
+                showModal(`✅ Turno ${testState.currentTurn} Completato!`, scoreInfo, [
+                    { text: '💾 Salva e Chiudi', handler: saveAndClose }
+                ]);
+            } else {
+                showModal(`✅ Turno ${testState.currentTurn} Completato!`, scoreInfo, [
+                    { text: '💾 Salva e Chiudi', handler: saveAndClose },
+                    { text: '2° Turno ▶',        handler: goTurn2      }
+                ]);
+            }
         }
 
         function testStartTurn2() {
@@ -6419,4 +6426,3 @@ window.showMigrationModal = migrateSessionsAddBowType;
 </script>
 </body>
 </html>
-
