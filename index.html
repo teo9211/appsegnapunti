@@ -555,6 +555,7 @@ const KEYPAD_VALUES = ['X', '10', '9', '8', '7', '6', '5', '4', '3', '2', '1', '
         }
 
         function calculateTurnScores(grid) {
+            if (!grid || !grid.length) return { score: 0, frecceTirate: 0, average: 0, maxScore: 0, X: 0, Ten: 0, Nine: 0, results: [] };
             let cumulativeTotal = 0;
             let totalX = 0;
             let totalTen = 0;
@@ -1922,6 +1923,10 @@ function renderMainMenu() {
             const format = scoringState.format;
             const isTraining = session.type === 'Allenamento';
 
+            if (!appState.scoringGrid || !appState.scoringGrid.length) {
+                initializeScoringGrid();
+            }
+
             let cumulativeTotalForView = 0;
             const gridData = appState.scoringGrid.map((row) => {
                 const volleyResult = calculateVolley(row, cumulativeTotalForView);
@@ -2215,24 +2220,27 @@ function renderMainMenu() {
             const session = appState.currentSession;
             if (!session) return;
 
+            // Assicura grid inizializzata
+            if (!appState.scoringGrid || !appState.scoringGrid.length) {
+                initializeScoringGrid();
+            }
+            if (!scoringState.activeCell) {
+                scoringState.activeCell = { row: 1, col: 1 };
+            }
+
             // Auto-imposta tipo bersaglio dal tipoTarga
             overlayState.configType = targaToConfigType(session.tipoTarga);
             testState.configType = overlayState.configType;
 
-            // Sincronizza testState con la cella attiva corrente
-            // Non resettiamo le volée — usiamo il grid come source of truth
             overlayState.active = true;
 
             // Costruisci la volee corrente dalla cella attiva
             const row = scoringState.activeCell.row - 1;
             const rowData = appState.scoringGrid[row] || [];
-            const filledInRow = rowData.filter(s => s !== '' && s !== undefined).length;
-            // Le frecce già inserite in questa volee come "currentVolee" per i dots
             testState.currentVolee = rowData
                 .filter(s => s !== '' && s !== undefined)
-                .map(s => ({ score: s, x: 0, y: 0 })); // x,y 0 = no dot
-            // Le frecce delle volée precedenti
-            testState.allVolleys = appState.scoringGrid.slice(0, row).map((r, i) => ({
+                .map(s => ({ score: s, x: 0, y: 0 }));
+            testState.allVolleys = appState.scoringGrid.slice(0, row).map((r) => ({
                 scores: [...r].filter(s => s !== ''),
                 arrows: [],
                 total: 0,
