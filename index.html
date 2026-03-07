@@ -113,7 +113,7 @@
             transition: width 0.3s ease;
         }
 
-        /* ── TEST BERSAGLIO ─────────────────────────── */
+        /* ── BERSAGLIO OVERLAY ─────────────────────────── */
         #test-magnifier {
             position: fixed;
             width: 220px; height: 220px;
@@ -135,12 +135,6 @@
             border-radius:50%; transform:translate(-50%,-50%);
             z-index:50; pointer-events:none;
             box-shadow: 0 0 3px rgba(0,0,0,0.8);
-        }
-        #test-target-canvas {
-            position:relative; width:340px; height:340px;
-            border-radius:50%; overflow:hidden;
-            border:2px solid #334155; touch-action:none;
-            flex-shrink:0;
         }
         #target-overlay {
             display:none; position:fixed; inset:0; z-index:500;
@@ -193,7 +187,7 @@
     </button>
 
     <!-- Bottone Riprendi: appare a destra quando hai una sessione in pausa -->
-    <!-- Lente mirino per Test Bersaglio -->
+    <!-- Lente mirino per Bersaglio Overlay -->
     <div id="test-magnifier">
         <div class="test-ch-v"></div>
         <div class="test-ch-h"></div>
@@ -264,10 +258,6 @@
                 <button onclick="window.navDrawerGo('registrationForm', {type:'Gara'})" 
                         class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-white hover:bg-gray-800 hover:text-primary-orange transition-all text-sm">
                     &#127942; Gara
-                </button>
-                <button onclick="window.navDrawerGo('test')" 
-                        class="nav-drawer-item w-full text-left px-3 py-3 rounded-lg text-purple-300 hover:bg-purple-900 hover:text-purple-200 transition-all text-sm">
-                    🔬 Test Bersaglio
                 </button>
 
                 <div class="border-t border-gray-700 my-3"></div>
@@ -386,8 +376,6 @@ window.goBack = () => {
         case 'calendar':
         case 'exportData':
         case 'settings':
-        case 'test':
-        case 'targetStats':
         case 'compareSessionsView':
         case 'equipment':
         case 'arrowCounter':
@@ -778,9 +766,6 @@ window.setView = (viewName, data = {}) => {
                 case 'arrowCounter':
                     renderArrowCounter();
                     break;
-                case 'test':
-                    renderTestView();
-                    break;
                 case 'targetStats':
                     renderTargetStats();
                     break;
@@ -993,9 +978,6 @@ function renderMainMenu() {
                 <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('registrationForm', { type: 'Gara' })">
                     🏆 Gara 🥇
                 </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#8b5cf6;" onclick="window.setView('test')">
-                    🔬 Test Bersaglio
-                </button>
             </div>
 
 <div class="mb-6">
@@ -1147,9 +1129,6 @@ function renderMainMenu() {
                             <button type="button" class="btn-primary w-full p-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border-0" onclick="window.startQuickScore()">
                                 ⚡ Quick Score (Inserimento Rapido)
                             </button>
-                            <button type="button" class="btn-primary w-full p-3 rounded-lg border-0 text-white" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);" onclick="window.startTestMode()">
-                                🔬 Test Bersaglio (Touch)
-                            </button>
                         ` : ''}
 
                     </div>
@@ -1177,8 +1156,6 @@ function renderMainMenu() {
 
                 if (session.trainingWithoutScore) {
                     window.setView('trainingNotes');
-                } else if (session.testMode) {
-                    window.setView('test');
                 } else {
                     window.setView('scoring');
                 }
@@ -1226,33 +1203,6 @@ function renderMainMenu() {
 
             appState.currentSession = session;
             window.setView('quickScore');
-        };
-
-        window.startTestMode = () => {
-            const formData = new FormData(document.getElementById('registrationForm'));
-            const session = Object.fromEntries(formData.entries());
-
-            if (!session.data || !session.ora || !session.luogo || !session.tipoLuogo ||
-                !session.distanza || !session.tipoTarga || !session.formatoGara) {
-                showModal("Errore", "Compila tutti i campi obbligatori prima di procedere.", [
-                    { text: "Ok", handler: () => {} }
-                ]);
-                return;
-            }
-
-            session.type = appState.sessionType;
-            session.arciere = appState.loggedInArcher.nome;
-            session.archerId = appState.loggedInArcher.id;
-            session.startTime = scoringState.startTime;
-            session.id = Date.now();
-            session.testMode = true;
-            // Leggi esercizi consigliati se presenti
-            if (session.type === 'Allenamento') {
-                session.esercizConsigliati = document.getElementById('esercizConsigliati')?.value || '';
-            }
-
-            appState.currentSession = session;
-            window.setView('test');
         };
 
         function renderQuickScore() {
@@ -2066,11 +2016,12 @@ function renderMainMenu() {
                 <div class="mt-6">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="text-xl font-bold text-white">Tastierino Punteggi</h3>
+                        ${['40','60','80','120','Tripla','Tripla Vegas'].includes(session.tipoTarga) ? `
                         <button onclick="window.openTargetOverlay()"
                             class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white border-2 border-orange-500"
                             style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">
                             🎯 Bersaglio
-                        </button>
+                        </button>` : ''}
                     </div>
                     <div class="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-7">
                         ${KEYPAD_VALUES.map(val => `
@@ -2200,6 +2151,81 @@ function renderMainMenu() {
             `;
         }
 
+        // ── COSTANTI E STATO BERSAGLIO ────────────────────────────────────────
+        // Anelli bersaglio singolo (canvas 340×340, centro 170,170)
+        const TEST_RINGS_SINGOLA = [
+            { s:'X',  r:7.4,   c:'#fef08a' }, { s:'10', r:17.0,  c:'#fef08a' },
+            { s:'9',  r:35.9,  c:'#fde047' }, { s:'8',  r:54.9,  c:'#fde047' },
+            { s:'7',  r:73.8,  c:'#fb923c' }, { s:'6',  r:92.7,  c:'#fb923c' },
+            { s:'5',  r:111.7, c:'#60a5fa' }, { s:'4',  r:130.6, c:'#60a5fa' },
+            { s:'3',  r:149.5, c:'#1e1e1e' }, { s:'2',  r:168.5, c:'#1e1e1e' },
+            { s:'1',  r:170.0, c:'#374151' },
+        ];
+        // Anelli bersaglio tripla (3 sub-target verticali, raggio 80px)
+        const TRIPLA_W = 164, TRIPLA_H = 508, TRIPLA_GAP = 12, TRIPLA_R = 80, TRIPLA_CX = 82;
+        const TRIPLA_CY = [82, 82 + TRIPLA_R*2 + TRIPLA_GAP, 82 + (TRIPLA_R*2 + TRIPLA_GAP)*2];
+        const TEST_RINGS_TRIPLA_SHAPE = [
+            { s:'X',  r:3.5,  c:'#fef08a' }, { s:'10', r:8.0,  c:'#fef08a' },
+            { s:'9',  r:16.8, c:'#fde047' }, { s:'8',  r:25.7, c:'#fde047' },
+            { s:'7',  r:34.6, c:'#fb923c' }, { s:'6',  r:43.4, c:'#fb923c' },
+            { s:'5',  r:52.3, c:'#60a5fa' }, { s:'4',  r:61.2, c:'#60a5fa' },
+            { s:'3',  r:70.0, c:'#1e1e1e' }, { s:'2',  r:78.9, c:'#1e1e1e' },
+            { s:'1',  r:80.0, c:'#374151' },
+        ];
+        // Stato bersaglio overlay
+        const testState = {
+            configType: 'singola',
+            isActive: false,
+            lastX: 0, lastY: 0, lastScore: null,
+        };
+        function testScoreFromDist(dist, rings) {
+            for (const r of rings) { if (dist <= r.r + 0.5) return r.s; }
+            return 'M';
+        }
+        function testScoreFromXY(x, y) {
+            if (testState.configType === 'tripla') {
+                let bestDist = Infinity, best = { cx: TRIPLA_CX, cy: TRIPLA_CY[0] };
+                TRIPLA_CY.forEach(cy => {
+                    const d = Math.hypot(x - TRIPLA_CX, y - cy);
+                    if (d < bestDist) { bestDist = d; best = { cx: TRIPLA_CX, cy }; }
+                });
+                return { score: testScoreFromDist(bestDist, TEST_RINGS_TRIPLA_SHAPE), dist: bestDist, cx: best.cx, cy: best.cy };
+            } else {
+                const dist = Math.hypot(x - 170, y - 170);
+                return { score: testScoreFromDist(dist, TEST_RINGS_SINGOLA), dist };
+            }
+        }
+        function testPlaceDot(canvas, x, y, color) {
+            const dot = document.createElement('div');
+            dot.className = 'test-arrow-dot';
+            dot.style.left = x + 'px'; dot.style.top = y + 'px';
+            if (color && color !== '#ff4500') dot.style.background = color;
+            canvas.appendChild(dot);
+        }
+        function testBuildMagnifierBg() {
+            const isTripla = testState.configType === 'tripla';
+            const W = isTripla ? TRIPLA_W : 340, H = isTripla ? TRIPLA_H : 340;
+            const off = document.createElement('canvas');
+            off.width = W; off.height = H;
+            const ctx = off.getContext('2d');
+            const rings = isTripla ? TEST_RINGS_TRIPLA_SHAPE : TEST_RINGS_SINGOLA;
+            const drawTarget = (cx, cy) => {
+                [...rings].reverse().forEach(r => {
+                    ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, Math.PI*2);
+                    ctx.fillStyle = r.c; ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
+                });
+            };
+            if (isTripla) {
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, W, H);
+                TRIPLA_CY.forEach(cy => drawTarget(TRIPLA_CX, cy));
+            } else {
+                ctx.fillStyle = '#374151'; ctx.beginPath(); ctx.arc(170,170,170,0,Math.PI*2); ctx.fill();
+                drawTarget(170, 170);
+            }
+            const mag = document.getElementById('test-magnifier');
+            if (mag) mag.style.backgroundImage = `url('${off.toDataURL()}')`;
+        }
         // ── TARGET OVERLAY (bersaglio integrato nel segnapunti) ───────────────
         const overlayState = { active: false, configType: 'singola' };
 
@@ -2280,9 +2306,6 @@ function renderMainMenu() {
                 ? `width:${TRIPLA_W}px;height:${TRIPLA_H}px;border-radius:12px;`
                 : `width:340px;height:340px;border-radius:50%;`;
 
-            const btnS = `flex:1;padding:8px;border-radius:8px;font-weight:700;border:2px solid #f97316;font-size:13px;cursor:pointer;${testState.configType==='singola'?'background:#f97316;color:#fff':'background:transparent;color:#f97316'}`;
-            const btnT = `flex:1;padding:8px;border-radius:8px;font-weight:700;border:2px solid #f97316;font-size:13px;cursor:pointer;${testState.configType==='tripla'?'background:#f97316;color:#fff':'background:transparent;color:#f97316'}`;
-
             const remaining = totalArrows - liveStats.frecceTirate;
             const pct = totalArrows > 0 ? Math.round(liveStats.frecceTirate / totalArrows * 100) : 0;
 
@@ -2293,10 +2316,6 @@ function renderMainMenu() {
             const isComplete = liveStats.frecceTirate >= totalArrows;
 
             container.innerHTML = `
-                <div style="display:flex;gap:8px;margin-bottom:12px;">
-                    <button onclick="window.overlayChangeType('singola')" style="${btnS}">SINGOLA</button>
-                    <button onclick="window.overlayChangeType('tripla')"  style="${btnT}">TRIPLA</button>
-                </div>
                 <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:12px;">
                     ${leftColHtml}
                     <div id="${canvasId}" style="position:relative;border:2px solid #334155;touch-action:none;flex-shrink:0;overflow:hidden;${canvasStyle}"></div>
@@ -2449,7 +2468,6 @@ function renderMainMenu() {
             overlayInsertScore('M');
         };
         window.overlayUndo = () => { window.handleKeypadInput('CANC'); overlayRenderContent(); };
-        window.overlayChangeType = (t) => { testState.configType = t; overlayState.configType = t; overlayRenderContent(); };
         // ── FINE TARGET OVERLAY ───────────────────────────────────────────────
 
         window.saveTurn = (isFinal) => {
@@ -5287,834 +5305,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
             document.getElementById('month-stats').innerHTML = html;
         }
-        // ── TEST BERSAGLIO ────────────────────────────────────────────────────
-        const testState = {
-            configType: 'singola',
-            currentTurn: 1,       // 1 o 2
-            currentVolee: [],
-            allVolleys: [],       // volée del turno corrente
-            turn1Data: null,      // salvato dopo fine T1
-            cols: 3,
-            totalScore: 0,
-            totalX: 0, total10: 0, total9: 0,
-            frecceTirate: 0,
-            isActive: false,
-            lastX: 170, lastY: 170, lastScore: 'M',
-        };
 
-        const TEST_RINGS_SINGOLA = [
-            { s:'X',  r:15.4,  c:'#fbbf24' }, { s:'10', r:30.9,  c:'#fbbf24' }, { s:'9',  r:46.3,  c:'#fbbf24' },
-            { s:'8',  r:61.8,  c:'#ef4444' }, { s:'7',  r:77.2,  c:'#ef4444' }, { s:'6',  r:92.7,  c:'#3b82f6' },
-            { s:'5',  r:108.1, c:'#3b82f6' }, { s:'4',  r:123.6, c:'#111111' }, { s:'3',  r:139,   c:'#111111' },
-            { s:'2',  r:154.5, c:'#e2e8f0' }, { s:'1',  r:170,   c:'#e2e8f0' },
-        ];
-
-        // Tripla: 3 bersagli sovrapposti verticalmente, anelli X‑6 scalati a raggio 80px
-        const TRIPLA_R     = 80;
-        const TRIPLA_GAP   = 12;
-        const TRIPLA_W     = TRIPLA_R * 2 + 4; // 164
-        const TRIPLA_H     = TRIPLA_R * 6 + TRIPLA_GAP * 2 + 4; // 508
-        const TRIPLA_CX    = TRIPLA_W / 2;
-        const TRIPLA_CY    = [
-            2 + TRIPLA_R,
-            2 + TRIPLA_R * 3 + TRIPLA_GAP,
-            2 + TRIPLA_R * 5 + TRIPLA_GAP * 2,
-        ];
-        const _TS = 92.7; // raggio anello-6 singola
-        const TEST_RINGS_TRIPLA_SHAPE = [
-            { s:'X',  r: +(15.4  / _TS * TRIPLA_R).toFixed(1), c:'#fbbf24' },
-            { s:'10', r: +(30.9  / _TS * TRIPLA_R).toFixed(1), c:'#fbbf24' },
-            { s:'9',  r: +(46.3  / _TS * TRIPLA_R).toFixed(1), c:'#fbbf24' },
-            { s:'8',  r: +(61.8  / _TS * TRIPLA_R).toFixed(1), c:'#ef4444' },
-            { s:'7',  r: +(77.2  / _TS * TRIPLA_R).toFixed(1), c:'#ef4444' },
-            { s:'6',  r: TRIPLA_R,                              c:'#3b82f6' },
-        ];
-
-        function testGetRings() {
-            return testState.configType === 'singola' ? TEST_RINGS_SINGOLA : TEST_RINGS_TRIPLA_SHAPE;
-        }
-
-        function testScoreFromDist(dist, rings) {
-            const r = rings || testGetRings();
-            for (const ring of r) { if (dist <= ring.r + 0.5) return ring.s; }
-            return 'M';
-        }
-
-        // Score + closest-center logic for tripla
-        function testScoreFromXY(x, y) {
-            if (testState.configType === 'singola') {
-                const dist = Math.sqrt((x - 170) ** 2 + (y - 170) ** 2);
-                return { score: testScoreFromDist(dist), dist, cx: 170, cy: 170 };
-            }
-            // Tripla: find which sub-target is hit (prefer closest center)
-            let best = null;
-            TRIPLA_CY.forEach(cy => {
-                const dist = Math.sqrt((x - TRIPLA_CX) ** 2 + (y - cy) ** 2);
-                if (dist <= TRIPLA_R + 1) {
-                    if (!best || dist < best.dist) {
-                        best = { dist, cy };
-                    }
-                }
-            });
-            if (!best) return { score: 'M', dist: 999, cx: TRIPLA_CX, cy: TRIPLA_CY[1] };
-            const score = testScoreFromDist(best.dist, TEST_RINGS_TRIPLA_SHAPE);
-            return { score, dist: best.dist, cx: TRIPLA_CX, cy: best.cy };
-        }
-
-        function testScoreValue(s) {
-            if (s === 'X') return 10;
-            if (s === 'M') return 0;
-            return parseInt(s) || 0;
-        }
-
-        function testGetColsFromFormat(fmt) {
-            if (!fmt) return 3;
-            if (fmt.includes('6x6') || fmt.includes('6x12')) return 6;
-            return 3; // 3x10
-        }
-
-        function testGetRowsFromFormat(fmt) {
-            if (!fmt) return 10;
-            if (fmt.includes('6x12')) return 12;
-            if (fmt.includes('6x6'))  return 6;
-            return 10; // 3x10
-        }
-
-        function testBuildMagnifierBg() {
-            const isTripla = testState.configType === 'tripla';
-            const W = isTripla ? TRIPLA_W : 340;
-            const H = isTripla ? TRIPLA_H : 340;
-            const offscreen = document.createElement('canvas');
-            offscreen.width = W; offscreen.height = H;
-            const ctx = offscreen.getContext('2d');
-
-            if (isTripla) {
-                ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, W, H);
-                TRIPLA_CY.forEach(cy => {
-                    [...TEST_RINGS_TRIPLA_SHAPE].reverse().forEach(r => {
-                        ctx.beginPath(); ctx.arc(TRIPLA_CX, cy, r.r, 0, Math.PI * 2);
-                        ctx.fillStyle = r.c; ctx.fill();
-                        ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 0.8; ctx.stroke();
-                    });
-                    // Croce centrale
-                    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5;
-                    ctx.beginPath(); ctx.moveTo(TRIPLA_CX - TRIPLA_R, cy); ctx.lineTo(TRIPLA_CX + TRIPLA_R, cy); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(TRIPLA_CX, cy - TRIPLA_R); ctx.lineTo(TRIPLA_CX, cy + TRIPLA_R); ctx.stroke();
-                });
-            } else {
-                const cx = 170, cy = 170;
-                [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
-                    ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, Math.PI * 2);
-                    ctx.fillStyle = r.c; ctx.fill();
-                    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
-                });
-                ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5;
-                ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,340); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(340,cy); ctx.stroke();
-            }
-            const mag = document.getElementById('test-magnifier');
-            if (!mag) return;
-            mag.style.backgroundImage = `url(${offscreen.toDataURL()})`;
-            mag._bgW = W; mag._bgH = H;
-        }
-
-        function testDrawTarget() {
-            const isTripla = testState.configType === 'tripla';
-            const canvas = document.getElementById('test-target-canvas');
-            if (!canvas) return;
-
-            // Ridimensiona il canvas wrapper in base al tipo
-            if (isTripla) {
-                canvas.style.width  = TRIPLA_W + 'px';
-                canvas.style.height = TRIPLA_H + 'px';
-                canvas.style.borderRadius = '12px';
-            } else {
-                canvas.style.width  = '340px';
-                canvas.style.height = '340px';
-                canvas.style.borderRadius = '50%';
-            }
-
-            canvas.querySelectorAll('.test-arrow-dot,.test-ring,.test-tripla-bg').forEach(d => d.remove());
-
-            if (isTripla) {
-                // Sfondo scuro
-                const bg = document.createElement('div');
-                bg.className = 'test-tripla-bg';
-                bg.style.cssText = `position:absolute;inset:0;background:#1e293b;border-radius:10px;`;
-                canvas.appendChild(bg);
-                // Disegna i 3 bersagli come div circolari
-                TRIPLA_CY.forEach(cy => {
-                    [...TEST_RINGS_TRIPLA_SHAPE].reverse().forEach(r => {
-                        const el = document.createElement('div');
-                        el.className = 'test-ring';
-                        el.style.cssText = `position:absolute;border-radius:50%;
-                            width:${r.r*2}px;height:${r.r*2}px;background:${r.c};
-                            border:0.8px solid rgba(0,0,0,0.4);
-                            left:${TRIPLA_CX - r.r}px;top:${cy - r.r}px;`;
-                        canvas.appendChild(el);
-                    });
-                });
-            } else {
-                [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
-                    const el = document.createElement('div');
-                    el.className = 'test-ring';
-                    el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;
-                        width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
-                    canvas.appendChild(el);
-                });
-            }
-
-            // Frecce T1 in grigio
-            if (testState.currentTurn === 2 && testState.turn1Data) {
-                testState.turn1Data.allVolleys.forEach(v => {
-                    v.arrows.forEach(a => { if (a.score !== 'M') testPlaceDot(canvas, a.x, a.y, '#94a3b8'); });
-                });
-            }
-            testState.allVolleys.forEach(v => {
-                v.arrows.forEach(a => { if (a.score !== 'M') testPlaceDot(canvas, a.x, a.y); });
-            });
-            testState.currentVolee.forEach(a => { if (a.score !== 'M') testPlaceDot(canvas, a.x, a.y); });
-            testBuildMagnifierBg();
-        }
-
-        function testPlaceDot(canvas, x, y, color) {
-            const dot = document.createElement('div');
-            dot.className = 'test-arrow-dot';
-            dot.style.left = x + 'px'; dot.style.top = y + 'px';
-            if (color) dot.style.background = color;
-            canvas.appendChild(dot);
-        }
-
-        function testHandlePointer(e) {
-            if (!testState.isActive) return;
-            const canvas = document.getElementById('test-target-canvas');
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.clientX ?? (e.touches?.[0]?.clientX);
-            const clientY = e.clientY ?? (e.touches?.[0]?.clientY);
-            if (clientX == null) return;
-
-            const borderW = 2;
-            const isTripla = testState.configType === 'tripla';
-            let x = clientX - rect.left - borderW;
-            let y = clientY - rect.top  - borderW;
-
-            // Clamp al canvas
-            const cW = isTripla ? TRIPLA_W : 340;
-            const cH = isTripla ? TRIPLA_H : 340;
-            x = Math.max(0, Math.min(cW, x));
-            y = Math.max(0, Math.min(cH, y));
-
-            testState.lastX = x; testState.lastY = y;
-
-            // Punteggio: usa testScoreFromXY per singola e tripla
-            const hit = testScoreFromXY(x, y);
-            testState.lastScore = hit.score;
-
-            // Lente: ingrandisce la zona toccata
-            const ZOOM = 4;
-            const MAG_RADIUS = 110;
-            const LIFT = 270;
-            const bgW = isTripla ? TRIPLA_W : 340;
-            const bgH = isTripla ? TRIPLA_H : 340;
-            const mag = document.getElementById('test-magnifier');
-            if (mag) {
-                mag.style.display = 'block';
-                mag.style.left = (clientX - MAG_RADIUS) + 'px';
-                mag.style.top  = (clientY - LIFT) + 'px';
-                mag.style.backgroundSize = `${bgW * ZOOM}px ${bgH * ZOOM}px`;
-                mag.style.backgroundPosition = `${MAG_RADIUS - x * ZOOM}px ${MAG_RADIUS - y * ZOOM}px`;
-            }
-
-            const liveEl = document.getElementById('test-live-score');
-            if (liveEl) {
-                const s = hit.score;
-                liveEl.textContent = s;
-                liveEl.style.color = s === 'X' || s === '10' ? '#fbbf24' : s === 'M' ? '#ef4444' : '#ffffff';
-            }
-        }
-
-        function testSetupPointerEvents() {
-            const canvas = document.getElementById('test-target-canvas');
-            if (!canvas || canvas._testEventsAttached) return;
-            canvas._testEventsAttached = true;
-            canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); testState.isActive = true; testHandlePointer(e); }, { passive: false });
-            window.addEventListener('pointermove', (e) => { if (testState.isActive) testHandlePointer(e); });
-            window.addEventListener('pointerup', () => {
-                if (!testState.isActive) return;
-                testState.isActive = false;
-                const mag = document.getElementById('test-magnifier');
-                if (mag) mag.style.display = 'none';
-                testRegisterArrow(testState.lastScore, testState.lastX, testState.lastY);
-            });
-        }
-
-        function testRegisterArrow(score, x, y) {
-            testState.currentVolee.push({ score, x, y });
-            const canvas = document.getElementById('test-target-canvas');
-            if (score !== 'M' && canvas) testPlaceDot(canvas, x, y);
-            testUpdateVoleeUI();
-            if (testState.currentVolee.length >= testState.cols) {
-                setTimeout(() => testCompleteVolee(), 300);
-            }
-        }
-
-        function testCompleteVolee() {
-            const arrows = [...testState.currentVolee];
-            const scores = arrows.map(a => a.score);
-            // Ordine: X > 10 > 9 > 8 … > 1 > M
-            const sortOrder = s => s === 'X' ? 11 : s === 'M' ? 0 : parseInt(s) || 0;
-            scores.sort((a, b) => sortOrder(b) - sortOrder(a));
-            const voleeScore = scores.reduce((s, v) => s + testScoreValue(v), 0);
-            testState.totalScore += voleeScore;
-            testState.frecceTirate += scores.length;
-            scores.forEach(s => {
-                if (s === 'X') { testState.totalX++; testState.total10++; }
-                else if (s === '10') testState.total10++;
-                else if (s === '9')  testState.total9++;
-            });
-            testState.allVolleys.push({ scores, arrows, total: testState.totalScore });
-            testState.currentVolee = [];
-
-            // Controlla se il turno è completo (righe * cols frecce)
-            const session = appState.currentSession;
-            const fmt = session?.formatoGara || '';
-            const totalRows = testGetRowsFromFormat(fmt);
-            const totalArrowsPerTurn = totalRows * testState.cols;
-            if (testState.frecceTirate >= totalArrowsPerTurn) {
-                const is6x12 = fmt.includes('6x12');
-                const isFinalTurn = testState.currentTurn === 2 || is6x12;
-                setTimeout(() => testPromptTurnEnd(isFinalTurn), 200);
-            } else {
-                testRenderView();
-            }
-        }
-
-        function testPromptTurnEnd(isFinal) {
-            const t1Score = isFinal && testState.turn1Data ? testState.turn1Data.totalScore : 0;
-            const combinedScore = testState.totalScore + t1Score;
-            const scoreInfo = `
-                <div class="bg-gray-800 rounded-lg p-3 mb-3">
-                    <p class="text-center text-xs text-gray-400 mb-1">Turno ${testState.currentTurn}</p>
-                    <p class="text-center text-3xl font-extrabold text-primary-orange mb-1">${testState.totalScore}</p>
-                    <p class="text-center text-xs text-gray-400">X:${testState.totalX} 10:${testState.total10} 9:${testState.total9}</p>
-                    ${isFinal && testState.turn1Data ? `<p class="text-center text-sm text-white mt-2">Totale: <strong>${combinedScore}</strong></p>` : ''}
-                </div>
-                <div class="mt-3 p-3 bg-gray-900 rounded-lg border border-primary-orange">
-                    <p class="text-white text-sm mb-2">🪃 Frecce aggiuntive?</p>
-                    <input type="number" id="test-extra-arrows" class="input-style text-center text-xl font-bold" min="0" max="500" placeholder="0" value="0">
-                </div>`;
-
-            const saveAndClose = () => {
-                const extra = parseInt(document.getElementById('test-extra-arrows')?.value) || 0;
-                appState.currentSession.frecceAggiuntive = (appState.currentSession.frecceAggiuntive || 0) + extra;
-                testFinalSave();
-            };
-            const goTurn2 = () => {
-                const extra = parseInt(document.getElementById('test-extra-arrows')?.value) || 0;
-                appState.currentSession.frecceAggiuntive = (appState.currentSession.frecceAggiuntive || 0) + extra;
-                testStartTurn2();
-            };
-
-            if (isFinal) {
-                showModal(`✅ Turno ${testState.currentTurn} Completato!`, scoreInfo, [
-                    { text: '💾 Salva e Chiudi', handler: saveAndClose }
-                ]);
-            } else {
-                showModal(`✅ Turno ${testState.currentTurn} Completato!`, scoreInfo, [
-                    { text: '💾 Salva e Chiudi', handler: saveAndClose },
-                    { text: '2° Turno ▶',        handler: goTurn2      }
-                ]);
-            }
-        }
-
-        function testStartTurn2() {
-            // Salva dati T1
-            testState.turn1Data = {
-                allVolleys: [...testState.allVolleys],
-                totalScore: testState.totalScore,
-                totalX: testState.totalX,
-                total10: testState.total10,
-                total9: testState.total9,
-                frecceTirate: testState.frecceTirate,
-            };
-            // Reset per T2
-            testState.currentTurn = 2;
-            testState.currentVolee = [];
-            testState.allVolleys = [];
-            testState.totalScore = 0;
-            testState.totalX = 0; testState.total10 = 0; testState.total9 = 0;
-            testState.frecceTirate = 0;
-            testRenderView();
-        }
-
-        function testFinalSave() {
-            // Leggi note UI
-            ['test-note-condizioni','test-note-condizioni-gara'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) appState.currentSession.noteCondizioniFisiche = el.value;
-            });
-            const esEl = document.getElementById('test-eserciz-svolti');
-            if (esEl) appState.currentSession.esercizSvolti = esEl.value;
-            const pgEl = document.getElementById('test-note-pregara');
-            if (pgEl) appState.currentSession.notePreGara = pgEl.value;
-            const postEl = document.getElementById('test-note-postgara');
-            if (postEl) appState.currentSession.notePostGara = postEl.value;
-
-            const t1 = testState.turn1Data;
-            const t2Score = testState.totalScore;
-            const t1Score = t1 ? t1.totalScore : 0;
-            const totalScore = t1Score + t2Score;
-            const totalFrecce = (t1 ? t1.frecceTirate : 0) + testState.frecceTirate;
-
-            // Raccogli posizioni frecce per statistiche bersaglio
-            const allArrowPositions = [];
-            if (t1) t1.allVolleys.forEach(v => v.arrows.forEach(a => allArrowPositions.push(a)));
-            testState.allVolleys.forEach(v => v.arrows.forEach(a => allArrowPositions.push(a)));
-
-            const endTime = new Date();
-            appState.currentSession.endTime = getFormattedTime(endTime);
-            appState.currentSession.duration = calculateDuration(appState.currentSession.startTime, appState.currentSession.endTime);
-            appState.currentSession.testMode = true;
-            appState.currentSession.arrowPositions = allArrowPositions; // per statistiche bersaglio
-
-            // Costruisci turn1 e turn2 compatibili col formato normale
-            function buildTurnData(volleys, score, X, Ten, Nine, frecce) {
-                return {
-                    grid: volleys.map(v => v.scores),
-                    summary: { score, frecceTirate: frecce, average: frecce > 0 ? score/frecce : 0, X, Ten, Nine },
-                    arrowPositions: volleys.flatMap(v => v.arrows),
-                };
-            }
-
-            if (t1) {
-                appState.currentSession.turn1 = buildTurnData(t1.allVolleys, t1.totalScore, t1.totalX, t1.total10, t1.total9, t1.frecceTirate);
-                appState.currentSession.turn2 = buildTurnData(testState.allVolleys, testState.totalScore, testState.totalX, testState.total10, testState.total9, testState.frecceTirate);
-            } else {
-                appState.currentSession.turn1 = buildTurnData(testState.allVolleys, testState.totalScore, testState.totalX, testState.total10, testState.total9, testState.frecceTirate);
-            }
-
-            appState.currentSession.totalScore = totalScore;
-            appState.currentSession.totalAverage = totalFrecce > 0 ? totalScore / totalFrecce : 0;
-            appState.currentSession.totalX = (t1 ? t1.totalX : 0) + testState.totalX;
-            appState.currentSession.totalTen = (t1 ? t1.total10 : 0) + testState.total10;
-            appState.currentSession.totalNine = (t1 ? t1.total9 : 0) + testState.total9;
-            appState.currentSession.turn1Score = t1Score || testState.totalScore;
-
-            const sessionIdBeforeSave = appState.currentSession.id;
-            saveSessionToFirestore();
-            setTimeout(() => { fetchSessions(); setTimeout(() => { window.setView('detailedSummary', { sessionId: sessionIdBeforeSave }); }, 500); }, 300);
-        }
-
-        function testUpdateVoleeUI() {
-            const cells = document.querySelectorAll('.test-volee-cell');
-            cells.forEach((c, i) => {
-                const a = testState.currentVolee[i];
-                if (a) {
-                    c.textContent = a.score;
-                    c.className = 'test-volee-cell w-12 h-12 flex items-center justify-center rounded-full font-black text-lg ' +
-                        (a.score === 'X' || a.score === '10' ? 'bg-yellow-500 text-black' :
-                         a.score === 'M' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white');
-                } else {
-                    c.textContent = '-';
-                    c.className = 'test-volee-cell w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 border border-gray-600 text-gray-500';
-                }
-            });
-        }
-
-        window.testAddMiss  = () => { testRegisterArrow('M', 0, 0); };
-        window.testUndoLast = () => {
-            if (testState.currentVolee.length > 0) {
-                testState.currentVolee.pop();
-                testRenderView();
-            } else if (testState.allVolleys.length > 0) {
-                const last = testState.allVolleys.pop();
-                last.scores.forEach(s => {
-                    testState.totalScore -= testScoreValue(s);
-                    testState.frecceTirate--;
-                    if (s === 'X') { testState.totalX--; testState.total10--; }
-                    else if (s === '10') testState.total10--;
-                    else if (s === '9')  testState.total9--;
-                });
-                testRenderView();
-            }
-        };
-
-        window.testChangeType = (t) => {
-            testState.configType = t;
-            document.getElementById('test-btn-singola').className = t==='singola'
-                ? 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm'
-                : 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm';
-            document.getElementById('test-btn-tripla').className = t==='tripla'
-                ? 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm'
-                : 'flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm';
-            testDrawTarget();
-        };
-
-        window.saveTestSession = () => {
-            if (testState.frecceTirate === 0) {
-                showModal("Attenzione", "Non hai ancora registrato nessuna freccia.", [{ text: "Ok", handler: () => {} }]);
-                return;
-            }
-            testFinalSave();
-        };
-
-        function testRenderView() {
-            const session = appState.currentSession;
-            if (!session) { window.setView('mainMenu'); return; }
-            const isGara = session.type === 'Gara';
-            const fmt = session.formatoGara || '';
-            const totalRows = testGetRowsFromFormat(fmt);
-            const totalArrowsPerTurn = totalRows * testState.cols;
-            const avg = testState.frecceTirate > 0 ? (testState.totalScore / testState.frecceTirate).toFixed(2) : '—';
-            const remaining = totalArrowsPerTurn - testState.frecceTirate;
-            const pct = totalArrowsPerTurn > 0 ? Math.round((testState.frecceTirate / totalArrowsPerTurn) * 100) : 0;
-
-            const volleeTableRows = testState.allVolleys.map((v, i) => {
-                const bg = i % 2 === 0 ? 'bg-gray-800' : 'bg-gray-700';
-                return `<tr class="${bg} text-xs">
-                    <td class="font-bold text-primary-orange p-1">${i+1}</td>
-                    <td class="text-white p-1">${v.scores.join(' – ')}</td>
-                    <td class="font-bold text-white p-1">${v.scores.reduce((s,x)=>s+testScoreValue(x),0)}</td>
-                    <td class="font-bold text-white p-1">${v.total}</td>
-                </tr>`;
-            }).join('');
-
-            // T1 riepilogo se siamo al T2
-            const t1Html = testState.currentTurn === 2 && testState.turn1Data ? `
-                <div class="bg-gray-900 p-3 rounded-xl border border-primary-orange mb-4">
-                    <p class="text-xs font-bold text-primary-orange mb-1">📋 Riepilogo Turno 1</p>
-                    <div class="flex gap-4 text-sm text-white">
-                        <span>Punteggio: <strong>${testState.turn1Data.totalScore}</strong></span>
-                        <span>X:${testState.turn1Data.totalX} 10:${testState.turn1Data.total10} 9:${testState.turn1Data.total9}</span>
-                    </div>
-                </div>` : '';
-
-            const sessionNotesHtml = `
-                <div class="mt-6 space-y-3">
-                    ${!isGara ? `
-                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
-                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
-                            <textarea id="test-note-condizioni" class="input-style h-20 text-sm"
-                                placeholder="Condizioni fisiche, stanchezza, meteo..."
-                                oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche||''}</textarea>
-                        </div>
-                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
-                            <label class="block text-sm font-bold mb-2 text-green-400">✅ Esercizi Svolti</label>
-                            <textarea id="test-eserciz-svolti" class="input-style h-24 text-sm"
-                                placeholder="Esercizi effettivamente svolti..."
-                                oninput="appState.currentSession.esercizSvolti=this.value">${session.esercizSvolti||''}</textarea>
-                        </div>
-                    ` : `
-                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-yellow-400">
-                            <label class="block text-sm font-bold mb-2 text-yellow-400">📝 Note Pre-Gara</label>
-                            <textarea id="test-note-pregara" class="input-style h-20 text-sm"
-                                placeholder="Aspettative, tattica..."
-                                oninput="appState.currentSession.notePreGara=this.value">${session.notePreGara||''}</textarea>
-                        </div>
-                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
-                            <label class="block text-sm font-bold mb-2 text-green-400">🏆 Note Post-Gara</label>
-                            <textarea id="test-note-postgara" class="input-style h-24 text-sm"
-                                placeholder="Come è andata..."
-                                oninput="appState.currentSession.notePostGara=this.value">${session.notePostGara||''}</textarea>
-                        </div>
-                        <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-blue-500">
-                            <label class="block text-sm font-bold mb-2 text-blue-400">🩺 Note e Condizioni Fisiche</label>
-                            <textarea id="test-note-condizioni-gara" class="input-style h-20 text-sm"
-                                placeholder="Condizioni fisiche, meteo..."
-                                oninput="appState.currentSession.noteCondizioniFisiche=this.value">${session.noteCondizioniFisiche||''}</textarea>
-                        </div>
-                    `}
-                </div>`;
-
-            document.getElementById('content-view').innerHTML = `
-                <h2 class="text-3xl font-bold mb-1 text-white">${session.type} <span class="text-purple-400 text-xl">🔬 Turno ${testState.currentTurn}</span></h2>
-                <p class="text-sm mb-4 text-primary-orange">${session.distanza} | ${fmt}</p>
-
-                ${t1Html}
-
-                <div class="flex gap-2 mb-4">
-                    <button onclick="window.testChangeType('singola')" id="test-btn-singola"
-                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm">SINGOLA</button>
-                    <button onclick="window.testChangeType('tripla')" id="test-btn-tripla"
-                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm">TRIPLA</button>
-                </div>
-
-                <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:12px;">
-                    <!-- Colonna punteggi sinistra -->
-                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:44px;">
-                        <p style="font-size:9px;color:#6b7280;text-transform:uppercase;writing-mode:vertical-lr;transform:rotate(180deg);">Volée ${testState.allVolleys.length+1}</p>
-                        ${Array(testState.cols).fill(0).map((_, i) => {
-                            const sorted = [...testState.currentVolee].sort((a,b) => {
-                                const sv = s => s.score==='X'?11:s.score==='M'?0:parseInt(s.score)||0;
-                                return sv(b)-sv(a);
-                            });
-                            const a = sorted[i];
-                            if (a) {
-                                const sc = a.score;
-                                const style = sc==='X'||sc==='10' ? 'background:#eab308;color:#000'
-                                    : sc==='M' ? 'background:#dc2626;color:#fff'
-                                    : parseInt(sc)>=7 ? 'background:#ef4444;color:#fff'
-                                    : parseInt(sc)>=5 ? 'background:#3b82f6;color:#fff'
-                                    : 'background:#4b5563;color:#fff';
-                                return `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900;font-size:16px;${style}">${sc}</div>`;
-                            }
-                            return `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#1f2937;border:1px solid #374151;color:#6b7280;font-size:13px;">·</div>`;
-                        }).join('')}
-                        <div style="font-size:11px;color:#fdb927;font-weight:bold;margin-top:4px;">${testState.totalScore}</div>
-                    </div>
-                    <!-- Bersaglio -->
-                    <div id="test-target-canvas"></div>
-                    <!-- Mirino + rimaste -->
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:44px;">
-                        <p style="font-size:9px;color:#6b7280;text-transform:uppercase;">Mirino</p>
-                        <div id="test-live-score" style="font-size:2rem;font-weight:900;color:#fff;">—</div>
-                        <p style="font-size:9px;color:#6b7280;margin-top:8px;">Rimaste</p>
-                        <div style="font-size:1.1rem;font-weight:700;color:#fdb927;">${remaining >= 0 ? remaining : '—'}</div>
-                    </div>
-                </div>
-
-                <!-- Azioni rapide -->
-                <div class="flex gap-2 mb-4">
-                    <button onclick="window.testAddMiss()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">M (Mancata)</button>
-                    <button onclick="window.testUndoLast()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">↩ Annulla</button>
-                </div>
-
-                ${testState.frecceTirate > 0 ? `
-                    <div class="stats-card mb-4">
-                        <div class="grid grid-cols-4 gap-2 text-center text-sm">
-                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">Totale</div><div class="font-bold text-white">${testState.totalScore}</div></div>
-                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">Media</div><div class="font-bold text-white">${avg}</div></div>
-                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">X-10</div><div class="font-bold text-white">${testState.totalX}-${testState.total10}</div></div>
-                            <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">9</div><div class="font-bold text-white">${testState.total9}</div></div>
-                        </div>
-                        ${pct > 0 ? `<div class="progress-bar mt-3"><div class="progress-fill" style="width:${pct}%"></div></div>
-                        <div class="text-xs text-center mt-1 text-primary-orange">${testState.frecceTirate} / ${totalArrowsPerTurn} frecce</div>` : ''}
-                    </div>` : ''}
-
-                ${sessionNotesHtml}
-
-                <div class="mt-6 flex flex-col gap-3">
-                    <button class="btn-primary w-full p-3 rounded-lg text-lg font-bold" onclick="window.saveTestSession()">
-                        💾 Fine e Salva Risultati
-                    </button>
-                </div>
-            `;
-
-            requestAnimationFrame(() => {
-                testDrawTarget();
-                testSetupPointerEvents();
-                testBuildMagnifierBg();
-            });
-        }
-
-        function renderTestView() {
-            if (!appState.loggedInArcher) { window.setView('login'); return; }
-            if (!appState.currentSession) { window.setView('registrationForm', { type: 'Allenamento' }); return; }
-            const fmt = appState.currentSession.formatoGara || '';
-            testState.cols = testGetColsFromFormat(fmt);
-            testState.currentTurn = 1;
-            testState.currentVolee = [];
-            testState.allVolleys = [];
-            testState.turn1Data = null;
-            testState.totalScore = 0;
-            testState.totalX = 0; testState.total10 = 0; testState.total9 = 0;
-            testState.frecceTirate = 0;
-            testState.configType = targaToConfigType(appState.currentSession.tipoTarga);
-            testRenderView();
-        }
-        // ── FINE TEST BERSAGLIO ───────────────────────────────────────────────
-
-        // ── STATISTICHE BERSAGLIO ─────────────────────────────────────────────
-        function renderTargetStats() {
-            if (!appState.loggedInArcher) { window.setView('login'); return; }
-
-            const tsFilter = {
-                tipo: '',
-                periodo: 'mese_corrente',
-                targa: '',
-                annoCustom: new Date().getFullYear(),
-                meseCustom: new Date().getMonth() + 1,
-            };
-
-            function getArrowsFromSession(s) {
-                const direct = s.arrowPositions || [];
-                const t1 = s.turn1?.arrowPositions || [];
-                const t2 = s.turn2?.arrowPositions || [];
-                return [...direct, ...t1, ...t2].filter(a => a && a.x != null);
-            }
-
-            function buildTargetStatsUI() {
-                const sessions = (appState.sessionData || []).filter(s => s.testMode && getArrowsFromSession(s).length > 0);
-
-                // Applica filtri
-                const now = new Date();
-                const filtered = sessions.filter(s => {
-                    if (tsFilter.tipo && s.type !== tsFilter.tipo) return false;
-                    if (tsFilter.targa && s.tipoTarga !== tsFilter.targa) return false;
-                    const d = new Date(s.data);
-                    if (tsFilter.periodo === 'settimana') {
-                        const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7);
-                        if (d < weekAgo) return false;
-                    } else if (tsFilter.periodo === 'mese_corrente') {
-                        if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
-                    } else if (tsFilter.periodo === 'anno_corrente') {
-                        if (d.getFullYear() !== now.getFullYear()) return false;
-                    } else if (tsFilter.periodo === 'mese_custom') {
-                        if (d.getMonth() + 1 !== tsFilter.meseCustom || d.getFullYear() !== tsFilter.annoCustom) return false;
-                    } else if (tsFilter.periodo === 'anno_custom') {
-                        if (d.getFullYear() !== tsFilter.annoCustom) return false;
-                    }
-                    return true;
-                });
-
-                const allArrows = filtered.flatMap(s => getArrowsFromSession(s));
-                const scored = allArrows.filter(a => a.score !== 'M' && a.x != null);
-                const totFrecce = allArrows.length;
-                const totPunti = allArrows.reduce((s, a) => {
-                    if (a.score === 'X') return s + 10;
-                    if (a.score === 'M') return s;
-                    return s + (parseInt(a.score) || 0);
-                }, 0);
-                const avg = totFrecce > 0 ? (totPunti / totFrecce).toFixed(2) : '—';
-
-                const targheOptions = [...new Set((appState.sessionData||[]).filter(s=>s.testMode && getArrowsFromSession(s).length>0).map(s=>s.tipoTarga).filter(Boolean))];
-
-                document.getElementById('content-view').innerHTML = `
-                    <h2 class="text-3xl font-bold mb-4 text-white">🎯 Statistiche Bersaglio</h2>
-
-                    <!-- Filtri -->
-                    <div class="mb-5 p-4 bg-secondary-dark rounded-xl grid grid-cols-2 gap-3">
-                        <select class="input-style text-sm" onchange="window._tsFilter('tipo',this.value)">
-                            <option value="">Tutti i tipi</option>
-                            <option value="Allenamento" ${tsFilter.tipo==='Allenamento'?'selected':''}>Allenamento</option>
-                            <option value="Gara" ${tsFilter.tipo==='Gara'?'selected':''}>Gara</option>
-                        </select>
-                        <select class="input-style text-sm" onchange="window._tsFilter('targa',this.value)">
-                            <option value="">Tutte le targhe</option>
-                            ${targheOptions.map(t=>`<option value="${t}" ${tsFilter.targa===t?'selected':''}>${t}</option>`).join('')}
-                        </select>
-                        <select class="input-style text-sm col-span-2" onchange="window._tsFilter('periodo',this.value)">
-                            <option value="settimana" ${tsFilter.periodo==='settimana'?'selected':''}>Ultima settimana</option>
-                            <option value="mese_corrente" ${tsFilter.periodo==='mese_corrente'?'selected':''}>Mese corrente</option>
-                            <option value="anno_corrente" ${tsFilter.periodo==='anno_corrente'?'selected':''}>Anno corrente</option>
-                            <option value="mese_custom" ${tsFilter.periodo==='mese_custom'?'selected':''}>Mese specifico…</option>
-                            <option value="anno_custom" ${tsFilter.periodo==='anno_custom'?'selected':''}>Anno specifico…</option>
-                            <option value="tutto" ${tsFilter.periodo==='tutto'?'selected':''}>Tutto</option>
-                        </select>
-                        ${(tsFilter.periodo === 'mese_custom' || tsFilter.periodo === 'anno_custom') ? `
-                            <input type="number" class="input-style text-sm" value="${tsFilter.annoCustom}" min="2020" max="2040"
-                                onchange="window._tsFilter('annoCustom',parseInt(this.value))" placeholder="Anno">
-                            ${tsFilter.periodo === 'mese_custom' ? `
-                                <input type="number" class="input-style text-sm" value="${tsFilter.meseCustom}" min="1" max="12"
-                                    onchange="window._tsFilter('meseCustom',parseInt(this.value))" placeholder="Mese (1-12)">
-                            ` : '<div></div>'}
-                        ` : ''}
-                    </div>
-
-                    <!-- Statistiche -->
-                    <div class="grid grid-cols-3 gap-3 mb-5">
-                        <div class="bg-gray-800 p-3 rounded-xl text-center">
-                            <div class="text-xs text-primary-orange">Sessioni</div>
-                            <div class="text-2xl font-black text-white">${filtered.length}</div>
-                        </div>
-                        <div class="bg-gray-800 p-3 rounded-xl text-center">
-                            <div class="text-xs text-primary-orange">Frecce</div>
-                            <div class="text-2xl font-black text-white">${totFrecce}</div>
-                        </div>
-                        <div class="bg-gray-800 p-3 rounded-xl text-center">
-                            <div class="text-xs text-primary-orange">Media</div>
-                            <div class="text-2xl font-black text-white">${avg}</div>
-                        </div>
-                    </div>
-
-                    <!-- Bersaglio con tutte le frecce -->
-                    ${scored.length === 0 ? `
-                        <div class="text-center py-12 text-gray-400">
-                            <p class="text-5xl mb-4">🎯</p>
-                            <p>Nessuna freccia trovata per i filtri selezionati.</p>
-                            <p class="text-sm mt-2">Le frecce vengono registrate solo con la modalità <strong>Test Bersaglio</strong>.</p>
-                        </div>
-                    ` : `
-                        <div class="bg-secondary-dark p-4 rounded-xl mb-4">
-                            <h3 class="text-base font-bold mb-3 text-white">Distribuzione Colpi (${scored.length} frecce)</h3>
-                            <div style="display:flex;justify-content:center;">
-                                <div id="ts-target-canvas" style="position:relative;width:340px;height:340px;border-radius:50%;overflow:hidden;border:2px solid #334155;flex-shrink:0;"></div>
-                            </div>
-                        </div>
-
-                        <!-- Heatmap per anello -->
-                        <div class="bg-secondary-dark p-4 rounded-xl mb-4">
-                            <h3 class="text-base font-bold mb-3 text-white">Distribuzione per Anello</h3>
-                            <div id="ts-ring-bars"></div>
-                        </div>
-                    `}
-                `;
-
-                // Disegna bersaglio con dots
-                if (scored.length > 0) {
-                    requestAnimationFrame(() => {
-                        const canvas = document.getElementById('ts-target-canvas');
-                        if (!canvas) return;
-                        // Disegna anelli
-                        [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
-                            const el = document.createElement('div');
-                            el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;
-                                width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
-                            canvas.appendChild(el);
-                        });
-                        // Disegna frecce con colore per punteggio
-                        scored.forEach(a => {
-                            const dot = document.createElement('div');
-                            const sv = a.score === 'X' ? 10 : parseInt(a.score) || 0;
-                            const dotColor = sv >= 9 ? '#fbbf24' : sv >= 7 ? '#ef4444' : sv >= 5 ? '#3b82f6' : '#64748b';
-                            dot.style.cssText = `position:absolute;width:8px;height:8px;border-radius:50%;
-                                background:${dotColor};border:1px solid rgba(0,0,0,0.5);
-                                left:${a.x}px;top:${a.y}px;transform:translate(-50%,-50%);opacity:0.75;`;
-                            canvas.appendChild(dot);
-                        });
-
-                        // Ring bars
-                        const barsEl = document.getElementById('ts-ring-bars');
-                        if (!barsEl) return;
-                        const counts = {};
-                        allArrows.forEach(a => { counts[a.score] = (counts[a.score]||0) + 1; });
-                        const order = ['X','10','9','8','7','6','5','4','3','2','1','M'];
-                        const maxC = Math.max(...Object.values(counts), 1);
-                        barsEl.innerHTML = order.filter(k => counts[k]).map(k => {
-                            const c = counts[k] || 0;
-                            const pct = Math.round((c / totFrecce) * 100);
-                            const w = Math.round((c / maxC) * 100);
-                            const barColor = k === 'X' || k === '10' || k === '9' ? '#fbbf24'
-                                : k === '8' || k === '7' ? '#ef4444'
-                                : k === '6' || k === '5' ? '#3b82f6'
-                                : k === 'M' ? '#ef4444' : '#64748b';
-                            return `<div class="flex items-center gap-2 mb-2">
-                                <div class="w-6 text-right font-bold text-sm text-white">${k}</div>
-                                <div class="flex-1 bg-gray-800 rounded h-5 overflow-hidden">
-                                    <div style="width:${w}%;background:${barColor};height:100%;transition:width 0.3s;"></div>
-                                </div>
-                                <div class="text-xs text-gray-400 w-14 text-right">${c} (${pct}%)</div>
-                            </div>`;
-                        }).join('');
-                    });
-                }
-            }
-
-            window._tsFilter = (key, val) => {
-                tsFilter[key] = val;
-                buildTargetStatsUI();
-            };
-
-            // Carica sessioni se non già caricate
-            if (!appState.sessionData || appState.sessionData.length === 0) {
-                fetchSessions();
-                setTimeout(buildTargetStatsUI, 800);
-            } else {
-                buildTargetStatsUI();
-            }
-        }
-        // ── FINE STATISTICHE BERSAGLIO ────────────────────────────────────────
 
         function renderArrowCounter() {
             if (!appState.loggedInArcher) { window.setView('login'); return; }
