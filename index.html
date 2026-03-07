@@ -2495,7 +2495,7 @@ function renderMainMenu() {
         };
         // ── FINE TARGET OVERLAY ───────────────────────────────────────────────
 
-
+        window.saveTurn = (isFinal) => {
             const turnKey = `turn${appState.currentTurn}`;
             const turnResults = calculateTurnScores(appState.scoringGrid);
 
