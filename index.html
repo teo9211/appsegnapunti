@@ -2153,24 +2153,32 @@ function renderMainMenu() {
 
         // ── COSTANTI E STATO BERSAGLIO ────────────────────────────────────────
         // Anelli bersaglio singolo (canvas 340×340, centro 170,170)
+        // La zona fuori dall'anello 1 restituisce 'M'
         const TEST_RINGS_SINGOLA = [
-            { s:'X',  r:7.4,   c:'#fef08a' }, { s:'10', r:17.0,  c:'#fef08a' },
-            { s:'9',  r:35.9,  c:'#fde047' }, { s:'8',  r:54.9,  c:'#fde047' },
-            { s:'7',  r:73.8,  c:'#fb923c' }, { s:'6',  r:92.7,  c:'#fb923c' },
-            { s:'5',  r:111.7, c:'#60a5fa' }, { s:'4',  r:130.6, c:'#60a5fa' },
-            { s:'3',  r:149.5, c:'#1e1e1e' }, { s:'2',  r:168.5, c:'#1e1e1e' },
+            { s:'X',  r:7.4,   c:'#fef08a' },
+            { s:'10', r:17.0,  c:'#fef08a' },
+            { s:'9',  r:35.9,  c:'#fde047' },
+            { s:'8',  r:54.9,  c:'#fde047' },
+            { s:'7',  r:73.8,  c:'#fb923c' },
+            { s:'6',  r:92.7,  c:'#fb923c' },
+            { s:'5',  r:111.7, c:'#60a5fa' },
+            { s:'4',  r:130.6, c:'#60a5fa' },
+            { s:'3',  r:149.5, c:'#1e1e1e' },
+            { s:'2',  r:168.5, c:'#1e1e1e' },
             { s:'1',  r:170.0, c:'#374151' },
+            // fuori da r=170 → 'M' (gestito in testScoreFromDist)
         ];
-        // Anelli bersaglio tripla (3 sub-target verticali, raggio 80px)
+        // Anelli bersaglio tripla: solo X-10-9-8-7-6, fuori dal 6 → M
         const TRIPLA_W = 164, TRIPLA_H = 508, TRIPLA_GAP = 12, TRIPLA_R = 80, TRIPLA_CX = 82;
         const TRIPLA_CY = [82, 82 + TRIPLA_R*2 + TRIPLA_GAP, 82 + (TRIPLA_R*2 + TRIPLA_GAP)*2];
         const TEST_RINGS_TRIPLA_SHAPE = [
-            { s:'X',  r:3.5,  c:'#fef08a' }, { s:'10', r:8.0,  c:'#fef08a' },
-            { s:'9',  r:16.8, c:'#fde047' }, { s:'8',  r:25.7, c:'#fde047' },
-            { s:'7',  r:34.6, c:'#fb923c' }, { s:'6',  r:43.4, c:'#fb923c' },
-            { s:'5',  r:52.3, c:'#60a5fa' }, { s:'4',  r:61.2, c:'#60a5fa' },
-            { s:'3',  r:70.0, c:'#1e1e1e' }, { s:'2',  r:78.9, c:'#1e1e1e' },
-            { s:'1',  r:80.0, c:'#374151' },
+            { s:'X',  r:3.5,  c:'#fef08a' },
+            { s:'10', r:8.0,  c:'#fef08a' },
+            { s:'9',  r:16.8, c:'#fde047' },
+            { s:'8',  r:25.7, c:'#fde047' },
+            { s:'7',  r:34.6, c:'#fb923c' },
+            { s:'6',  r:43.4, c:'#fb923c' },
+            // fuori da r=43.4 → 'M' (gestito in testScoreFromDist)
         ];
         // Stato bersaglio overlay
         const testState = {
@@ -5306,6 +5314,177 @@ window.showMigrationModal = migrateSessionsAddBowType;
             document.getElementById('month-stats').innerHTML = html;
         }
 
+        // ── STATISTICHE BERSAGLIO ─────────────────────────────────────────────
+        function renderTargetStats() {
+            if (!appState.loggedInArcher) { window.setView('login'); return; }
+
+            const tsFilter = {
+                tipo: '',
+                periodo: 'mese_corrente',
+                targa: '',
+                annoCustom: new Date().getFullYear(),
+                meseCustom: new Date().getMonth() + 1,
+            };
+
+            function getArrowsFromSession(s) {
+                // Raccoglie le posizioni frecce dall'overlay bersaglio (stored in arrowPositions)
+                // o dai turn1/turn2 arrowPositions
+                const direct = s.arrowPositions || [];
+                const t1 = s.turn1?.arrowPositions || [];
+                const t2 = s.turn2?.arrowPositions || [];
+                return [...direct, ...t1, ...t2].filter(a => a && a.x != null);
+            }
+
+            function buildTargetStatsUI() {
+                // Mostra sessioni che hanno frecce posizionate sul bersaglio
+                const sessions = (appState.sessionData || []).filter(s => getArrowsFromSession(s).length > 0);
+
+                const now = new Date();
+                const filtered = sessions.filter(s => {
+                    if (tsFilter.tipo && s.type !== tsFilter.tipo) return false;
+                    if (tsFilter.targa && s.tipoTarga !== tsFilter.targa) return false;
+                    const d = new Date(s.data);
+                    if (tsFilter.periodo === 'settimana') {
+                        const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7);
+                        if (d < weekAgo) return false;
+                    } else if (tsFilter.periodo === 'mese_corrente') {
+                        if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+                    } else if (tsFilter.periodo === 'anno_corrente') {
+                        if (d.getFullYear() !== now.getFullYear()) return false;
+                    } else if (tsFilter.periodo === 'mese_custom') {
+                        if (d.getMonth() + 1 !== tsFilter.meseCustom || d.getFullYear() !== tsFilter.annoCustom) return false;
+                    } else if (tsFilter.periodo === 'anno_custom') {
+                        if (d.getFullYear() !== tsFilter.annoCustom) return false;
+                    }
+                    return true;
+                });
+
+                const allArrows = filtered.flatMap(s => getArrowsFromSession(s));
+                const scored = allArrows.filter(a => a.score !== 'M' && a.x != null);
+                const totFrecce = allArrows.length;
+                const totPunti = allArrows.reduce((s, a) => {
+                    if (a.score === 'X') return s + 10;
+                    if (a.score === 'M') return s;
+                    return s + (parseInt(a.score) || 0);
+                }, 0);
+                const avg = totFrecce > 0 ? (totPunti / totFrecce).toFixed(2) : '—';
+
+                const targheOptions = [...new Set((appState.sessionData||[])
+                    .filter(s => getArrowsFromSession(s).length > 0)
+                    .map(s => s.tipoTarga).filter(Boolean))];
+
+                document.getElementById('content-view').innerHTML = `
+                    <h2 class="text-3xl font-bold mb-4 text-white">🎯 Statistiche Bersaglio</h2>
+                    <div class="mb-5 p-4 bg-secondary-dark rounded-xl grid grid-cols-2 gap-3">
+                        <select class="input-style text-sm" onchange="window._tsFilter('tipo',this.value)">
+                            <option value="">Tutti i tipi</option>
+                            <option value="Allenamento" ${tsFilter.tipo==='Allenamento'?'selected':''}>Allenamento</option>
+                            <option value="Gara" ${tsFilter.tipo==='Gara'?'selected':''}>Gara</option>
+                        </select>
+                        <select class="input-style text-sm" onchange="window._tsFilter('targa',this.value)">
+                            <option value="">Tutte le targhe</option>
+                            ${targheOptions.map(t=>`<option value="${t}" ${tsFilter.targa===t?'selected':''}>${t}</option>`).join('')}
+                        </select>
+                        <select class="input-style text-sm col-span-2" onchange="window._tsFilter('periodo',this.value)">
+                            <option value="settimana" ${tsFilter.periodo==='settimana'?'selected':''}>Ultima settimana</option>
+                            <option value="mese_corrente" ${tsFilter.periodo==='mese_corrente'?'selected':''}>Mese corrente</option>
+                            <option value="anno_corrente" ${tsFilter.periodo==='anno_corrente'?'selected':''}>Anno corrente</option>
+                            <option value="mese_custom" ${tsFilter.periodo==='mese_custom'?'selected':''}>Mese specifico…</option>
+                            <option value="anno_custom" ${tsFilter.periodo==='anno_custom'?'selected':''}>Anno specifico…</option>
+                            <option value="tutto" ${tsFilter.periodo==='tutto'?'selected':''}>Tutto</option>
+                        </select>
+                        ${(tsFilter.periodo === 'mese_custom' || tsFilter.periodo === 'anno_custom') ? `
+                            <input type="number" class="input-style text-sm" value="${tsFilter.annoCustom}" min="2020" max="2040"
+                                onchange="window._tsFilter('annoCustom',parseInt(this.value))" placeholder="Anno">
+                            ${tsFilter.periodo === 'mese_custom' ? `
+                                <input type="number" class="input-style text-sm" value="${tsFilter.meseCustom}" min="1" max="12"
+                                    onchange="window._tsFilter('meseCustom',parseInt(this.value))" placeholder="Mese (1-12)">
+                            ` : '<div></div>'}
+                        ` : ''}
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mb-5">
+                        <div class="bg-gray-800 p-3 rounded-xl text-center">
+                            <div class="text-xs text-primary-orange">Sessioni</div>
+                            <div class="text-2xl font-black text-white">${filtered.length}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-xl text-center">
+                            <div class="text-xs text-primary-orange">Frecce</div>
+                            <div class="text-2xl font-black text-white">${totFrecce}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-xl text-center">
+                            <div class="text-xs text-primary-orange">Media</div>
+                            <div class="text-2xl font-black text-white">${avg}</div>
+                        </div>
+                    </div>
+                    ${scored.length === 0 ? `
+                        <div class="text-center py-12 text-gray-400">
+                            <p class="text-5xl mb-4">🎯</p>
+                            <p>Nessuna freccia trovata per i filtri selezionati.</p>
+                            <p class="text-sm mt-2">Le frecce vengono registrate usando il 🎯 Bersaglio durante la sessione.</p>
+                        </div>
+                    ` : `
+                        <div class="bg-secondary-dark p-4 rounded-xl mb-4">
+                            <h3 class="text-base font-bold mb-3 text-white">Distribuzione Colpi (${scored.length} frecce)</h3>
+                            <div style="display:flex;justify-content:center;">
+                                <div id="ts-target-canvas" style="position:relative;width:340px;height:340px;border-radius:50%;overflow:hidden;border:2px solid #334155;flex-shrink:0;"></div>
+                            </div>
+                        </div>
+                        <div class="bg-secondary-dark p-4 rounded-xl mb-4">
+                            <h3 class="text-base font-bold mb-3 text-white">Distribuzione per Anello</h3>
+                            <div id="ts-ring-bars"></div>
+                        </div>
+                    `}
+                `;
+
+                if (scored.length > 0) {
+                    requestAnimationFrame(() => {
+                        const canvas = document.getElementById('ts-target-canvas');
+                        if (!canvas) return;
+                        [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
+                            const el = document.createElement('div');
+                            el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
+                            canvas.appendChild(el);
+                        });
+                        scored.forEach(a => {
+                            const dot = document.createElement('div');
+                            const sv = a.score === 'X' ? 10 : parseInt(a.score) || 0;
+                            const dotColor = sv >= 9 ? '#fbbf24' : sv >= 7 ? '#fb923c' : sv >= 5 ? '#60a5fa' : '#64748b';
+                            dot.style.cssText = `position:absolute;width:8px;height:8px;border-radius:50%;background:${dotColor};border:1px solid rgba(0,0,0,0.5);left:${a.x}px;top:${a.y}px;transform:translate(-50%,-50%);opacity:0.8;`;
+                            canvas.appendChild(dot);
+                        });
+                        const barsEl = document.getElementById('ts-ring-bars');
+                        if (!barsEl) return;
+                        const counts = {};
+                        allArrows.forEach(a => { counts[a.score] = (counts[a.score]||0) + 1; });
+                        const order = ['X','10','9','8','7','6','5','4','3','2','1','M'];
+                        const maxC = Math.max(...Object.values(counts), 1);
+                        barsEl.innerHTML = order.filter(k => counts[k]).map(k => {
+                            const c = counts[k] || 0;
+                            const pct = Math.round((c / totFrecce) * 100);
+                            const w = Math.round((c / maxC) * 100);
+                            const barColor = k==='X'||k==='10'||k==='9' ? '#fbbf24' : k==='8'||k==='7' ? '#fb923c' : k==='6'||k==='5' ? '#60a5fa' : k==='M' ? '#ef4444' : '#64748b';
+                            return `<div class="flex items-center gap-2 mb-2">
+                                <div class="w-6 text-right font-bold text-sm text-white">${k}</div>
+                                <div class="flex-1 bg-gray-800 rounded h-5 overflow-hidden">
+                                    <div style="width:${w}%;background:${barColor};height:100%;transition:width 0.3s;"></div>
+                                </div>
+                                <div class="text-xs text-gray-400 w-14 text-right">${c} (${pct}%)</div>
+                            </div>`;
+                        }).join('');
+                    });
+                }
+            }
+
+            window._tsFilter = (key, val) => { tsFilter[key] = val; buildTargetStatsUI(); };
+
+            if (!appState.sessionData || appState.sessionData.length === 0) {
+                fetchSessions();
+                setTimeout(buildTargetStatsUI, 800);
+            } else {
+                buildTargetStatsUI();
+            }
+        }
+        // ── FINE STATISTICHE BERSAGLIO ────────────────────────────────────────
 
         function renderArrowCounter() {
             if (!appState.loggedInArcher) { window.setView('login'); return; }
