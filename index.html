@@ -142,6 +142,22 @@
             border:2px solid #334155; touch-action:none;
             flex-shrink:0;
         }
+
+        /* ── TARGET OVERLAY (sopra il segnapunti) ── */
+        #target-overlay {
+            display:none;
+            position:fixed; inset:0; z-index:500;
+            background:#0f172a;
+            overflow-y:auto;
+            padding:12px 12px 80px;
+        }
+        #target-overlay.active { display:block; }
+        .target-overlay-back {
+            position:sticky; top:0; z-index:10;
+            display:flex; align-items:center; gap:10px;
+            background:#0f172a; padding:8px 0 10px;
+            border-bottom:1px solid #334155; margin-bottom:12px;
+        }
     </style>
     <script>
         tailwind.config = {
@@ -187,6 +203,19 @@
         <div class="test-ch-v"></div>
         <div class="test-ch-h"></div>
         <div class="test-ch-dot"></div>
+    </div>
+
+    <!-- Overlay bersaglio integrato nel segnapunti -->
+    <div id="target-overlay">
+        <div class="target-overlay-back">
+            <button onclick="window.closeTargetOverlay()"
+                class="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-sm border border-gray-600">
+                ← Segnapunti
+            </button>
+            <span id="overlay-turn-info" class="text-primary-orange text-sm font-bold"></span>
+            <span id="overlay-score-info" class="ml-auto text-white text-sm font-bold"></span>
+        </div>
+        <div id="target-overlay-content"></div>
     </div>
 
     <button id="resume-session-btn"
@@ -2032,7 +2061,14 @@ function renderMainMenu() {
 
             const keypadHtml = `
                 <div class="mt-6">
-                    <h3 class="text-xl font-bold mb-3 text-white">Tastierino Punteggi</h3>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xl font-bold text-white">Tastierino Punteggi</h3>
+                        <button onclick="window.openTargetOverlay()"
+                            class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white border-2 border-orange-500"
+                            style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">
+                            🎯 Inserisci da Bersaglio
+                        </button>
+                    </div>
                     <div class="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-7">
                         ${KEYPAD_VALUES.map(val => `
                             <button class="keypad-button bg-secondary-dark border-2 border-primary-orange text-white p-4 rounded-xl text-xl font-bold hover:bg-primary-orange hover:text-black active:scale-95"
@@ -2161,7 +2197,297 @@ function renderMainMenu() {
             `;
         }
 
-        window.saveTurn = (isFinal) => {
+        // ── TARGET OVERLAY (bersaglio integrato nel segnapunti) ───────────────
+        // Stato overlay: usa testState ma sincronizzato con scoringGrid
+        const overlayState = {
+            active: false,
+            configType: 'singola',
+        };
+
+        function targaToConfigType(tipoTarga) {
+            if (!tipoTarga) return 'singola';
+            const t = tipoTarga.toLowerCase();
+            if (t.includes('tripla')) return 'tripla';
+            return 'singola';
+        }
+
+        window.openTargetOverlay = () => {
+            const session = appState.currentSession;
+            if (!session) return;
+
+            // Auto-imposta tipo bersaglio dal tipoTarga
+            overlayState.configType = targaToConfigType(session.tipoTarga);
+            testState.configType = overlayState.configType;
+
+            // Sincronizza testState con la cella attiva corrente
+            // Non resettiamo le volée — usiamo il grid come source of truth
+            overlayState.active = true;
+
+            // Costruisci la volee corrente dalla cella attiva
+            const row = scoringState.activeCell.row - 1;
+            const rowData = appState.scoringGrid[row] || [];
+            const filledInRow = rowData.filter(s => s !== '' && s !== undefined).length;
+            // Le frecce già inserite in questa volee come "currentVolee" per i dots
+            testState.currentVolee = rowData
+                .filter(s => s !== '' && s !== undefined)
+                .map(s => ({ score: s, x: 0, y: 0 })); // x,y 0 = no dot
+            // Le frecce delle volée precedenti
+            testState.allVolleys = appState.scoringGrid.slice(0, row).map((r, i) => ({
+                scores: [...r].filter(s => s !== ''),
+                arrows: [],
+                total: 0,
+            }));
+
+            overlayRenderContent();
+            document.getElementById('target-overlay').classList.add('active');
+            document.getElementById('overlay-turn-info').textContent =
+                `${session.type} · Turno ${appState.currentTurn}`;
+        };
+
+        window.closeTargetOverlay = () => {
+            overlayState.active = false;
+            document.getElementById('target-overlay').classList.remove('active');
+            const mag = document.getElementById('test-magnifier');
+            if (mag) mag.style.display = 'none';
+            // Ri-renderizza il segnapunti (aggiornato)
+            renderScoringView();
+        };
+
+        // Quando una freccia viene inserita dall'overlay → va nel scoringGrid
+        function overlayInsertScore(score, x, y) {
+            // Usa handleKeypadInput per inserire nella cella attiva e avanzare
+            window.handleKeypadInput(score === 'X' ? 'X' : score);
+            // Aggiorna anche il dot nella volée corrente dell'overlay
+            const row = scoringState.activeCell.row - 1;
+            const col = scoringState.activeCell.col - 1;
+            // Ricostruisci currentVolee dalla riga corrente
+            const rowData = appState.scoringGrid[scoringState.activeCell.row - 1] || [];
+            testState.currentVolee = rowData
+                .filter(s => s !== '' && s !== undefined)
+                .map(s => ({ score: s, x: 0, y: 0 }));
+            // Aggiorna i dot sulla riga precedente appena completata
+            overlayRenderContent(x, y, score);
+
+            // Aggiorna header
+            const liveStats = calculateTurnScores(appState.scoringGrid);
+            document.getElementById('overlay-score-info').textContent =
+                `Totale: ${liveStats.score} · Media: ${liveStats.average.toFixed(2)}`;
+        }
+
+        function overlayRenderContent(lastX, lastY, lastScore) {
+            const session = appState.currentSession;
+            if (!session) return;
+            const isTripla = testState.configType === 'tripla';
+            const fmt = session.formatoGara || '';
+            const liveStats = calculateTurnScores(appState.scoringGrid);
+
+            // Frecce della volée corrente (cella attiva e precedenti nella stessa riga)
+            const activeRow = scoringState.activeCell.row - 1;
+            const activeCol = scoringState.activeCell.col - 1;
+            const rowData = appState.scoringGrid[activeRow] || [];
+            const currentArrows = rowData.filter(s => s !== '' && s !== undefined);
+
+            // Punteggi a sinistra
+            const sortOrder = s => s === 'X' ? 11 : s === 'M' ? 0 : parseInt(s) || 0;
+            const sorted = [...currentArrows].sort((a, b) => sortOrder(b) - sortOrder(a));
+
+            const leftColHtml = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:44px;">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1" style="writing-mode:vertical-lr;transform:rotate(180deg);font-size:9px;">Volée ${activeRow+1}</p>
+                    ${Array(scoringState.cols).fill(0).map((_, i) => {
+                        const sc = sorted[i];
+                        if (sc) {
+                            const cls = sc === 'X' || sc === '10' ? 'bg-yellow-500 text-black'
+                                : sc === 'M' ? 'bg-red-600 text-white'
+                                : parseInt(sc) >= 7 ? 'bg-red-500 text-white'
+                                : parseInt(sc) >= 5 ? 'bg-blue-500 text-white'
+                                : 'bg-gray-600 text-white';
+                            return `<div class="w-10 h-10 flex items-center justify-center rounded-full font-black text-base ${cls}">${sc}</div>`;
+                        }
+                        return `<div class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 border border-gray-600 text-gray-500 text-sm">·</div>`;
+                    }).join('')}
+                    <div class="mt-1 text-xs text-primary-orange font-bold">${liveStats.score}</div>
+                </div>`;
+
+            const canvasId = 'overlay-target-canvas';
+            const targetHtml = `
+                <div style="display:flex;align-items:center;gap:10px;justify-content:center;">
+                    ${leftColHtml}
+                    <div id="${canvasId}" style="position:relative;border:2px solid #334155;touch-action:none;flex-shrink:0;
+                        ${isTripla
+                            ? `width:${TRIPLA_W}px;height:${TRIPLA_H}px;border-radius:12px;overflow:hidden;`
+                            : 'width:340px;height:340px;border-radius:50%;overflow:hidden;'}">
+                    </div>
+                    <!-- Mirino live a destra -->
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:44px;">
+                        <p class="text-xs text-gray-500 uppercase" style="font-size:9px;">Mirino</p>
+                        <div id="overlay-live-score" class="text-3xl font-black text-white">—</div>
+                        <p class="text-xs text-gray-500 mt-2" style="font-size:9px;">Rimanenti</p>
+                        <div class="text-lg font-bold text-primary-orange">${(scoringState.rows * scoringState.cols) - liveStats.frecceTirate}</div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="window.overlayAddMiss()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">M Mancata</button>
+                    <button onclick="window.overlayUndo()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">↩ Annulla</button>
+                    <button onclick="window.closeTargetOverlay()" class="flex-1 py-2 rounded-xl text-white font-bold text-sm" style="background:#7c3aed;">← Segnapunti</button>
+                </div>`;
+
+            const container = document.getElementById('target-overlay-content');
+            if (!container) return;
+
+            // Selettore tipo bersaglio
+            const btnSingola = `flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-sm ${testState.configType==='singola' ? 'bg-orange-500 text-white' : 'text-orange-500'}`;
+            const btnTripla  = `flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-sm ${testState.configType==='tripla'  ? 'bg-orange-500 text-white' : 'text-orange-500'}`;
+
+            container.innerHTML = `
+                <div class="flex gap-2 mb-3">
+                    <button onclick="window.overlayChangeType('singola')" id="overlay-btn-singola" class="${btnSingola}">SINGOLA</button>
+                    <button onclick="window.overlayChangeType('tripla')"  id="overlay-btn-tripla"  class="${btnTripla}">TRIPLA</button>
+                </div>
+                ${targetHtml}
+            `;
+
+            // Disegna bersaglio
+            requestAnimationFrame(() => {
+                const canvas = document.getElementById(canvasId);
+                if (!canvas) return;
+                // Usa testDrawTarget con override del canvas id
+                _overlayDrawTarget(canvas);
+                _overlaySetupPointerEvents(canvas);
+                testBuildMagnifierBg();
+            });
+
+            document.getElementById('overlay-score-info').textContent =
+                `Totale: ${liveStats.score} · Media: ${liveStats.frecceTirate > 0 ? liveStats.average.toFixed(2) : '—'}`;
+        }
+
+        function _overlayDrawTarget(canvas) {
+            const isTripla = testState.configType === 'tripla';
+            canvas.querySelectorAll('.test-arrow-dot,.test-ring,.test-tripla-bg').forEach(d => d.remove());
+
+            if (isTripla) {
+                const bg = document.createElement('div');
+                bg.className = 'test-tripla-bg';
+                bg.style.cssText = `position:absolute;inset:0;background:#1e293b;border-radius:10px;`;
+                canvas.appendChild(bg);
+                TRIPLA_CY.forEach(cy => {
+                    [...TEST_RINGS_TRIPLA_SHAPE].reverse().forEach(r => {
+                        const el = document.createElement('div');
+                        el.className = 'test-ring';
+                        el.style.cssText = `position:absolute;border-radius:50%;width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.8px solid rgba(0,0,0,0.4);left:${TRIPLA_CX-r.r}px;top:${cy-r.r}px;`;
+                        canvas.appendChild(el);
+                    });
+                });
+            } else {
+                [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
+                    const el = document.createElement('div');
+                    el.className = 'test-ring';
+                    el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
+                    canvas.appendChild(el);
+                });
+            }
+
+            // Tutte le frecce già inserite (da scoringGrid)
+            const activeRow = scoringState.activeCell.row - 1;
+            appState.scoringGrid.forEach((row, ri) => {
+                row.forEach((score, ci) => {
+                    if (!score) return;
+                    // Cerchiamo x,y nelle posizioni salvate
+                    const pos = _getArrowPos(ri, ci);
+                    if (pos) testPlaceDot(canvas, pos.x, pos.y, ri < activeRow ? '#94a3b8' : '#ff4500');
+                });
+            });
+        }
+
+        // Mappa posizioni x,y per ogni cella (ri, ci) — salvate in overlayState
+        if (!window._overlayArrowPos) window._overlayArrowPos = {};
+        function _saveArrowPos(ri, ci, x, y) { window._overlayArrowPos[`${ri}_${ci}`] = {x, y}; }
+        function _getArrowPos(ri, ci) { return window._overlayArrowPos[`${ri}_${ci}`] || null; }
+
+        function _overlaySetupPointerEvents(canvas) {
+            if (canvas._overlayAttached) return;
+            canvas._overlayAttached = true;
+
+            canvas.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                testState.isActive = true;
+                _overlayHandlePointer(e, canvas);
+            }, { passive: false });
+
+            window.addEventListener('pointermove', e => {
+                if (testState.isActive && overlayState.active) _overlayHandlePointer(e, canvas);
+            });
+
+            window.addEventListener('pointerup', e => {
+                if (!testState.isActive || !overlayState.active) return;
+                testState.isActive = false;
+                const mag = document.getElementById('test-magnifier');
+                if (mag) mag.style.display = 'none';
+                // Registra la freccia nel scoringGrid
+                const score = testState.lastScore;
+                const x = testState.lastX, y = testState.lastY;
+                // Salva posizione
+                const ri = scoringState.activeCell.row - 1;
+                const ci = scoringState.activeCell.col - 1;
+                _saveArrowPos(ri, ci, x, y);
+                overlayInsertScore(score, x, y);
+            });
+        }
+
+        function _overlayHandlePointer(e, canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX ?? (e.touches?.[0]?.clientX);
+            const clientY = e.clientY ?? (e.touches?.[0]?.clientY);
+            if (clientX == null) return;
+
+            const isTripla = testState.configType === 'tripla';
+            const cW = isTripla ? TRIPLA_W : 340;
+            const cH = isTripla ? TRIPLA_H : 340;
+            let x = Math.max(0, Math.min(cW, clientX - rect.left - 2));
+            let y = Math.max(0, Math.min(cH, clientY - rect.top  - 2));
+
+            testState.lastX = x; testState.lastY = y;
+            const hit = testScoreFromXY(x, y);
+            testState.lastScore = hit.score;
+
+            const ZOOM = 4, MAG_R = 110, LIFT = 270;
+            const mag = document.getElementById('test-magnifier');
+            if (mag) {
+                mag.style.display = 'block';
+                mag.style.left = (clientX - MAG_R) + 'px';
+                mag.style.top  = (clientY - LIFT) + 'px';
+                mag.style.backgroundSize  = `${cW * ZOOM}px ${cH * ZOOM}px`;
+                mag.style.backgroundPosition = `${MAG_R - x * ZOOM}px ${MAG_R - y * ZOOM}px`;
+            }
+
+            const liveEl = document.getElementById('overlay-live-score');
+            if (liveEl) {
+                const s = hit.score;
+                liveEl.textContent = s;
+                liveEl.style.color = s === 'X' || s === '10' ? '#fbbf24' : s === 'M' ? '#ef4444' : '#ffffff';
+            }
+        }
+
+        window.overlayAddMiss = () => {
+            const ri = scoringState.activeCell.row - 1;
+            const ci = scoringState.activeCell.col - 1;
+            _saveArrowPos(ri, ci, 0, 0);
+            overlayInsertScore('M', 0, 0);
+        };
+
+        window.overlayUndo = () => {
+            window.handleKeypadInput('CANC');
+            overlayRenderContent();
+        };
+
+        window.overlayChangeType = (t) => {
+            testState.configType = t;
+            overlayState.configType = t;
+            overlayRenderContent();
+        };
+        // ── FINE TARGET OVERLAY ───────────────────────────────────────────────
+
+
             const turnKey = `turn${appState.currentTurn}`;
             const turnResults = calculateTurnScores(appState.scoringGrid);
 
@@ -5525,82 +5851,72 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     `}
                 </div>`;
 
+            const sortOrder = s => s === 'X' ? 11 : s === 'M' ? 0 : parseInt(s) || 0;
+            const currentSorted = [...testState.currentVolee].sort((a,b) => sortOrder(b.score) - sortOrder(a.score));
+
+            // Colonna sinistra: punteggi volée corrente
+            const leftColHtml = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:44px;">
+                    <p style="font-size:9px;color:#6b7280;text-transform:uppercase;writing-mode:vertical-lr;transform:rotate(180deg);letter-spacing:.05em;">Volée ${testState.allVolleys.length+1}</p>
+                    ${Array(testState.cols).fill(0).map((_, i) => {
+                        const a = currentSorted[i];
+                        if (a) {
+                            const sc = a.score;
+                            const cls = sc === 'X' || sc === '10' ? 'bg-yellow-500 text-black'
+                                : sc === 'M' ? 'bg-red-600 text-white'
+                                : parseInt(sc) >= 7 ? 'bg-red-500 text-white'
+                                : parseInt(sc) >= 5 ? 'bg-blue-500 text-white'
+                                : 'bg-gray-600 text-white';
+                            return `<div class="test-volee-cell w-10 h-10 flex items-center justify-center rounded-full font-black text-base ${cls}">${sc}</div>`;
+                        }
+                        return `<div class="test-volee-cell w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 border border-gray-600 text-gray-500 text-sm">·</div>`;
+                    }).join('')}
+                    <div style="margin-top:4px;font-size:11px;color:#fdb927;font-weight:bold;">${testState.totalScore}</div>
+                </div>`;
+
             document.getElementById('content-view').innerHTML = `
                 <h2 class="text-3xl font-bold mb-1 text-white">${session.type} <span class="text-purple-400 text-xl">🔬 Turno ${testState.currentTurn}</span></h2>
-                <p class="text-sm mb-4 text-primary-orange">${session.distanza} | ${fmt}</p>
+                <p class="text-sm mb-3 text-primary-orange">${session.distanza} | ${fmt}</p>
 
                 ${t1Html}
 
-                <div class="flex gap-2 mb-4">
+                <!-- Selettore tipo bersaglio -->
+                <div class="flex gap-2 mb-3">
                     <button onclick="window.testChangeType('singola')" id="test-btn-singola"
-                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 bg-orange-500 text-white text-sm">SINGOLA</button>
+                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 ${testState.configType==='singola'?'bg-orange-500 text-white':'text-orange-500'} text-sm">SINGOLA</button>
                     <button onclick="window.testChangeType('tripla')" id="test-btn-tripla"
-                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 text-orange-500 text-sm">TRIPLA</button>
+                        class="flex-1 py-2 rounded-lg font-bold border-2 border-orange-500 ${testState.configType==='tripla'?'bg-orange-500 text-white':'text-orange-500'} text-sm">TRIPLA</button>
                 </div>
 
-                <div style="display:flex;justify-content:center;margin-bottom:8px;">
+                <!-- Bersaglio + colonna sinistra punteggi + mirino live a destra -->
+                <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:12px;">
+                    ${leftColHtml}
                     <div id="test-target-canvas"></div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:44px;">
+                        <p style="font-size:9px;color:#6b7280;text-transform:uppercase;">Mirino</p>
+                        <div id="test-live-score" class="text-3xl font-black text-white">—</div>
+                        <p style="font-size:9px;color:#6b7280;text-transform:uppercase;margin-top:8px;">Rimaste</p>
+                        <div class="text-lg font-bold text-primary-orange">${remaining >= 0 ? remaining : '—'}</div>
+                        ${pct > 0 ? `<p style="font-size:9px;color:#6b7280;margin-top:4px;">${pct}%</p>` : ''}
+                    </div>
                 </div>
 
-                <div class="bg-gray-900 p-4 rounded-2xl border border-gray-700 mb-4">
-                    <div class="flex justify-between items-center mb-3">
-                        <div class="text-center flex-1">
-                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Mirino</p>
-                            <div id="test-live-score" class="text-5xl font-black text-white">—</div>
-                        </div>
-                        <div class="text-center flex-1">
-                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">T${testState.currentTurn}</p>
-                            <div class="text-4xl font-black text-primary-orange">${testState.totalScore}</div>
-                        </div>
-                        <div class="text-center flex-1">
-                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Rimanenti</p>
-                            <div class="text-2xl font-bold text-white">${remaining >= 0 ? remaining : '—'}</div>
-                        </div>
-                    </div>
-                    <div class="flex justify-around gap-2">
-                        ${Array(testState.cols).fill(0).map((_, i) => {
-                            const a = testState.currentVolee[i];
-                            if (a) {
-                                const cls = a.score === 'X' || a.score === '10' ? 'bg-yellow-500 text-black'
-                                    : a.score === 'M' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white';
-                                return `<div class="test-volee-cell w-12 h-12 flex items-center justify-center rounded-full font-black text-lg ${cls}">${a.score}</div>`;
-                            }
-                            return `<div class="test-volee-cell w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 border border-gray-600 text-gray-500">-</div>`;
-                        }).join('')}
-                    </div>
-                    ${pct > 0 ? `<div class="progress-bar mt-3"><div class="progress-fill" style="width:${pct}%"></div></div>
-                    <div class="text-xs text-center mt-1 text-primary-orange">${testState.frecceTirate} / ${totalArrowsPerTurn} frecce</div>` : ''}
-                    <div class="flex gap-2 mt-3">
-                        <button onclick="window.testAddMiss()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">M (Mancata)</button>
-                        <button onclick="window.testUndoLast()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">↩ Annulla</button>
-                    </div>
+                <!-- Azioni rapide -->
+                <div class="flex gap-2 mb-4">
+                    <button onclick="window.testAddMiss()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">M Mancata</button>
+                    <button onclick="window.testUndoLast()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl text-sm">↩ Annulla</button>
                 </div>
 
                 ${testState.frecceTirate > 0 ? `
                     <div class="stats-card mb-4">
-                        <h3 class="text-lg font-bold mb-3 text-white">📊 Statistiche Live</h3>
                         <div class="grid grid-cols-4 gap-2 text-center text-sm">
                             <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">Totale</div><div class="font-bold text-white">${testState.totalScore}</div></div>
                             <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">Media</div><div class="font-bold text-white">${avg}</div></div>
                             <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">X-10</div><div class="font-bold text-white">${testState.totalX}-${testState.total10}</div></div>
                             <div class="bg-gray-800 p-2 rounded-lg"><div class="text-xs text-primary-orange">9</div><div class="font-bold text-white">${testState.total9}</div></div>
                         </div>
-                    </div>` : ''}
-
-                ${testState.allVolleys.length > 0 ? `
-                    <div class="bg-secondary-dark p-4 rounded-xl mb-4 border border-gray-700">
-                        <h3 class="text-base font-bold mb-2 text-white">📋 Volée Completate</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full border-collapse text-xs">
-                                <thead><tr class="text-primary-orange">
-                                    <th class="p-1 text-left">Vol.</th>
-                                    <th class="p-1 text-left">Punteggi</th>
-                                    <th class="p-1">Parz.</th>
-                                    <th class="p-1">Tot.</th>
-                                </tr></thead>
-                                <tbody>${volleeTableRows}</tbody>
-                            </table>
-                        </div>
+                        ${pct > 0 ? `<div class="progress-bar mt-3"><div class="progress-fill" style="width:${pct}%"></div></div>
+                        <div class="text-xs text-center mt-1 text-primary-orange">${testState.frecceTirate} / ${totalArrowsPerTurn} frecce</div>` : ''}
                     </div>` : ''}
 
                 ${sessionNotesHtml}
@@ -5631,7 +5947,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
             testState.totalScore = 0;
             testState.totalX = 0; testState.total10 = 0; testState.total9 = 0;
             testState.frecceTirate = 0;
-            testState.configType = 'singola';
+            // Auto-imposta tipo bersaglio dal tipoTarga
+            testState.configType = targaToConfigType(appState.currentSession.tipoTarga);
             testRenderView();
         }
         // ── FINE TEST BERSAGLIO ───────────────────────────────────────────────
