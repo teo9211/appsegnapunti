@@ -2175,9 +2175,9 @@ function renderMainMenu() {
             { s:'X',  r:3.5,  c:'#fef08a' },
             { s:'10', r:8.0,  c:'#fef08a' },
             { s:'9',  r:16.8, c:'#fde047' },
-            { s:'8',  r:25.7, c:'#fde047' },
-            { s:'7',  r:34.6, c:'#fb923c' },
-            { s:'6',  r:43.4, c:'#fb923c' },
+            { s:'8',  r:25.7, c:'#ef4444' },
+            { s:'7',  r:34.6, c:'#ef4444' },
+            { s:'6',  r:43.4, c:'#3b82f6' },
             // fuori da r=43.4 → 'M' (gestito in testScoreFromDist)
         ];
         // Stato bersaglio overlay
@@ -5448,9 +5448,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     ` : `
                         <div class="bg-secondary-dark p-4 rounded-xl mb-4">
                             <h3 class="text-base font-bold mb-3 text-white">Distribuzione Colpi (${scored.length} frecce)</h3>
-                            <div style="display:flex;justify-content:center;">
-                                <div id="ts-target-canvas" style="position:relative;width:340px;height:340px;border-radius:50%;overflow:hidden;border:2px solid #334155;flex-shrink:0;"></div>
-                            </div>
+                            <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:16px;" id="ts-target-wrap"></div>
                         </div>
                         <div class="bg-secondary-dark p-4 rounded-xl mb-4">
                             <h3 class="text-base font-bold mb-3 text-white">Distribuzione per Anello</h3>
@@ -5461,20 +5459,61 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
                 if (scored.length > 0) {
                     requestAnimationFrame(() => {
-                        const canvas = document.getElementById('ts-target-canvas');
-                        if (!canvas) return;
-                        [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
-                            const el = document.createElement('div');
-                            el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
-                            canvas.appendChild(el);
+                        const wrap = document.getElementById('ts-target-wrap');
+                        if (!wrap) return;
+
+                        // Raggruppa frecce per tipo targa della sessione
+                        const arrowsByTarga = {};
+                        filtered.forEach(s => {
+                            const targa = s.tipoTarga || 'Singola';
+                            const arrows = getArrowsFromSession(s).filter(a => a.score !== 'M' && a.x != null);
+                            if (!arrowsByTarga[targa]) arrowsByTarga[targa] = [];
+                            arrowsByTarga[targa].push(...arrows);
                         });
-                        scored.forEach(a => {
-                            const dot = document.createElement('div');
-                            const sv = a.score === 'X' ? 10 : parseInt(a.score) || 0;
-                            const dotColor = sv >= 9 ? '#fbbf24' : sv >= 7 ? '#fb923c' : sv >= 5 ? '#60a5fa' : '#64748b';
-                            dot.style.cssText = `position:absolute;width:8px;height:8px;border-radius:50%;background:${dotColor};border:1px solid rgba(0,0,0,0.5);left:${a.x}px;top:${a.y}px;transform:translate(-50%,-50%);opacity:0.8;`;
-                            canvas.appendChild(dot);
+
+                        Object.entries(arrowsByTarga).forEach(([targa, arrows]) => {
+                            if (!arrows.length) return;
+                            const isTripla = targa.toLowerCase().includes('tripla');
+
+                            const canvasWrap = document.createElement('div');
+                            canvasWrap.innerHTML = `<p style="text-align:center;font-size:11px;color:#fdb927;margin-bottom:6px;">${targa} (${arrows.length} frecce)</p>`;
+
+                            const canvas = document.createElement('div');
+                            canvas.style.cssText = isTripla
+                                ? `position:relative;width:${TRIPLA_W}px;height:${TRIPLA_H}px;border-radius:10px;overflow:hidden;border:2px solid #334155;background:#1e293b;flex-shrink:0;`
+                                : `position:relative;width:340px;height:340px;border-radius:50%;overflow:hidden;border:2px solid #334155;background:#374151;flex-shrink:0;`;
+
+                            // Disegna anelli
+                            if (isTripla) {
+                                TRIPLA_CY.forEach(cy => {
+                                    [...TEST_RINGS_TRIPLA_SHAPE].reverse().forEach(r => {
+                                        const el = document.createElement('div');
+                                        el.style.cssText = `position:absolute;border-radius:50%;width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.8px solid rgba(0,0,0,0.4);left:${TRIPLA_CX-r.r}px;top:${cy-r.r}px;`;
+                                        canvas.appendChild(el);
+                                    });
+                                });
+                            } else {
+                                [...TEST_RINGS_SINGOLA].reverse().forEach(r => {
+                                    const el = document.createElement('div');
+                                    el.style.cssText = `position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;width:${r.r*2}px;height:${r.r*2}px;background:${r.c};border:0.5px solid rgba(0,0,0,0.3);`;
+                                    canvas.appendChild(el);
+                                });
+                            }
+
+                            // Disegna frecce
+                            arrows.forEach(a => {
+                                const dot = document.createElement('div');
+                                const sv = a.score === 'X' ? 10 : parseInt(a.score) || 0;
+                                const dotColor = sv >= 9 ? '#fbbf24' : sv >= 7 ? '#fb923c' : sv >= 5 ? '#60a5fa' : '#64748b';
+                                dot.style.cssText = `position:absolute;width:8px;height:8px;border-radius:50%;background:${dotColor};border:1.5px solid rgba(0,0,0,0.7);left:${a.x}px;top:${a.y}px;transform:translate(-50%,-50%);opacity:0.85;z-index:10;`;
+                                canvas.appendChild(dot);
+                            });
+
+                            canvasWrap.appendChild(canvas);
+                            wrap.appendChild(canvasWrap);
                         });
+
+                        // Barre distribuzione
                         const barsEl = document.getElementById('ts-ring-bars');
                         if (!barsEl) return;
                         const counts = {};
@@ -5485,7 +5524,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                             const c = counts[k] || 0;
                             const pct = Math.round((c / totFrecce) * 100);
                             const w = Math.round((c / maxC) * 100);
-                            const barColor = k==='X'||k==='10'||k==='9' ? '#fbbf24' : k==='8'||k==='7' ? '#fb923c' : k==='6'||k==='5' ? '#60a5fa' : k==='M' ? '#ef4444' : '#64748b';
+                            const barColor = k==='X'||k==='10'||k==='9' ? '#fbbf24' : k==='8'||k==='7' ? '#fb923c' : k==='6' ? '#3b82f6' : k==='5' ? '#60a5fa' : k==='M' ? '#ef4444' : '#64748b';
                             return `<div class="flex items-center gap-2 mb-2">
                                 <div class="w-6 text-right font-bold text-sm text-white">${k}</div>
                                 <div class="flex-1 bg-gray-800 rounded h-5 overflow-hidden">
