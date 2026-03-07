@@ -2506,6 +2506,24 @@ function renderMainMenu() {
             appState.currentSession[turnKey].summary = turnResults;
             appState.currentSession[turnKey].volleyNotes = appState.volleyNotes;
 
+            // Salva le posizioni delle frecce dal bersaglio overlay
+            if (window._overlayArrowPos && Object.keys(window._overlayArrowPos).length > 0) {
+                const grid = appState.scoringGrid;
+                const arrowPositions = [];
+                Object.entries(window._overlayArrowPos).forEach(([key, pos]) => {
+                    const [ri, ci] = key.split('_').map(Number);
+                    const score = grid && grid[ri] && grid[ri][ci] ? grid[ri][ci] : null;
+                    if (score && (pos.x || pos.y)) {
+                        arrowPositions.push({ ri, ci, x: pos.x, y: pos.y, score });
+                    }
+                });
+                if (arrowPositions.length > 0) {
+                    appState.currentSession[turnKey].arrowPositions = arrowPositions;
+                }
+                // Reset per il prossimo turno
+                window._overlayArrowPos = {};
+            }
+
             const scoreInfo = `
                 <div class="bg-gray-800 rounded-lg p-3 mb-3">
                     <p class="text-center text-3xl font-extrabold text-primary-orange mb-1">${turnResults.score}</p>
@@ -2619,7 +2637,8 @@ function renderMainMenu() {
             return {
                 summary: turn.summary,
                 grid: serializedGrid,
-                volleyNotes: turn.volleyNotes || {}
+                volleyNotes: turn.volleyNotes || {},
+                arrowPositions: turn.arrowPositions || []
             };
         }
 
@@ -2722,7 +2741,11 @@ const sessions = [];
 querySnapshot.forEach((doc) => {
 sessions.push({ docId: doc.id, ...doc.data() }); 
                 });
-sessions.sort((a, b) => new Date(a.data) - new Date(b.data));
+sessions.sort((a, b) => {
+    const da = new Date(`${a.data}T${a.ora || '00:00'}`);
+    const db = new Date(`${b.data}T${b.ora || '00:00'}`);
+    return da - db;
+});
 appState.sessionData = sessions;
 renderDataSummaryTable();
             }, (error) => {
@@ -4128,7 +4151,7 @@ async function saveNewGoal() {
 
             const sessions = (appState.sessionData || [])
                 .filter(s => !s.trainingWithoutScore) // solo allenamenti con punteggio
-                .sort((a, b) => new Date(b.data) - new Date(a.data));
+                .sort((a, b) => { const da = new Date(`${b.data}T${b.ora||"00:00"}`); const db = new Date(`${a.data}T${a.ora||"00:00"}`); return da - db; });
 
             const sessionsOptions = sessions.map(s =>
                 `<option value="${s.docId || s.id}">${s.data} — ${s.type} ${s.luogo} (${s.distanza || 'tech'})</option>`
@@ -5228,7 +5251,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 return;
             }
 
-            const sortedSessions = [...sessions].sort((a, b) => new Date(a.data) - new Date(b.data));
+            const sortedSessions = [...sessions].sort((a, b) => { const da = new Date(`${a.data}T${a.ora||"00:00"}`); const db = new Date(`${b.data}T${b.ora||"00:00"}`); return da - db; });
 
             const html = `
                 <h4 class="text-lg font-bold mb-3 text-white">📋 Sessioni del Mese (${sessions.length})</h4>
@@ -5935,7 +5958,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
 
             // Filtra sessioni nel periodo — mostra tutte le sessioni (non solo tecnico)
             const filtered = appState.sessionData.filter(s => s.data >= fromDate && s.data <= toDate)
-                .sort((a, b) => new Date(a.data) - new Date(b.data));
+                .sort((a, b) => { const da = new Date(`${a.data}T${a.ora||"00:00"}`); const db = new Date(`${b.data}T${b.ora||"00:00"}`); return da - db; });
 
             if (filtered.length === 0) {
                 showModal("Nessun Dato", "Nessuna sessione trovata nel periodo selezionato.", [{ text: "Ok", handler: () => {} }]);
