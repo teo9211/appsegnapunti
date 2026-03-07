@@ -1882,7 +1882,10 @@ function renderMainMenu() {
             }
 
             autoSaveCurrentSession();
-            renderScoringView();
+            // Non re-renderizzare il segnapunti se l'overlay bersaglio è aperto
+            if (!overlayState || !overlayState.active) {
+                renderScoringView();
+            }
         };
 
         window.addVolleyNote = (volleyNumber) => {
@@ -2235,21 +2238,17 @@ function renderMainMenu() {
 
         function overlayInsertScore(score) {
             window.handleKeypadInput(score);
-            const row = scoringState.activeCell.row - 1;
-            const rowData = appState.scoringGrid[row] || [];
-            testState.currentVolee = rowData.filter(s => s !== '' && s !== undefined).map(s => ({ score: s, x: 0, y: 0 }));
+            // Aggiorna la colonna sinistra e il canvas
             overlayRenderContent();
-            const liveStats = calculateTurnScores(appState.scoringGrid);
-            const si = document.getElementById('overlay-score-info');
-            if (si) si.textContent = `Totale: ${liveStats.score} · Media: ${liveStats.frecceTirate > 0 ? liveStats.average.toFixed(2) : '—'}`;
         }
 
         function overlayRenderContent() {
             const session = appState.currentSession;
-            if (!session) return;
+            if (!session || !overlayState.active) return;
             const isTripla = testState.configType === 'tripla';
             const liveStats = calculateTurnScores(appState.scoringGrid);
             const activeRow = scoringState.activeCell ? scoringState.activeCell.row - 1 : 0;
+            const activeCol = scoringState.activeCell ? scoringState.activeCell.col - 1 : 0;
             const rowData = appState.scoringGrid ? (appState.scoringGrid[activeRow] || []) : [];
             const currentArrows = rowData.filter(s => s !== '' && s !== undefined);
             const cols = scoringState.cols || 3;
@@ -2260,16 +2259,16 @@ function renderMainMenu() {
 
             const leftColHtml = `
                 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:44px;">
-                    <p style="font-size:9px;color:#6b7280;text-transform:uppercase;writing-mode:vertical-lr;transform:rotate(180deg);">Volée ${activeRow+1}</p>
+                    <p style="font-size:9px;color:#6b7280;text-transform:uppercase;writing-mode:vertical-lr;transform:rotate(180deg);">Vol. ${activeRow+1}</p>
                     ${Array(cols).fill(0).map((_, i) => {
                         const sc = sorted[i];
                         if (sc) {
-                            const cls = sc === 'X' || sc === '10' ? 'background:#eab308;color:#000'
+                            const s = sc === 'X' || sc === '10' ? 'background:#eab308;color:#000'
                                 : sc === 'M' ? 'background:#dc2626;color:#fff'
                                 : parseInt(sc) >= 7 ? 'background:#ef4444;color:#fff'
                                 : parseInt(sc) >= 5 ? 'background:#3b82f6;color:#fff'
                                 : 'background:#4b5563;color:#fff';
-                            return `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900;font-size:16px;${cls}">${sc}</div>`;
+                            return `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900;font-size:16px;${s}">${sc}</div>`;
                         }
                         return `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#1f2937;border:1px solid #374151;color:#6b7280;font-size:13px;">·</div>`;
                     }).join('')}
@@ -2281,13 +2280,18 @@ function renderMainMenu() {
                 ? `width:${TRIPLA_W}px;height:${TRIPLA_H}px;border-radius:12px;`
                 : `width:340px;height:340px;border-radius:50%;`;
 
-            const btnS = `flex:1;padding:8px;border-radius:8px;font-weight:700;border:2px solid #f97316;font-size:13px;${testState.configType==='singola'?'background:#f97316;color:#fff':'background:transparent;color:#f97316'}`;
-            const btnT = `flex:1;padding:8px;border-radius:8px;font-weight:700;border:2px solid #f97316;font-size:13px;${testState.configType==='tripla'?'background:#f97316;color:#fff':'background:transparent;color:#f97316'}`;
+            const btnS = `flex:1;padding:8px;border-radius:8px;font-weight:700;border:2px solid #f97316;font-size:13px;cursor:pointer;${testState.configType==='singola'?'background:#f97316;color:#fff':'background:transparent;color:#f97316'}`;
+            const btnT = `flex:1;padding:8px;border-radius:8px;font-weight:700;border:2px solid #f97316;font-size:13px;cursor:pointer;${testState.configType==='tripla'?'background:#f97316;color:#fff':'background:transparent;color:#f97316'}`;
 
             const remaining = totalArrows - liveStats.frecceTirate;
+            const pct = totalArrows > 0 ? Math.round(liveStats.frecceTirate / totalArrows * 100) : 0;
 
             const container = document.getElementById('target-overlay-content');
             if (!container) return;
+
+            // Controlla se siamo a fine partita (tutte le frecce inserite)
+            const isComplete = liveStats.frecceTirate >= totalArrows;
+
             container.innerHTML = `
                 <div style="display:flex;gap:8px;margin-bottom:12px;">
                     <button onclick="window.overlayChangeType('singola')" style="${btnS}">SINGOLA</button>
@@ -2300,13 +2304,23 @@ function renderMainMenu() {
                         <p style="font-size:9px;color:#6b7280;text-transform:uppercase;">Mirino</p>
                         <div id="overlay-live-score" style="font-size:2rem;font-weight:900;color:#fff;">—</div>
                         <p style="font-size:9px;color:#6b7280;margin-top:8px;">Rimaste</p>
-                        <div style="font-size:1.1rem;font-weight:700;color:#fdb927;">${remaining >= 0 ? remaining : '—'}</div>
+                        <div style="font-size:1.1rem;font-weight:700;color:#fdb927;">${remaining > 0 ? remaining : isComplete ? '✓' : '—'}</div>
                     </div>
                 </div>
-                <div style="display:flex;gap:8px;margin-bottom:8px;">
-                    <button onclick="window.overlayAddMiss()" style="flex:1;padding:10px;background:#374151;color:#fff;font-weight:700;border-radius:12px;font-size:13px;">M Mancata</button>
-                    <button onclick="window.overlayUndo()" style="flex:1;padding:10px;background:#374151;color:#fff;font-weight:700;border-radius:12px;font-size:13px;">↩ Annulla</button>
+                ${pct > 0 ? `
+                <div style="background:#1f2937;border-radius:8px;overflow:hidden;height:6px;margin-bottom:8px;">
+                    <div style="background:#fdb927;height:100%;width:${pct}%;transition:width 0.3s;"></div>
                 </div>
+                <div style="text-align:center;font-size:11px;color:#fdb927;margin-bottom:8px;">${liveStats.frecceTirate} / ${totalArrows} frecce &nbsp;·&nbsp; Media: ${liveStats.frecceTirate>0?liveStats.average.toFixed(2):'—'}</div>` : ''}
+                <div style="display:flex;gap:8px;margin-bottom:8px;">
+                    <button onclick="window.overlayAddMiss()" style="flex:1;padding:10px;background:#374151;color:#fff;font-weight:700;border-radius:12px;font-size:13px;cursor:pointer;">M Mancata</button>
+                    <button onclick="window.overlayUndo()" style="flex:1;padding:10px;background:#374151;color:#fff;font-weight:700;border-radius:12px;font-size:13px;cursor:pointer;">↩ Annulla</button>
+                </div>
+                ${isComplete ? `
+                <div style="background:#064e3b;border:2px solid #10b981;border-radius:12px;padding:12px;text-align:center;margin-top:8px;">
+                    <p style="color:#10b981;font-weight:700;font-size:14px;margin-bottom:4px;">✅ Turno completato! Punteggio: ${liveStats.score}</p>
+                    <button onclick="window.closeTargetOverlay()" style="background:#10b981;color:#000;font-weight:700;padding:8px 24px;border-radius:8px;font-size:13px;cursor:pointer;">← Torna al Segnapunti per Salvare</button>
+                </div>` : ''}
             `;
 
             requestAnimationFrame(() => {
@@ -2318,7 +2332,7 @@ function renderMainMenu() {
             });
 
             const si = document.getElementById('overlay-score-info');
-            if (si) si.textContent = `Totale: ${liveStats.score} · Media: ${liveStats.frecceTirate > 0 ? liveStats.average.toFixed(2) : '—'}`;
+            if (si) si.textContent = `Totale: ${liveStats.score}`;
         }
 
         function _overlayDrawTarget(canvas) {
@@ -2345,7 +2359,7 @@ function renderMainMenu() {
                     canvas.appendChild(el);
                 });
             }
-            // Punti frecce già inserite
+            // Mostra frecce: grigie = volée precedenti, rosse = volée corrente
             if (!window._overlayArrowPos) window._overlayArrowPos = {};
             const activeRow = scoringState.activeCell ? scoringState.activeCell.row - 1 : 0;
             if (appState.scoringGrid) {
@@ -2353,7 +2367,10 @@ function renderMainMenu() {
                     row.forEach((score, ci) => {
                         if (!score) return;
                         const pos = window._overlayArrowPos[`${ri}_${ci}`];
-                        if (pos && (pos.x || pos.y)) testPlaceDot(canvas, pos.x, pos.y, ri < activeRow ? '#94a3b8' : '#ff4500');
+                        if (pos && (pos.x || pos.y)) {
+                            const color = ri < activeRow ? '#94a3b8' : ri === activeRow ? '#ff4500' : '#94a3b8';
+                            testPlaceDot(canvas, pos.x, pos.y, color);
+                        }
                     });
                 });
             }
@@ -2362,16 +2379,13 @@ function renderMainMenu() {
         if (!window._overlayArrowPos) window._overlayArrowPos = {};
         function _saveArrowPos(ri, ci, x, y) { window._overlayArrowPos[`${ri}_${ci}`] = {x, y}; }
 
-        function _overlaySetupPointerEvents(canvas) {
-            if (canvas._overlayAttached) return;
-            canvas._overlayAttached = true;
-            canvas.addEventListener('pointerdown', e => {
-                e.preventDefault();
-                testState.isActive = true;
-                _overlayHandlePointer(e, canvas);
-            }, { passive: false });
+        // Listener globali per l'overlay — registrati una sola volta
+        if (!window._overlayListenersAttached) {
+            window._overlayListenersAttached = true;
             window.addEventListener('pointermove', e => {
-                if (testState.isActive && overlayState.active) _overlayHandlePointer(e, canvas);
+                if (!testState.isActive || !overlayState.active) return;
+                const canvas = document.getElementById('overlay-target-canvas');
+                if (canvas) _overlayHandlePointer(e, canvas);
             });
             window.addEventListener('pointerup', e => {
                 if (!testState.isActive || !overlayState.active) return;
@@ -2379,12 +2393,24 @@ function renderMainMenu() {
                 const mag = document.getElementById('test-magnifier');
                 if (mag) mag.style.display = 'none';
                 const score = testState.lastScore;
-                const x = testState.lastX, y = testState.lastY;
+                if (!score) return;
                 const ri = scoringState.activeCell ? scoringState.activeCell.row - 1 : 0;
                 const ci = scoringState.activeCell ? scoringState.activeCell.col - 1 : 0;
-                _saveArrowPos(ri, ci, x, y);
+                _saveArrowPos(ri, ci, testState.lastX, testState.lastY);
                 overlayInsertScore(score);
             });
+        }
+
+        function _overlaySetupPointerEvents(canvas) {
+            if (canvas._overlayAttached) return;
+            canvas._overlayAttached = true;
+            canvas.addEventListener('pointerdown', e => {
+                if (!overlayState.active) return;
+                e.preventDefault();
+                testState.isActive = true;
+                testState.lastScore = null;
+                _overlayHandlePointer(e, canvas);
+            }, { passive: false });
         }
 
         function _overlayHandlePointer(e, canvas) {
@@ -3119,13 +3145,20 @@ renderDataSummaryTable();
 
         function deserializeGrid(turn) {
             if (!turn || !turn.grid || turn.grid.length === 0) return [];
-            return turn.grid.map(rowStr => JSON.parse(rowStr));
+            return turn.grid.map(rowStr => {
+                if (Array.isArray(rowStr)) return rowStr; // già array 2D (da bersaglio)
+                try { return JSON.parse(rowStr); } catch(e) { return []; }
+            });
         }
 
         function renderDetailedScoreGrid(turn, title, isTraining = false) {
             const grid2D = deserializeGrid(turn); 
+            // Filtra righe vuote
+            const filledGrid = grid2D.filter(row => row && row.some(s => s !== '' && s !== undefined));
+            if (!filledGrid.length) return '';
+
             let cumulativeTotalForView = 0;
-            const volleys = grid2D.map(row => {
+            const volleys = filledGrid.map(row => {
                 const volleyResult = calculateVolley(row, cumulativeTotalForView);
                 cumulativeTotalForView = volleyResult.totale; 
                 return volleyResult;
@@ -3133,7 +3166,8 @@ renderDataSummaryTable();
 
             if (!volleys || volleys.length === 0) return '';
 
-            const numCols = volleys[0].scores.length;
+            // numCols = numero massimo di frecce in una volée (per allineamento tabella)
+            const numCols = Math.max(...volleys.map(v => v.scores.length), 1);
             const volleyNotes = turn.volleyNotes || {};
 
             const tableHtml = `
@@ -3155,10 +3189,13 @@ renderDataSummaryTable();
                                 ${volleys.map((row, i) => {
                                     const volleyNum = i + 1;
                                     const hasNote = volleyNotes[volleyNum];
+                                    // Padding celle mancanti per allineamento
+                                    const paddedScores = [...row.scores];
+                                    while (paddedScores.length < numCols) paddedScores.push('');
                                     return `
                                     <tr class="${i % 2 === 0 ? 'bg-secondary-dark' : 'bg-gray-800'} hover:bg-gray-700 text-xs sm:text-sm">
                                         <td class="font-bold">${volleyNum}${hasNote ? ' 📝' : ''}</td>
-                                        ${row.scores.map(score => `<td>${score || ''}</td>`).join('')}
+                                        ${paddedScores.map(score => `<td>${score || ''}</td>`).join('')}
                                         <td class="font-bold text-white">${row.parziale}</td>
                                         <td class="font-bold text-white">${row.totale}</td>
                                         <td>${row.X10}</td>
