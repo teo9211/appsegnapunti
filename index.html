@@ -761,6 +761,7 @@ window.setView = (viewName, data = {}) => {
                     renderCalendar();
                     break;
                 case 'equipment':
+                    equipmentEditMode = false;
                     renderEquipment();
                     break;
                 case 'arrowCounter':
@@ -1457,11 +1458,10 @@ function renderMainMenu() {
                     <!-- ESERCIZI SVOLTI -->
                     <div class="bg-secondary-dark p-4 rounded-xl border-l-4 border-green-500">
                         <label for="esercizSvolti" class="block text-base font-bold mb-2 text-green-400">
-                            ✅ Esercizi Svolti <span class="text-red-400">*</span>
+                            ✅ Esercizi Svolti <span class="text-gray-400 text-xs">(opzionale)</span>
                         </label>
                         <textarea id="esercizSvolti" name="esercizSvolti"
                                   class="input-style h-32"
-                                  required
                                   placeholder="Descrivi gli esercizi effettivamente svolti durante la sessione, tecniche praticate, obiettivi raggiunti...">${session.esercizSvolti || session.trainingContent || ''}</textarea>
                         <p class="text-xs text-gray-400 mt-1">Sii dettagliato: ti aiuterà a monitorare i progressi</p>
                     </div>
@@ -1489,13 +1489,6 @@ function renderMainMenu() {
             document.getElementById('trainingNotesForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const esercizSvolti = document.getElementById('esercizSvolti').value.trim();
-
-                if (!esercizSvolti) {
-                    showModal("Errore", "Inserisci almeno gli esercizi svolti.", [
-                        { text: "Ok", handler: () => {} }
-                    ]);
-                    return;
-                }
 
                 const endTime = new Date();
                 appState.currentSession.endTime = getFormattedTime(endTime);
@@ -5659,7 +5652,10 @@ window.showMigrationModal = migrateSessionsAddBowType;
             catch(e) { return {}; }
         }
 
-        function renderArrowCard(arrow, idx, isActive) {
+        // ── EQUIPMENT EDIT MODE STATE ──────────────────────────────────────
+        let equipmentEditMode = false;
+
+        function renderArrowCard(arrow, idx, isActive, editMode) {
             return `
                 <div class="arrow-card bg-gray-800 rounded-xl p-4 border-2 ${isActive ? 'border-primary-orange' : 'border-gray-600'} cursor-pointer hover:border-primary-orange transition-all"
                      onclick="window.selectArrowCard(${idx})">
@@ -5667,7 +5663,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                         <span class="font-bold text-white text-sm">${arrow.nome || 'Freccia ' + (idx+1)}</span>
                         <div class="flex gap-1">
                             ${isActive ? '<span class="text-xs bg-primary-orange text-black px-2 py-0.5 rounded-full font-bold">Attiva</span>' : ''}
-                            <button class="text-red-400 hover:text-red-300 text-xs px-1" onclick="event.stopPropagation(); window.deleteArrowCard(${idx})">✕</button>
+                            ${editMode ? `<button class="text-red-400 hover:text-red-300 text-xs px-1" onclick="event.stopPropagation(); window.deleteArrowCard(${idx})">✕</button>` : ''}
                         </div>
                     </div>
                     <div class="text-xs text-primary-orange">${arrow.modello || '-'} | Spine: ${arrow.spine || '-'}</div>
@@ -5676,178 +5672,240 @@ window.showMigrationModal = migrateSessionsAddBowType;
             `;
         }
 
-        function renderArrowDetail(arrow, idx) {
+        function renderArrowDetail(arrow, idx, editMode) {
             if (!arrow) return '';
+            const disabled = editMode ? '' : 'disabled';
+            const inputClass = editMode ? 'input-style' : 'input-style opacity-70 cursor-not-allowed';
             return `
                 <div id="arrow-detail-${idx}" class="bg-secondary-dark rounded-xl p-4 border border-primary-orange mt-4">
-                    <h4 class="text-base font-bold text-primary-orange mb-3">✏️ Dettagli: ${arrow.nome || 'Freccia ' + (idx+1)}</h4>
+                    <h4 class="text-base font-bold text-primary-orange mb-3">${editMode ? '✏️' : '📋'} Dettagli: ${arrow.nome || 'Freccia ' + (idx+1)}</h4>
                     <div class="space-y-3">
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Nome / Etichetta</label>
-                                <input type="text" id="arr-nome-${idx}" class="input-style" placeholder="Es: Gara, Allenamento..." value="${arrow.nome || ''}">
+                                <input type="text" id="arr-nome-${idx}" class="${inputClass}" placeholder="Es: Gara, Allenamento..." value="${arrow.nome || ''}" ${disabled}>
                             </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Modello frecce</label>
-                                <input type="text" id="arr-modello-${idx}" class="input-style" placeholder="Es: Easton X10" value="${arrow.modello || ''}">
+                                <input type="text" id="arr-modello-${idx}" class="${inputClass}" placeholder="Es: Easton X10" value="${arrow.modello || ''}" ${disabled}>
                             </div>
                         </div>
                         <div class="grid grid-cols-3 gap-3">
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Spine</label>
-                                <input type="text" id="arr-spine-${idx}" class="input-style" placeholder="Es: 500" value="${arrow.spine || ''}">
+                                <input type="text" id="arr-spine-${idx}" class="${inputClass}" placeholder="Es: 500" value="${arrow.spine || ''}" ${disabled}>
                             </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Lunghezza (")</label>
-                                <input type="text" id="arr-lunghezza-${idx}" class="input-style" placeholder='Es: 29"' value="${arrow.lunghezza || ''}">
+                                <input type="text" id="arr-lunghezza-${idx}" class="${inputClass}" placeholder='Es: 29"' value="${arrow.lunghezza || ''}" ${disabled}>
                             </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Diametro (mm)</label>
-                                <input type="text" id="arr-diametro-${idx}" class="input-style" placeholder="Es: 5.5" value="${arrow.diametro || ''}">
+                                <input type="text" id="arr-diametro-${idx}" class="${inputClass}" placeholder="Es: 5.5" value="${arrow.diametro || ''}" ${disabled}>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Peso Punta (grani)</label>
-                                <input type="number" id="arr-pesoPunta-${idx}" class="input-style" placeholder="Es: 100" min="0" value="${arrow.pesoPunta || ''}">
+                                <input type="number" id="arr-pesoPunta-${idx}" class="${inputClass}" placeholder="Es: 100" min="0" value="${arrow.pesoPunta || ''}" ${disabled}>
                             </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Cocche</label>
-                                <input type="text" id="arr-cocca-${idx}" class="input-style" placeholder="Tipo/marca cocche" value="${arrow.cocca || ''}">
+                                <input type="text" id="arr-cocca-${idx}" class="${inputClass}" placeholder="Tipo/marca cocche" value="${arrow.cocca || ''}" ${disabled}>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs text-primary-orange mb-1">Note</label>
-                            <input type="text" id="arr-note-${idx}" class="input-style" placeholder="Note aggiuntive..." value="${arrow.note || ''}">
+                            <input type="text" id="arr-note-${idx}" class="${inputClass}" placeholder="Note aggiuntive..." value="${arrow.note || ''}" ${disabled}>
                         </div>
+                        ${editMode ? `
                         <button class="btn-primary w-full p-2 rounded-lg text-sm mt-2" onclick="window.saveArrowCard(${idx})">
                             💾 Salva questa freccia
-                        </button>
+                        </button>` : ''}
                     </div>
                 </div>
             `;
         }
 
-        async function renderEquipment() {
-            if (!appState.loggedInArcher) { window.setView('login'); return; }
+        // ── ALETTE (multi-tipologia, come frecce) ──────────────────────────
+        function renderAletteCard(aletta, idx, isActive, editMode) {
+            return `
+                <div class="alette-card bg-gray-800 rounded-xl p-4 border-2 ${isActive ? 'border-yellow-400' : 'border-gray-600'} cursor-pointer hover:border-yellow-400 transition-all"
+                     onclick="window.selectAletteCard(${idx})">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-white text-sm">${aletta.nome || 'Aletta ' + (idx+1)}</span>
+                        <div class="flex gap-1">
+                            ${isActive ? '<span class="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full font-bold">Attiva</span>' : ''}
+                            ${editMode ? `<button class="text-red-400 hover:text-red-300 text-xs px-1" onclick="event.stopPropagation(); window.deleteAletteCard(${idx})">✕</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="text-xs text-yellow-400">${aletta.modello || '-'} | Forma: ${aletta.forma || '-'}</div>
+                    <div class="text-xs text-gray-400 mt-1">L: ${aletta.lunghezza || '-'} | Alt: ${aletta.altezza || '-'} | ${aletta.materiale || '-'}</div>
+                </div>
+            `;
+        }
 
-            const equipment = getEquipment();
-            const bowTypes = ['Ricurvo', 'Compound', 'Longbow', 'Barebow', 'Altro'];
-            const arrows = equipment.arrows || [];
-            const activeArrow = equipment.activeArrowIdx || 0;
-
-            const html = `
-                <h2 class="text-3xl font-bold mb-6 text-white">🏹 Il Mio Materiale</h2>
-
-                <!-- ARCO -->
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
-                    <h3 class="text-xl font-bold mb-4 text-primary-orange">🏹 Arco</h3>
+        function renderAletteDetail(aletta, idx, editMode) {
+            if (!aletta) return '';
+            const disabled = editMode ? '' : 'disabled';
+            const inputClass = editMode ? 'input-style' : 'input-style opacity-70 cursor-not-allowed';
+            return `
+                <div id="alette-detail-${idx}" class="bg-secondary-dark rounded-xl p-4 border border-yellow-400 mt-4">
+                    <h4 class="text-base font-bold text-yellow-400 mb-3">${editMode ? '✏️' : '📋'} Dettagli: ${aletta.nome || 'Aletta ' + (idx+1)}</h4>
                     <div class="space-y-3">
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs text-primary-orange mb-1">Tipo Arco</label>
-                                <select id="eq-tipoArco" class="input-style">
-                                    ${bowTypes.map(t => `<option value="${t}" ${equipment.tipoArco === t ? 'selected':''}>${t}</option>`).join('')}
-                                </select>
+                                <label class="block text-xs text-yellow-400 mb-1">Nome / Etichetta</label>
+                                <input type="text" id="alt-nome-${idx}" class="${inputClass}" placeholder="Es: Gara, Allenamento..." value="${aletta.nome || ''}" ${disabled}>
                             </div>
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Modello</label>
+                                <input type="text" id="alt-modello-${idx}" class="${inputClass}" placeholder="Es: Spin Wings" value="${aletta.modello || ''}" ${disabled}>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Forma</label>
+                                <input type="text" id="alt-forma-${idx}" class="${inputClass}" placeholder="Es: Parabola, Shield" value="${aletta.forma || ''}" ${disabled}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Lunghezza (mm)</label>
+                                <input type="text" id="alt-lunghezza-${idx}" class="${inputClass}" placeholder="Es: 60" value="${aletta.lunghezza || ''}" ${disabled}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Altezza (mm)</label>
+                                <input type="text" id="alt-altezza-${idx}" class="${inputClass}" placeholder="Es: 13" value="${aletta.altezza || ''}" ${disabled}>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Materiale</label>
+                                <input type="text" id="alt-materiale-${idx}" class="${inputClass}" placeholder="Es: Plastica, Pellicola" value="${aletta.materiale || ''}" ${disabled}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Angolo Helicoidale</label>
+                                <input type="text" id="alt-angolo-${idx}" class="${inputClass}" placeholder="Es: 3°, 0°" value="${aletta.angolo || ''}" ${disabled}>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Colore</label>
+                                <input type="text" id="alt-colore-${idx}" class="${inputClass}" placeholder="Es: Bianco, Rosso" value="${aletta.colore || ''}" ${disabled}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-yellow-400 mb-1">Incollaggio</label>
+                                <input type="text" id="alt-colla-${idx}" class="${inputClass}" placeholder="Tipo di colla usata" value="${aletta.colla || ''}" ${disabled}>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-yellow-400 mb-1">Note</label>
+                            <input type="text" id="alt-note-${idx}" class="${inputClass}" placeholder="Note aggiuntive..." value="${aletta.note || ''}" ${disabled}>
+                        </div>
+                        ${editMode ? `
+                        <button class="w-full p-2 rounded-lg text-sm mt-2 font-bold" style="background:#fbbf24;color:#111" onclick="window.saveAletteCard(${idx})">
+                            💾 Salva questa aletta
+                        </button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ── ARCHI (multi-setup, come frecce) ───────────────────────────────
+        function renderArcoCard(arco, idx, isActive, editMode) {
+            return `
+                <div class="arco-card bg-gray-800 rounded-xl p-4 border-2 ${isActive ? 'border-primary-orange' : 'border-gray-600'} cursor-pointer hover:border-primary-orange transition-all"
+                     onclick="window.selectArcoCard(${idx})">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-white text-sm">${arco.nome || 'Arco ' + (idx+1)}</span>
+                        <div class="flex gap-1">
+                            ${isActive ? '<span class="text-xs bg-primary-orange text-black px-2 py-0.5 rounded-full font-bold">Attivo</span>' : ''}
+                            ${editMode ? `<button class="text-red-400 hover:text-red-300 text-xs px-1" onclick="event.stopPropagation(); window.deleteArcoCard(${idx})">✕</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="text-xs text-primary-orange">${arco.tipoArco || '-'} | ${arco.braccetto || '-'}</div>
+                    <div class="text-xs text-gray-400 mt-1">${arco.marcaArco || '-'} | ${arco.peso || '-'}lb | Allungo: ${arco.allungo || '-'}"</div>
+                </div>
+            `;
+        }
+
+        function renderArcoDetail(arco, idx, editMode) {
+            if (!arco) return '';
+            const disabled = editMode ? '' : 'disabled';
+            const inputClass = editMode ? 'input-style' : 'input-style opacity-70 cursor-not-allowed';
+            const bowTypes = ['Ricurvo', 'Compound', 'Longbow', 'Barebow', 'Altro'];
+            return `
+                <div id="arco-detail-${idx}" class="bg-secondary-dark rounded-xl p-4 border border-primary-orange mt-4">
+                    <h4 class="text-base font-bold text-primary-orange mb-3">${editMode ? '✏️' : '📋'} Dettagli: ${arco.nome || 'Arco ' + (idx+1)}</h4>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Nome / Etichetta</label>
+                                <input type="text" id="arc-nome-${idx}" class="${inputClass}" placeholder="Es: Gara, Indoor..." value="${arco.nome || ''}" ${disabled}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Tipo Arco</label>
+                                ${editMode
+                                    ? `<select id="arc-tipoArco-${idx}" class="${inputClass}">${bowTypes.map(t => `<option value="${t}" ${arco.tipoArco===t?'selected':''}>${t}</option>`).join('')}</select>`
+                                    : `<input type="text" id="arc-tipoArco-${idx}" class="${inputClass}" value="${arco.tipoArco || ''}" disabled>`
+                                }
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Modello Riser</label>
-                                <input type="text" id="eq-braccetto" class="input-style" placeholder="Es: Hoyt Xceed" value="${equipment.braccetto || ''}">
+                                <input type="text" id="arc-braccetto-${idx}" class="${inputClass}" placeholder="Es: Hoyt Xceed" value="${arco.braccetto || ''}" ${disabled}>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Modello Flettenti</label>
-                                <input type="text" id="eq-marcaArco" class="input-style" placeholder="Es: Uukha VX+" value="${equipment.marcaArco || ''}">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-primary-orange mb-1">Misura Arco</label>
-                                <input type="text" id="eq-misuraArco" class="input-style" placeholder='Es: 25"' value="${equipment.misuraArco || ''}">
+                                <input type="text" id="arc-marcaArco-${idx}" class="${inputClass}" placeholder="Es: Uukha VX+" value="${arco.marcaArco || ''}" ${disabled}>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Misura Arco</label>
+                                <input type="text" id="arc-misuraArco-${idx}" class="${inputClass}" placeholder='Es: 25"' value="${arco.misuraArco || ''}" ${disabled}>
+                            </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Libbre (lb)</label>
-                                <input type="number" id="eq-peso" class="input-style" placeholder="Es: 40" min="0" max="100" value="${equipment.peso || ''}">
+                                <input type="number" id="arc-peso-${idx}" class="${inputClass}" placeholder="Es: 40" min="0" max="100" value="${arco.peso || ''}" ${disabled}>
                             </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Allungo (pollici)</label>
-                                <input type="number" id="eq-allungo" class="input-style" placeholder="Es: 28.5" min="0" max="35" step="0.5" value="${equipment.allungo || ''}">
+                                <input type="number" id="arc-allungo-${idx}" class="${inputClass}" placeholder="Es: 28.5" min="0" max="35" step="0.5" value="${arco.allungo || ''}" ${disabled}>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- FRECCE (multi-tipologia) -->
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-bold text-primary-orange">🪃 Frecce</h3>
-                        <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" onclick="window.addArrowCard()">
-                            + Aggiungi Tipologia
-                        </button>
-                    </div>
-                    ${arrows.length === 0 ? `
-                        <p class="text-gray-400 text-sm text-center py-4">Nessuna freccia configurata. Premi "+ Aggiungi Tipologia" per iniziare.</p>
-                    ` : ''}
-                    <div id="arrows-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        ${arrows.map((a, i) => renderArrowCard(a, i, i === activeArrow)).join('')}
-                    </div>
-                    <div id="arrow-detail-container">
-                        ${arrows.length > 0 ? renderArrowDetail(arrows[activeArrow], activeArrow) : ''}
-                    </div>
-                </div>
-
-                <!-- MIRINO & ACCESSORI -->
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
-                    <h3 class="text-xl font-bold mb-4 text-primary-orange">🔭 Mirino & Accessori</h3>
-                    <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs text-primary-orange mb-1">Mirino</label>
-                                <input type="text" id="eq-mirino" class="input-style" placeholder="Marca/modello mirino" value="${equipment.mirino || ''}">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-primary-orange mb-1">Stabilizzatori</label>
-                                <input type="text" id="eq-stabilizzatori" class="input-style" placeholder="Es: Cartel Doosung" value="${equipment.stabilizzatori || ''}">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-primary-orange mb-1">Corda</label>
-                            <input type="text" id="eq-corda" class="input-style" placeholder="Marca/materiale corda" value="${equipment.corda || ''}">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-primary-orange mb-1">Note Tecniche / Setup</label>
-                            <textarea id="eq-note" class="input-style h-20" placeholder="Impostazioni, regolazioni, note tecniche...">${equipment.note || ''}</textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- IMPOSTAZIONI TECNICHE -->
-                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
-                    <h3 class="text-xl font-bold mb-4 text-primary-orange">⚙️ Impostazioni Tecniche</h3>
-                    <div class="space-y-3">
                         <div class="grid grid-cols-3 gap-3">
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Tiller (mm)</label>
-                                <input type="text" id="eq-tiller" class="input-style" placeholder="Es: +2" value="${equipment.tiller || ''}">
+                                <input type="text" id="arc-tiller-${idx}" class="${inputClass}" placeholder="Es: +2" value="${arco.tiller || ''}" ${disabled}>
                             </div>
                             <div>
                                 <label class="block text-xs text-primary-orange mb-1">Brace Height (mm)</label>
-                                <input type="text" id="eq-braceHeight" class="input-style" placeholder="Es: 230" value="${equipment.braceHeight || ''}">
+                                <input type="text" id="arc-braceHeight-${idx}" class="${inputClass}" placeholder="Es: 230" value="${arco.braceHeight || ''}" ${disabled}>
                             </div>
                             <div>
-                                <label class="block text-xs text-primary-orange mb-1">Misura Bottone</label>
-                                <input type="text" id="eq-plung" class="input-style" placeholder="Es: 0.5" value="${equipment.plung || ''}">
+                                <label class="block text-xs text-primary-orange mb-1">Bottone</label>
+                                <input type="text" id="arc-plung-${idx}" class="${inputClass}" placeholder="Es: 0.5" value="${arco.plung || ''}" ${disabled}>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs text-primary-orange mb-1">Peso Totale Arco (g)</label>
-                                <input type="number" id="eq-pesoTotale" class="input-style" placeholder="Peso con accessori" min="0" value="${equipment.pesoTotale || ''}">
+                                <label class="block text-xs text-primary-orange mb-1">Mirino</label>
+                                <input type="text" id="arc-mirino-${idx}" class="${inputClass}" placeholder="Marca/modello mirino" value="${arco.mirino || ''}" ${disabled}>
                             </div>
                             <div>
-                                <label class="block text-xs text-primary-orange mb-1">Ultimo Aggiornamento Setup</label>
-                                <input type="date" id="eq-dataSetup" class="input-style" value="${equipment.dataSetup || ''}">
+                                <label class="block text-xs text-primary-orange mb-1">Stabilizzatori</label>
+                                <input type="text" id="arc-stabilizzatori-${idx}" class="${inputClass}" placeholder="Es: Cartel Doosung" value="${arco.stabilizzatori || ''}" ${disabled}>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Corda</label>
+                                <input type="text" id="arc-corda-${idx}" class="${inputClass}" placeholder="Marca/materiale corda" value="${arco.corda || ''}" ${disabled}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-primary-orange mb-1">Peso Totale (g)</label>
+                                <input type="number" id="arc-pesoTotale-${idx}" class="${inputClass}" placeholder="Peso con accessori" min="0" value="${arco.pesoTotale || ''}" ${disabled}>
                             </div>
                         </div>
 
@@ -5858,31 +5916,142 @@ window.showMigrationModal = migrateSessionsAddBowType;
                                 ${['18', '25', '40', '50', '60', '70'].map(dist => `
                                     <div>
                                         <label class="block text-xs text-gray-400 mb-1">${dist}m</label>
-                                        <input type="text" id="eq-mirino-${dist}" class="input-style text-center text-sm" 
-                                               placeholder="mm" value="${(equipment.scalaMirino && equipment.scalaMirino[dist]) || ''}">
+                                        <input type="text" id="arc-mirino-${idx}-${dist}" class="${inputClass} text-center text-sm"
+                                               placeholder="mm" value="${(arco.scalaMirino && arco.scalaMirino[dist]) || ''}" ${disabled}>
                                     </div>
                                 `).join('')}
                             </div>
                         </div>
+                        <div>
+                            <label class="block text-xs text-primary-orange mb-1">Data Aggiornamento Setup</label>
+                            <input type="date" id="arc-dataSetup-${idx}" class="${inputClass}" value="${arco.dataSetup || ''}" ${disabled}>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-primary-orange mb-1">Note Tecniche</label>
+                            <textarea id="arc-note-${idx}" class="${inputClass} h-20" placeholder="Impostazioni, regolazioni, note tecniche..." ${disabled}>${arco.note || ''}</textarea>
+                        </div>
+                        ${editMode ? `
+                        <button class="btn-primary w-full p-2 rounded-lg text-sm mt-2" onclick="window.saveArcoCard(${idx})">
+                            💾 Salva questo arco
+                        </button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderEquipment() {
+            if (!appState.loggedInArcher) { window.setView('login'); return; }
+
+            const equipment = getEquipment();
+            const editMode = equipmentEditMode;
+            const archi = equipment.archi || [];
+            const activeArco = equipment.activeArcoIdx || 0;
+            const arrows = equipment.arrows || [];
+            const activeArrow = equipment.activeArrowIdx || 0;
+            const alette = equipment.alette || [];
+            const activeAletta = equipment.activeAletteIdx || 0;
+
+            // Helper: field value or placeholder for view mode
+            function fv(val, placeholder) {
+                if (editMode) return '';
+                return `<span class="text-white">${val || '<span class="text-gray-500 italic">' + placeholder + '</span>'}</span>`;
+            }
+
+            const inputOrText = (id, val, placeholder, type='text', extra='') => {
+                if (editMode) {
+                    return `<input type="${type}" id="${id}" class="input-style" placeholder="${placeholder}" value="${val || ''}" ${extra}>`;
+                } else {
+                    return `<div class="input-style opacity-70 cursor-not-allowed">${val || '<span class="text-gray-500 italic">' + placeholder + '</span>'}</div>`;
+                }
+            };
+
+            const html = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-white">🏹 Il Mio Materiale</h2>
+                    <button id="eq-edit-btn" onclick="window.toggleEquipmentEdit()"
+                        class="${editMode ? 'bg-green-600 hover:bg-green-500' : 'bg-primary-orange hover:opacity-90'} text-black font-bold px-4 py-2 rounded-lg transition-all text-sm">
+                        ${editMode ? '✅ Fine Modifica' : '✏️ Modifica'}
+                    </button>
+                </div>
+                ${!editMode ? '<div class="mb-4 p-3 bg-gray-800 border border-gray-600 rounded-xl text-xs text-gray-400">🔒 I dati sono protetti. Premi <strong class="text-primary-orange">✏️ Modifica</strong> per apportare modifiche.</div>' : ''}
+
+                <!-- ARCHI (multi-setup) -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-primary-orange">🏹 Archi</h3>
+                        ${editMode ? `<button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" onclick="window.addArcoCard()">+ Aggiungi Arco</button>` : ''}
+                    </div>
+                    ${archi.length === 0 ? `
+                        <p class="text-gray-400 text-sm text-center py-4">${editMode ? 'Nessun arco configurato. Premi "+ Aggiungi Arco" per iniziare.' : 'Nessun arco configurato.'}</p>
+                    ` : ''}
+                    <div id="archi-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${archi.map((a, i) => renderArcoCard(a, i, i === activeArco, editMode)).join('')}
+                    </div>
+                    <div id="arco-detail-container">
+                        ${archi.length > 0 ? renderArcoDetail(archi[activeArco], activeArco, editMode) : ''}
                     </div>
                 </div>
 
+                <!-- FRECCE (multi-tipologia) -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-primary-orange">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-primary-orange">🪃 Frecce</h3>
+                        ${editMode ? `<button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" onclick="window.addArrowCard()">+ Aggiungi Tipologia</button>` : ''}
+                    </div>
+                    ${arrows.length === 0 ? `
+                        <p class="text-gray-400 text-sm text-center py-4">${editMode ? 'Nessuna freccia configurata. Premi "+ Aggiungi Tipologia" per iniziare.' : 'Nessuna freccia configurata.'}</p>
+                    ` : ''}
+                    <div id="arrows-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${arrows.map((a, i) => renderArrowCard(a, i, i === activeArrow, editMode)).join('')}
+                    </div>
+                    <div id="arrow-detail-container">
+                        ${arrows.length > 0 ? renderArrowDetail(arrows[activeArrow], activeArrow, editMode) : ''}
+                    </div>
+                </div>
+
+                <!-- ALETTE (multi-tipologia) -->
+                <div class="bg-secondary-dark p-4 rounded-xl shadow-lg mb-6 border-2 border-yellow-500">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-yellow-400">🪶 Alette</h3>
+                        ${editMode ? `<button class="font-bold px-4 py-2 rounded-lg text-sm" style="background:#fbbf24;color:#111" onclick="window.addAletteCard()">+ Aggiungi Tipologia</button>` : ''}
+                    </div>
+                    ${alette.length === 0 ? `
+                        <p class="text-gray-400 text-sm text-center py-4">${editMode ? 'Nessuna aletta configurata. Premi "+ Aggiungi Tipologia" per iniziare.' : 'Nessuna aletta configurata.'}</p>
+                    ` : ''}
+                    <div id="alette-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        ${alette.map((a, i) => renderAletteCard(a, i, i === activeAletta, editMode)).join('')}
+                    </div>
+                    <div id="alette-detail-container">
+                        ${alette.length > 0 ? renderAletteDetail(alette[activeAletta], activeAletta, editMode) : ''}
+                    </div>
+                </div>
+
+                ${editMode ? `
                 <button class="btn-primary w-full p-3 rounded-lg text-lg mb-4" onclick="window.saveEquipment()">
                     💾 Salva Configurazione
-                </button>
+                </button>` : ''}
             `;
 
             document.getElementById('content-view').innerHTML = html;
         }
 
+        window.toggleEquipmentEdit = () => {
+            if (equipmentEditMode) {
+                // Exiting edit mode: save automatically
+                window.saveEquipment(true);
+            } else {
+                equipmentEditMode = true;
+                renderEquipment();
+            }
+        };
+
         window.selectArrowCard = (idx) => {
             const equipment = getEquipment();
             equipment.activeArrowIdx = idx;
             localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
-            // Re-render arrows list and detail without full page reload
             const arrows = equipment.arrows || [];
-            document.getElementById('arrows-list').innerHTML = arrows.map((a, i) => renderArrowCard(a, i, i === idx)).join('');
-            document.getElementById('arrow-detail-container').innerHTML = renderArrowDetail(arrows[idx], idx);
+            document.getElementById('arrows-list').innerHTML = arrows.map((a, i) => renderArrowCard(a, i, i === idx, equipmentEditMode)).join('');
+            document.getElementById('arrow-detail-container').innerHTML = renderArrowDetail(arrows[idx], idx, equipmentEditMode);
         };
 
         window.addArrowCard = () => {
@@ -5892,8 +6061,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
             const newIdx = equipment.arrows.length - 1;
             equipment.activeArrowIdx = newIdx;
             localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
-            document.getElementById('arrows-list').innerHTML = equipment.arrows.map((a, i) => renderArrowCard(a, i, i === newIdx)).join('');
-            document.getElementById('arrow-detail-container').innerHTML = renderArrowDetail(equipment.arrows[newIdx], newIdx);
+            document.getElementById('arrows-list').innerHTML = equipment.arrows.map((a, i) => renderArrowCard(a, i, i === newIdx, equipmentEditMode)).join('');
+            document.getElementById('arrow-detail-container').innerHTML = renderArrowDetail(equipment.arrows[newIdx], newIdx, equipmentEditMode);
         };
 
         window.saveArrowCard = (idx) => {
@@ -5910,8 +6079,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 note: document.getElementById(`arr-note-${idx}`)?.value || '',
             };
             localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
-            // Refresh card label
-            document.getElementById('arrows-list').innerHTML = equipment.arrows.map((a, i) => renderArrowCard(a, i, i === idx)).join('');
+            document.getElementById('arrows-list').innerHTML = equipment.arrows.map((a, i) => renderArrowCard(a, i, i === idx, equipmentEditMode)).join('');
             showModal("✅ Salvato!", `Freccia "${equipment.arrows[idx].nome || 'Tipologia ' + (idx+1)}" salvata.`, [{ text: "Ok", handler: () => {} }]);
         };
 
@@ -5925,43 +6093,157 @@ window.showMigrationModal = migrateSessionsAddBowType;
                     localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
                     const arrows = equipment.arrows || [];
                     const active = equipment.activeArrowIdx;
-                    document.getElementById('arrows-list').innerHTML = arrows.map((a, i) => renderArrowCard(a, i, i === active)).join('');
-                    document.getElementById('arrow-detail-container').innerHTML = arrows.length > 0 ? renderArrowDetail(arrows[active] || arrows[0], active) : '';
+                    document.getElementById('arrows-list').innerHTML = arrows.map((a, i) => renderArrowCard(a, i, i === active, equipmentEditMode)).join('');
+                    document.getElementById('arrow-detail-container').innerHTML = arrows.length > 0 ? renderArrowDetail(arrows[active] || arrows[0], active, equipmentEditMode) : '';
                 }}
             ]);
         };
 
-        window.saveEquipment = () => {
-            const equipKey = `archery_equipment_${appState.loggedInArcher.id}`;
-            const existing = getEquipment();
+        // ── ARCO CARD FUNCTIONS ────────────────────────────────────────────
+        window.selectArcoCard = (idx) => {
+            const equipment = getEquipment();
+            equipment.activeArcoIdx = idx;
+            localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+            const archi = equipment.archi || [];
+            document.getElementById('archi-list').innerHTML = archi.map((a, i) => renderArcoCard(a, i, i === idx, equipmentEditMode)).join('');
+            document.getElementById('arco-detail-container').innerHTML = renderArcoDetail(archi[idx], idx, equipmentEditMode);
+        };
+
+        window.addArcoCard = () => {
+            const equipment = getEquipment();
+            if (!equipment.archi) equipment.archi = [];
+            equipment.archi.push({ nome: '', tipoArco: 'Ricurvo', braccetto: '', marcaArco: '', misuraArco: '', peso: '', allungo: '', tiller: '', braceHeight: '', plung: '', mirino: '', stabilizzatori: '', corda: '', pesoTotale: '', dataSetup: '', scalaMirino: {}, note: '' });
+            const newIdx = equipment.archi.length - 1;
+            equipment.activeArcoIdx = newIdx;
+            localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+            document.getElementById('archi-list').innerHTML = equipment.archi.map((a, i) => renderArcoCard(a, i, i === newIdx, equipmentEditMode)).join('');
+            document.getElementById('arco-detail-container').innerHTML = renderArcoDetail(equipment.archi[newIdx], newIdx, equipmentEditMode);
+        };
+
+        window.saveArcoCard = (idx) => {
+            const equipment = getEquipment();
+            if (!equipment.archi) equipment.archi = [];
             const scalaMirino = {};
             ['18','25','40','50','60','70'].forEach(d => {
-                scalaMirino[d] = document.getElementById(`eq-mirino-${d}`)?.value || '';
+                scalaMirino[d] = document.getElementById(`arc-mirino-${idx}-${d}`)?.value || '';
             });
+            equipment.archi[idx] = {
+                nome: document.getElementById(`arc-nome-${idx}`)?.value || '',
+                tipoArco: document.getElementById(`arc-tipoArco-${idx}`)?.value || '',
+                braccetto: document.getElementById(`arc-braccetto-${idx}`)?.value || '',
+                marcaArco: document.getElementById(`arc-marcaArco-${idx}`)?.value || '',
+                misuraArco: document.getElementById(`arc-misuraArco-${idx}`)?.value || '',
+                peso: document.getElementById(`arc-peso-${idx}`)?.value || '',
+                allungo: document.getElementById(`arc-allungo-${idx}`)?.value || '',
+                tiller: document.getElementById(`arc-tiller-${idx}`)?.value || '',
+                braceHeight: document.getElementById(`arc-braceHeight-${idx}`)?.value || '',
+                plung: document.getElementById(`arc-plung-${idx}`)?.value || '',
+                mirino: document.getElementById(`arc-mirino-${idx}`)?.value || '',
+                stabilizzatori: document.getElementById(`arc-stabilizzatori-${idx}`)?.value || '',
+                corda: document.getElementById(`arc-corda-${idx}`)?.value || '',
+                pesoTotale: document.getElementById(`arc-pesoTotale-${idx}`)?.value || '',
+                dataSetup: document.getElementById(`arc-dataSetup-${idx}`)?.value || '',
+                scalaMirino: scalaMirino,
+                note: document.getElementById(`arc-note-${idx}`)?.value || '',
+            };
+            localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+            document.getElementById('archi-list').innerHTML = equipment.archi.map((a, i) => renderArcoCard(a, i, i === idx, equipmentEditMode)).join('');
+            showModal("✅ Salvato!", `Arco "${equipment.archi[idx].nome || 'Arco ' + (idx+1)}" salvato.`, [{ text: "Ok", handler: () => {} }]);
+        };
+
+        window.deleteArcoCard = (idx) => {
+            showModal("Elimina Arco", "Sei sicuro di voler eliminare questo arco?", [
+                { text: "Annulla", handler: () => {} },
+                { text: "Elimina", handler: () => {
+                    const equipment = getEquipment();
+                    equipment.archi.splice(idx, 1);
+                    equipment.activeArcoIdx = Math.max(0, (equipment.activeArcoIdx || 0) - (idx <= (equipment.activeArcoIdx || 0) ? 1 : 0));
+                    localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+                    const archi = equipment.archi || [];
+                    const active = equipment.activeArcoIdx;
+                    document.getElementById('archi-list').innerHTML = archi.map((a, i) => renderArcoCard(a, i, i === active, equipmentEditMode)).join('');
+                    document.getElementById('arco-detail-container').innerHTML = archi.length > 0 ? renderArcoDetail(archi[active] || archi[0], active, equipmentEditMode) : '';
+                }}
+            ]);
+        };
+
+        // ── ALETTE CARD FUNCTIONS ──────────────────────────────────────────
+        window.selectAletteCard = (idx) => {
+            const equipment = getEquipment();
+            equipment.activeAletteIdx = idx;
+            localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+            const alette = equipment.alette || [];
+            document.getElementById('alette-list').innerHTML = alette.map((a, i) => renderAletteCard(a, i, i === idx, equipmentEditMode)).join('');
+            document.getElementById('alette-detail-container').innerHTML = renderAletteDetail(alette[idx], idx, equipmentEditMode);
+        };
+
+        window.addAletteCard = () => {
+            const equipment = getEquipment();
+            if (!equipment.alette) equipment.alette = [];
+            equipment.alette.push({ nome: '', modello: '', forma: '', lunghezza: '', altezza: '', materiale: '', angolo: '', colore: '', colla: '', note: '' });
+            const newIdx = equipment.alette.length - 1;
+            equipment.activeAletteIdx = newIdx;
+            localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+            document.getElementById('alette-list').innerHTML = equipment.alette.map((a, i) => renderAletteCard(a, i, i === newIdx, equipmentEditMode)).join('');
+            document.getElementById('alette-detail-container').innerHTML = renderAletteDetail(equipment.alette[newIdx], newIdx, equipmentEditMode);
+        };
+
+        window.saveAletteCard = (idx) => {
+            const equipment = getEquipment();
+            if (!equipment.alette) equipment.alette = [];
+            equipment.alette[idx] = {
+                nome: document.getElementById(`alt-nome-${idx}`)?.value || '',
+                modello: document.getElementById(`alt-modello-${idx}`)?.value || '',
+                forma: document.getElementById(`alt-forma-${idx}`)?.value || '',
+                lunghezza: document.getElementById(`alt-lunghezza-${idx}`)?.value || '',
+                altezza: document.getElementById(`alt-altezza-${idx}`)?.value || '',
+                materiale: document.getElementById(`alt-materiale-${idx}`)?.value || '',
+                angolo: document.getElementById(`alt-angolo-${idx}`)?.value || '',
+                colore: document.getElementById(`alt-colore-${idx}`)?.value || '',
+                colla: document.getElementById(`alt-colla-${idx}`)?.value || '',
+                note: document.getElementById(`alt-note-${idx}`)?.value || '',
+            };
+            localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+            document.getElementById('alette-list').innerHTML = equipment.alette.map((a, i) => renderAletteCard(a, i, i === idx, equipmentEditMode)).join('');
+            showModal("✅ Salvato!", `Aletta "${equipment.alette[idx].nome || 'Tipologia ' + (idx+1)}" salvata.`, [{ text: "Ok", handler: () => {} }]);
+        };
+
+        window.deleteAletteCard = (idx) => {
+            showModal("Elimina Aletta", "Sei sicuro di voler eliminare questa tipologia di alette?", [
+                { text: "Annulla", handler: () => {} },
+                { text: "Elimina", handler: () => {
+                    const equipment = getEquipment();
+                    equipment.alette.splice(idx, 1);
+                    equipment.activeAletteIdx = Math.max(0, (equipment.activeAletteIdx || 0) - (idx <= (equipment.activeAletteIdx || 0) ? 1 : 0));
+                    localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
+                    const alette = equipment.alette || [];
+                    const active = equipment.activeAletteIdx;
+                    document.getElementById('alette-list').innerHTML = alette.map((a, i) => renderAletteCard(a, i, i === active, equipmentEditMode)).join('');
+                    document.getElementById('alette-detail-container').innerHTML = alette.length > 0 ? renderAletteDetail(alette[active] || alette[0], active, equipmentEditMode) : '';
+                }}
+            ]);
+        };
+
+        window.saveEquipment = (silent) => {
+            const equipKey = `archery_equipment_${appState.loggedInArcher.id}`;
+            const existing = getEquipment();
+            // Preserve arrays (archi, arrows, alette) from existing, they're saved individually via their own save functions
             const equipment = {
                 ...existing,
-                tipoArco: document.getElementById('eq-tipoArco')?.value || '',
-                marcaArco: document.getElementById('eq-marcaArco')?.value || '',
-                peso: document.getElementById('eq-peso')?.value || '',
-                allungo: document.getElementById('eq-allungo')?.value || '',
-                misuraArco: document.getElementById('eq-misuraArco')?.value || '',
-                braccetto: document.getElementById('eq-braccetto')?.value || '',
-                mirino: document.getElementById('eq-mirino')?.value || '',
-                stabilizzatori: document.getElementById('eq-stabilizzatori')?.value || '',
-                corda: document.getElementById('eq-corda')?.value || '',
-                note: document.getElementById('eq-note')?.value || '',
-                tiller: document.getElementById('eq-tiller')?.value || '',
-                braceHeight: document.getElementById('eq-braceHeight')?.value || '',
-                plung: document.getElementById('eq-plung')?.value || '',
-                pesoTotale: document.getElementById('eq-pesoTotale')?.value || '',
-                dataSetup: document.getElementById('eq-dataSetup')?.value || '',
-                scalaMirino: scalaMirino,
                 updatedAt: new Date().toISOString().split('T')[0]
             };
             localStorage.setItem(equipKey, JSON.stringify(equipment));
-            showModal("✅ Salvato!", "Configurazione materiale salvata con successo!", [
-                { text: "Ok", handler: () => {} }
-            ]);
+            if (silent) {
+                equipmentEditMode = false;
+                renderEquipment();
+                showModal("✅ Salvato!", "Configurazione materiale salvata con successo!", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            } else {
+                showModal("✅ Salvato!", "Configurazione materiale salvata con successo!", [
+                    { text: "Ok", handler: () => {} }
+                ]);
+            }
         };
 
         window.setPdfPeriod = (period) => {
