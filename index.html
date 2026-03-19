@@ -1586,7 +1586,12 @@ function renderMainMenu() {
                 };
 
                 const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
-                console.log("Allenamento tecnico salvato con ID:", docRef.id);
+                const sessionDocId = docRef.id;
+                console.log("Allenamento tecnico salvato con ID:", sessionDocId);
+
+                // Verifica obiettivi
+                await checkGoalsCompletion(finalSessionData, sessionDocId);
+
                 window.clearSessionDraft();
                 appState.currentSession = null;
             } catch (e) {
@@ -2670,31 +2675,65 @@ function renderMainMenu() {
                 const u = appState.loggedInArcher;
                 if (!u) return;
 
-                // Carica obiettivi se non presenti
+                // Carica obiettivi e sessioni se non presenti
                 await loadGoals();
 
-                const activeScoreGoals = appState.userGoals.filter(g =>
-                    g.type === 'score' && !g.completed &&
-                    g.distanza === sessionData.distanza &&
-                    g.tipoTarga === sessionData.tipoTarga
-                );
+                const activeGoals = appState.userGoals.filter(g => !g.completed);
+                if (activeGoals.length === 0) return;
 
-                if (activeScoreGoals.length === 0) return;
+                const today = new Date(sessionData.data);
 
-                for (const goal of activeScoreGoals) {
-                    // Controlla se il punteggio totale o uno dei due turni supera il target
-                    const reached = (sessionData.totalScore >= goal.targetValue) ||
-                                    (sessionData.turn1Score >= goal.targetValue) ||
-                                    (sessionData.turn2Score >= goal.targetValue);
+                for (const goal of activeGoals) {
+                    let reached = false;
+
+                    if (goal.type === 'score') {
+                        // Verifica corrispondenza distanza e targa
+                        if (goal.distanza === sessionData.distanza && goal.tipoTarga === sessionData.tipoTarga) {
+                            reached = (sessionData.totalScore >= goal.targetValue) ||
+                                      (sessionData.turn1Score >= goal.targetValue) ||
+                                      (sessionData.turn2Score >= goal.targetValue);
+                        }
+                    } else {
+                        // Obiettivi cumulativi (arrows, sessions, training)
+                        const periodStart = new Date(today);
+                        if (goal.period === 'weekly') {
+                            const day = periodStart.getDay();
+                            const diff = periodStart.getDate() - day + (day === 0 ? -6 : 1);
+                            periodStart.setDate(diff);
+                        } else if (goal.period === 'monthly') {
+                            periodStart.setDate(1);
+                        }
+                        periodStart.setHours(0,0,0,0);
+                        const periodStartStr = periodStart.toISOString().split('T')[0];
+
+                        const periodSessions = appState.sessionData.filter(s => s.data >= periodStartStr);
+
+                        // Includi anche la sessione corrente che potrebbe non essere ancora in appState.sessionData
+                        if (!periodSessions.find(s => s.docId === sessionDocId || s.id === sessionData.id)) {
+                            periodSessions.push(sessionData);
+                        }
+
+                        if (goal.type === 'arrows') {
+                            const totalArrows = periodSessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
+                            reached = totalArrows >= goal.targetValue;
+                        } else if (goal.type === 'sessions') {
+                            reached = periodSessions.length >= goal.targetValue;
+                        } else if (goal.type === 'training') {
+                            const trainingCount = periodSessions.filter(s => s.type === 'Allenamento').length;
+                            reached = trainingCount >= goal.targetValue;
+                        }
+                    }
 
                     if (reached) {
-                        const goalRef = doc(db, `artifacts/${appId}/archers/${u.id}/goals`, goal.docId);
+                        const goalRef = doc(db, "artifacts", appId, "archers", u.id, "goals", goal.docId);
                         await updateDoc(goalRef, {
                             completed: true,
                             completedAt: serverTimestamp(),
-                            sessionRef: sessionDocId // riferimento alla sessione che ha completato l'obiettivo
+                            sessionRef: sessionDocId
                         });
                         console.log(`Obiettivo "${goal.title}" completato!`);
+                        // Aggiorna stato locale
+                        goal.completed = true;
                     }
                 }
             } catch (error) {
@@ -3497,16 +3536,36 @@ function renderGoals() {
                             let progress = 0;
                             let currentVal = 0;
 
+                            const now = new Date();
+                            const periodStart = new Date(now);
+                            if (goal.period === 'weekly') {
+                                const day = periodStart.getDay();
+                                const diff = periodStart.getDate() - day + (day === 0 ? -6 : 1);
+                                periodStart.setDate(diff);
+                            } else if (goal.period === 'monthly') {
+                                periodStart.setDate(1);
+                            }
+                            periodStart.setHours(0,0,0,0);
+                            const periodStartStr = periodStart.toISOString().split('T')[0];
+
+                            const periodSessions = appState.sessionData.filter(s => s.data >= periodStartStr);
+
                             if (goal.type === 'arrows') {
-                                currentVal = appState.sessionData.reduce((sum, s) => sum + (s.frecceTotali || 0), 0);
-                                progress = Math.min(Math.round((currentVal / goal.targetValue) * 100), 100);
+                                currentVal = periodSessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
                             } else if (goal.type === 'score') {
                                 const relevantSessions = appState.sessionData.filter(s => 
                                     s.distanza === goal.distanza && s.tipoTarga === goal.tipoTarga
                                 );
-                                currentVal = relevantSessions.length > 0 ? Math.max(...relevantSessions.map(s => s.punteggio || 0)) : 0;
-                                progress = Math.min(Math.round((currentVal / goal.targetValue) * 100), 100);
+                                currentVal = relevantSessions.length > 0 ? Math.max(...relevantSessions.map(s =>
+                                    Math.max(s.totalScore || 0, s.turn1Score || 0, s.turn2Score || 0)
+                                )) : 0;
+                            } else if (goal.type === 'sessions') {
+                                currentVal = periodSessions.length;
+                            } else if (goal.type === 'training') {
+                                currentVal = periodSessions.filter(s => s.type === 'Allenamento').length;
                             }
+
+                            progress = Math.min(Math.round((currentVal / goal.targetValue) * 100), 100);
 
                             return `
                                 <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
@@ -3522,7 +3581,12 @@ function renderGoals() {
                                     
                                     <div class="mb-2 flex justify-between text-sm">
                                         <span class="text-gray-400">Progresso</span>
-                                        <span class="text-white font-medium">${currentVal} / ${goal.targetValue} ${goal.type === 'arrows' ? 'frecce' : 'punti'}</span>
+                                        <span class="text-white font-medium">
+                                            ${currentVal} / ${goal.targetValue}
+                                            ${goal.type === 'arrows' ? 'frecce' :
+                                              goal.type === 'score' ? 'punti' :
+                                              goal.type === 'sessions' ? 'sessioni' : 'allenamenti'}
+                                        </span>
                                     </div>
                                     
                                     <div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
@@ -5776,8 +5840,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
         async function loadEquipmentFromFirestore() {
             try {
                 const u = appState.loggedInArcher;
-                if (!u) return;
-                const currentEquipRef = doc(db, `artifacts/${appId}/archers/${u.id}/equipment`, "current");
+                if (!u) return null;
+                const currentEquipRef = doc(db, "artifacts", appId, "archers", u.id, "equipment", "current");
                 const snap = await getDoc(currentEquipRef);
 
                 if (snap.exists()) {
@@ -6390,7 +6454,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
             localStorage.setItem(equipKey, JSON.stringify(equipment));
 
             try {
-                const equipDocRef = doc(db, `artifacts/${appId}/archers/${u.id}/equipment`, "current");
+                const equipDocRef = doc(db, "artifacts", appId, "archers", u.id, "equipment", "current");
                 await setDoc(equipDocRef, equipment);
                 console.log("Materiale salvato su Firebase");
             } catch (error) {
