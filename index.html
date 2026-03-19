@@ -2686,6 +2686,11 @@ function renderMainMenu() {
                 for (const goal of activeGoals) {
                     let reached = false;
 
+                    // Verifica data inizio obiettivo
+                    if (goal.startDate && sessionData.data < goal.startDate) {
+                        continue;
+                    }
+
                     // Verifica tipo sessione (Allenamento/Gara)
                     if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== sessionData.type) {
                         continue;
@@ -3567,6 +3572,7 @@ function renderGoals() {
 
                             const periodSessions = appState.sessionData.filter(s => {
                                 if (s.data < periodStartStr) return false;
+                                if (goal.startDate && s.data < goal.startDate) return false;
                                 if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== s.type) return false;
                                 return true;
                             });
@@ -3575,6 +3581,7 @@ function renderGoals() {
                                 currentVal = periodSessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
                             } else if (goal.type === 'score') {
                                 const relevantSessions = appState.sessionData.filter(s => {
+                                    if (goal.startDate && s.data < goal.startDate) return false;
                                     if (s.distanza !== goal.distanza || s.tipoTarga !== goal.tipoTarga) return false;
                                     if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== s.type) return false;
                                     return true;
@@ -3634,8 +3641,8 @@ function renderGoals() {
                                         <div class="bg-primary-orange h-2.5 rounded-full transition-all duration-500" style="width: ${progress}%"></div>
                                     </div>
 
-                                    <div class="text-xs text-gray-500 flex justify-between">
-                                        <span>Scadenza: ${goal.deadline || (goal.period === 'weekly' ? 'Fine settimana' : 'Fine mese')}</span>
+                                    <div class="text-[10px] text-gray-500 flex justify-between">
+                                        <div>Inizio: ${formatDate(goal.startDate)} | Scadenza: ${goal.deadline || (goal.period === 'weekly' ? 'Domenica' : 'Fine mese')}</div>
                                         <span class="font-bold text-primary-orange">${progress}%</span>
                                     </div>
                                 </div>
@@ -3734,6 +3741,7 @@ function renderGoals() {
 
             const relevantSessions = appState.sessionData.filter(session => {
                 if (session.data < startDateStr || session.data > endDateStr) return false;
+                if (goal.startDate && session.data < goal.startDate) return false;
                 if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== session.type) return false;
 
                 if (goal.type === 'arrows') return true;
@@ -3775,6 +3783,7 @@ function renderGoals() {
         }
 
         window.showAddGoalModal = () => {
+            const today = new Date().toISOString().split('T')[0];
             const modalContent = document.createElement('div');
             modalContent.innerHTML = `
                 <form id="addGoalForm" class="space-y-4">
@@ -3850,6 +3859,12 @@ function renderGoals() {
                             <option value="monthly">📆 Mensile</option>
                         </select>
                     </div>
+
+                    <div id="start-date-container">
+                        <label class="block text-sm font-medium mb-1 text-white">Data Inizio Conteggio</label>
+                        <input type="date" id="goal-start-date" class="input-style" value="${today}" required>
+                        <p class="text-[10px] text-primary-orange mt-1">L'obiettivo considererà solo le sessioni da questa data in poi.</p>
+                    </div>
                 </form>
             `;
 
@@ -3885,8 +3900,9 @@ async function saveNewGoal() {
             const targetValue = parseInt(document.getElementById('goal-target').value);
             const period = document.getElementById('goal-period').value;
             const sessionType = document.getElementById('goal-session-type').value;
+            const startDate = document.getElementById('goal-start-date').value;
 
-            if (!title || !type || !targetValue || !period) {
+            if (!title || !type || !targetValue || !period || !startDate) {
                 showModal("Errore", "Compila tutti i campi obbligatori.", [
                     { text: "Ok", handler: () => window.showAddGoalModal() }
                 ]);
@@ -3901,6 +3917,7 @@ async function saveNewGoal() {
                 targetValue: targetValue,
                 period: period,
                 sessionType: sessionType,
+                startDate: startDate,
                 completed: false,
                 createdAt: serverTimestamp() 
             };
