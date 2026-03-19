@@ -2686,12 +2686,29 @@ function renderMainMenu() {
                 for (const goal of activeGoals) {
                     let reached = false;
 
+                    // Verifica tipo sessione (Allenamento/Gara)
+                    if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== sessionData.type) {
+                        continue;
+                    }
+
                     if (goal.type === 'score') {
                         // Verifica corrispondenza distanza e targa
                         if (goal.distanza === sessionData.distanza && goal.tipoTarga === sessionData.tipoTarga) {
-                            reached = (sessionData.totalScore >= goal.targetValue) ||
-                                      (sessionData.turn1Score >= goal.targetValue) ||
-                                      (sessionData.turn2Score >= goal.targetValue);
+                            const scope = goal.scoreScope || 'any';
+                            if (scope === 'total') {
+                                reached = sessionData.totalScore >= goal.targetValue;
+                            } else if (scope === 'turn1') {
+                                reached = sessionData.turn1Score >= goal.targetValue;
+                            } else if (scope === 'turn2') {
+                                reached = sessionData.turn2Score >= goal.targetValue;
+                            } else if (scope === 'turns') {
+                                reached = (sessionData.turn1Score >= goal.targetValue) ||
+                                          (sessionData.turn2Score >= goal.targetValue);
+                            } else { // 'any'
+                                reached = (sessionData.totalScore >= goal.targetValue) ||
+                                          (sessionData.turn1Score >= goal.targetValue) ||
+                                          (sessionData.turn2Score >= goal.targetValue);
+                            }
                         }
                     } else {
                         // Obiettivi cumulativi (arrows, sessions, training)
@@ -3548,17 +3565,29 @@ function renderGoals() {
                             periodStart.setHours(0,0,0,0);
                             const periodStartStr = periodStart.toISOString().split('T')[0];
 
-                            const periodSessions = appState.sessionData.filter(s => s.data >= periodStartStr);
+                            const periodSessions = appState.sessionData.filter(s => {
+                                if (s.data < periodStartStr) return false;
+                                if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== s.type) return false;
+                                return true;
+                            });
 
                             if (goal.type === 'arrows') {
                                 currentVal = periodSessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
                             } else if (goal.type === 'score') {
-                                const relevantSessions = appState.sessionData.filter(s => 
-                                    s.distanza === goal.distanza && s.tipoTarga === goal.tipoTarga
-                                );
-                                currentVal = relevantSessions.length > 0 ? Math.max(...relevantSessions.map(s =>
-                                    Math.max(s.totalScore || 0, s.turn1Score || 0, s.turn2Score || 0)
-                                )) : 0;
+                                const relevantSessions = appState.sessionData.filter(s => {
+                                    if (s.distanza !== goal.distanza || s.tipoTarga !== goal.tipoTarga) return false;
+                                    if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== s.type) return false;
+                                    return true;
+                                });
+
+                                const scope = goal.scoreScope || 'any';
+                                currentVal = relevantSessions.length > 0 ? Math.max(...relevantSessions.map(s => {
+                                    if (scope === 'total') return s.totalScore || 0;
+                                    if (scope === 'turn1') return s.turn1Score || 0;
+                                    if (scope === 'turn2') return s.turn2Score || 0;
+                                    if (scope === 'turns') return Math.max(s.turn1Score || 0, s.turn2Score || 0);
+                                    return Math.max(s.totalScore || 0, s.turn1Score || 0, s.turn2Score || 0);
+                                })) : 0;
                             } else if (goal.type === 'sessions') {
                                 currentVal = periodSessions.length;
                             } else if (goal.type === 'training') {
@@ -3574,13 +3603,25 @@ function renderGoals() {
                                             <h3 class="text-lg font-bold text-white">${goal.title}</h3>
                                             <p class="text-sm text-gray-400">${goal.description || ''}</p>
                                         </div>
-                                        <span class="px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-primary-orange/20 text-primary-orange'}">
-                                            ${goal.period === 'weekly' ? 'Settimanale' : 'Mensile'}
-                                        </span>
+                                        <div class="flex flex-col items-end gap-1">
+                                            <span class="px-2 py-1 rounded text-[10px] uppercase font-bold ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-primary-orange/20 text-primary-orange'}">
+                                                ${goal.period === 'weekly' ? 'Settimanale' : 'Mensile'}
+                                            </span>
+                                            <span class="text-[10px] text-gray-400">
+                                                ${goal.sessionType === 'Gara' ? '🏆 Gara' : goal.sessionType === 'Allenamento' ? '🎯 Allenamento' : '🔄 Entrambi'}
+                                            </span>
+                                        </div>
                                     </div>
                                     
                                     <div class="mb-2 flex justify-between text-sm">
-                                        <span class="text-gray-400">Progresso</span>
+                                        <div>
+                                            <span class="text-gray-400">Progresso</span>
+                                            ${goal.type === 'score' ? `
+                                                <span class="text-[10px] text-primary-orange ml-1">
+                                                    (${goal.scoreScope === 'total' ? 'Totale' : goal.scoreScope === 'turn1' ? 'T1' : goal.scoreScope === 'turn2' ? 'T2' : 'T1 o T2'})
+                                                </span>
+                                            ` : ''}
+                                        </div>
                                         <span class="text-white font-medium">
                                             ${currentVal} / ${goal.targetValue}
                                             ${goal.type === 'arrows' ? 'frecce' :
@@ -3693,7 +3734,9 @@ function renderGoals() {
 
             const relevantSessions = appState.sessionData.filter(session => {
                 if (session.data < startDateStr || session.data > endDateStr) return false;
-                if (goal.type === 'arrows') return true; // conta tutte le sessioni per le frecce
+                if (goal.sessionType && goal.sessionType !== 'both' && goal.sessionType !== session.type) return false;
+
+                if (goal.type === 'arrows') return true;
                 if (session.trainingWithoutScore) {
                     return goal.type === 'training';
                 }
@@ -3708,9 +3751,17 @@ function renderGoals() {
 
             let current = 0;
             if (goal.type === 'score') {
-                const bestSession = relevantSessions.reduce((max, s) => 
-                    (s.totalScore || 0) > max ? (s.totalScore || 0) : max, 0);
-                current = bestSession;
+                const scope = goal.scoreScope || 'any';
+                const bestValue = relevantSessions.reduce((max, s) => {
+                    let val = 0;
+                    if (scope === 'total') val = s.totalScore || 0;
+                    else if (scope === 'turn1') val = s.turn1Score || 0;
+                    else if (scope === 'turn2') val = s.turn2Score || 0;
+                    else if (scope === 'turns') val = Math.max(s.turn1Score || 0, s.turn2Score || 0);
+                    else val = Math.max(s.totalScore || 0, s.turn1Score || 0, s.turn2Score || 0);
+                    return val > max ? val : max;
+                }, 0);
+                current = bestValue;
             } else if (goal.type === 'arrows') {
                 current = relevantSessions.reduce((sum, s) => sum + countArrowsForSession(s), 0);
             } else {
@@ -3748,8 +3799,17 @@ function renderGoals() {
                         </select>
                     </div>
 
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-white">Riguarda</label>
+                        <select id="goal-session-type" class="input-style" required>
+                            <option value="both">Entrambi (Allenamento e Gara)</option>
+                            <option value="Allenamento">Solo Allenamento</option>
+                            <option value="Gara">Solo Gara</option>
+                        </select>
+                    </div>
+
                     <div id="score-fields" style="display: none;">
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-2 gap-3 mb-3">
                             <div>
                                 <label class="block text-sm font-medium mb-1 text-white">Distanza</label>
                                 <select id="goal-distanza" class="input-style">
@@ -3764,6 +3824,16 @@ function renderGoals() {
                                     ${TIPO_TARGA_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
                                 </select>
                             </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-white">Ambito Punteggio</label>
+                            <select id="goal-score-scope" class="input-style">
+                                <option value="any">Qualsiasi Turno o Totale</option>
+                                <option value="total">Solo Punteggio Totale</option>
+                                <option value="turn1">Solo Turno 1</option>
+                                <option value="turn2">Solo Turno 2</option>
+                                <option value="turns">Entrambi i Turni (uno alla volta)</option>
+                            </select>
                         </div>
                     </div>
 
@@ -3814,6 +3884,7 @@ async function saveNewGoal() {
             const type = document.getElementById('goal-type').value;
             const targetValue = parseInt(document.getElementById('goal-target').value);
             const period = document.getElementById('goal-period').value;
+            const sessionType = document.getElementById('goal-session-type').value;
 
             if (!title || !type || !targetValue || !period) {
                 showModal("Errore", "Compila tutti i campi obbligatori.", [
@@ -3829,6 +3900,7 @@ async function saveNewGoal() {
                 type: type,
                 targetValue: targetValue,
                 period: period,
+                sessionType: sessionType,
                 completed: false,
                 createdAt: serverTimestamp() 
             };
@@ -3836,6 +3908,7 @@ async function saveNewGoal() {
             if (type === 'score') {
                 const distanza = document.getElementById('goal-distanza').value;
                 const targa = document.getElementById('goal-targa').value;
+                const scoreScope = document.getElementById('goal-score-scope').value;
                 if (!distanza || !targa) {
                     showModal("Errore", "Seleziona distanza e targa.", [
                         { text: "Ok", handler: () => window.showAddGoalModal() }
@@ -3844,6 +3917,7 @@ async function saveNewGoal() {
                 }
                 newGoal.distanza = distanza;
                 newGoal.tipoTarga = targa;
+                newGoal.scoreScope = scoreScope;
             }
 
             try {
