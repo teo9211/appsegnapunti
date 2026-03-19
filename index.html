@@ -4410,12 +4410,28 @@ async function saveNewGoal() {
                 return;
             }
 
+            const formatGridForCSV = (turnData) => {
+                if (!turnData || !turnData.grid) return '';
+                try {
+                    const volleyNotes = turnData.volleyNotes || {};
+                    return turnData.grid.map((rowJson, i) => {
+                        const row = JSON.parse(rowJson);
+                        const note = volleyNotes[i+1] ? ` (${volleyNotes[i+1]})` : '';
+                        return `V${i+1}: ${row.filter(s => s !== '').join('-')}${note}`;
+                    }).join(' | ');
+                } catch (e) {
+                    return '';
+                }
+            };
+
             // Intestazioni CSV
             const headers = [
                 'Data', 'Tipo', 'Luogo', 'Tipo Luogo', 'Distanza', 'Tipo Targa', 'Formato',
                 'Punteggio Totale', 'Turno 1', 'Turno 2', 'X Totali', '10 Totali', '9 Totali',
                 'Media Freccia', 'Durata (min)', 'Ora Inizio', 'Ora Fine', 'Note',
-                'Allenamento Tecnico', 'Quick Score'
+                'Allenamento Tecnico', 'Quick Score', 'Frecce Programmate', 'Frecce Aggiuntive',
+                'Esercizi Consigliati', 'Esercizi Svolti', 'Note Condizioni Fisiche',
+                'Note Pre-Gara', 'Note Post-Gara', 'Segnapunti T1', 'Segnapunti T2'
             ];
 
             // Dati
@@ -4439,7 +4455,16 @@ async function saveNewGoal() {
                 s.endTime || '',
                 (s.note || '').replace(/"/g, '""'),
                 s.trainingWithoutScore ? 'Sì' : 'No',
-                s.quickScore ? 'Sì' : 'No'
+                s.quickScore ? 'Sì' : 'No',
+                s.frecceProgrammate || 0,
+                s.frecceAggiuntive || 0,
+                (s.esercizConsigliati || '').replace(/"/g, '""'),
+                (s.esercizSvolti || s.trainingContent || '').replace(/"/g, '""'),
+                (s.noteCondizioniFisiche || '').replace(/"/g, '""'),
+                (s.notePreGara || '').replace(/"/g, '""'),
+                (s.notePostGara || '').replace(/"/g, '""'),
+                formatGridForCSV(s.turn1),
+                formatGridForCSV(s.turn2)
             ]);
 
             // Costruisci CSV
@@ -4643,27 +4668,52 @@ async function saveNewGoal() {
                             <tr>
                                 <th>Data</th>
                                 <th>Tipo</th>
-                                <th>Distanza</th>
-                                <th>Targa</th>
-                                <th>Punteggio</th>
-                                <th>T1</th>
-                                <th>T2</th>
-                                <th>Luogo</th>
+                                <th>Distanza / Targa</th>
+                                <th>Punteggio (T1+T2)</th>
+                                <th>Note ed Esercizi</th>
+                                <th>Segnapunti</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${filteredSessions.map(s => `
+                            ${filteredSessions.map(s => {
+                                const formatGrid = (turnData) => {
+                                    if (!turnData || !turnData.grid) return '';
+                                    try {
+                                        return turnData.grid.map((rowJson, i) => {
+                                            const row = JSON.parse(rowJson);
+                                            return `V${i+1}: ${row.filter(x => x !== '').join('-')}`;
+                                        }).join('<br>');
+                                    } catch(e) { return ''; }
+                                };
+
+                                const notes = [
+                                    s.noteCondizioniFisiche ? `<b>Fisico:</b> ${s.noteCondizioniFisiche}` : '',
+                                    s.notePreGara ? `<b>Pre:</b> ${s.notePreGara}` : '',
+                                    s.notePostGara ? `<b>Post:</b> ${s.notePostGara}` : '',
+                                    s.note ? `<b>Note:</b> ${s.note}` : ''
+                                ].filter(Boolean).join('<br>');
+
+                                const exercises = [
+                                    s.esercizConsigliati ? `<b>Consigliati:</b> ${s.esercizConsigliati}` : '',
+                                    s.esercizSvolti || s.trainingContent ? `<b>Svolti:</b> ${s.esercizSvolti || s.trainingContent}` : ''
+                                ].filter(Boolean).join('<br>');
+
+                                return `
                                 <tr>
-                                    <td>${formatDate(s.data)}</td>
+                                    <td>${formatDate(s.data)}<br><small>${s.luogo}</small></td>
                                     <td>${s.type}${s.trainingWithoutScore ? ' 🎓' : s.quickScore ? ' ⚡' : ''}</td>
-                                    <td>${s.distanza || '-'}</td>
-                                    <td>${s.tipoTarga || '-'}</td>
-                                    <td><strong>${s.trainingWithoutScore ? '-' : s.totalScore || 0}</strong></td>
-                                    <td>${s.trainingWithoutScore ? '-' : s.turn1Score || 0}</td>
-                                    <td>${s.trainingWithoutScore ? '-' : s.turn2Score || 0}</td>
-                                    <td>${s.luogo}</td>
-                                </tr>
-                            `).join('')}
+                                    <td>${s.distanza || '-'}<br>${s.tipoTarga || '-'}</td>
+                                    <td><strong>${s.trainingWithoutScore ? '-' : s.totalScore || 0}</strong><br><small>${s.trainingWithoutScore ? '' : `(${s.turn1Score || 0} + ${s.turn2Score || 0})`}</small></td>
+                                    <td style="font-size: 11px;">
+                                        ${exercises ? `<div style="margin-bottom:5px;">${exercises}</div>` : ''}
+                                        ${notes ? `<div>${notes}</div>` : ''}
+                                    </td>
+                                    <td style="font-size: 10px; white-space: nowrap;">
+                                        ${s.turn1 ? `<b>T1:</b><br>${formatGrid(s.turn1)}` : ''}
+                                        ${s.turn2 ? `<br><b>T2:</b><br>${formatGrid(s.turn2)}` : ''}
+                                    </td>
+                                </tr>`;
+                            }).join('')}
                         </tbody>
                     </table>
 
@@ -6299,6 +6349,8 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 const esConsigliati = s.esercizConsigliati || '';
                 const esSvolti = s.esercizSvolti || s.trainingContent || '';
                 const noteCondizioni = s.noteCondizioniFisiche || s.note || '';
+                const notePreGara = s.notePreGara || '';
+                const notePostGara = s.notePostGara || '';
 
                 // Altezza adattiva: se c'è testo usa padding, altrimenti linee vuote fisse
                 const fieldHtml = (label, content) => {
@@ -6313,9 +6365,38 @@ window.showMigrationModal = migrateSessionsAddBowType;
                         <div style="margin-bottom:5px;">
                             <span style="font-size:13px; font-weight:bold;">${label}</span>
                             <div style="border-bottom:1px solid #aaa; height:20px; margin-top:2px;"></div>
-                            <div style="border-bottom:1px solid #ddd; height:20px;"></div>
                         </div>`;
                     }
+                };
+
+                const renderScoreboardTable = (turnData, title) => {
+                    if (!turnData || !turnData.grid) return '';
+                    try {
+                        const grid = turnData.grid.map(rowJson => JSON.parse(rowJson));
+                        const volleyNotes = turnData.volleyNotes || {};
+                        return `
+                        <div style="margin-top:5px; margin-bottom:10px;">
+                            <span style="font-size:11px; font-weight:bold; color:#444;">${title}</span>
+                            <table style="width:100%; border-collapse:collapse; font-size:11px; margin-top:3px;">
+                                <thead>
+                                    <tr style="background:#eee; text-align:center;">
+                                        <th style="border:1px solid #ccc; width:15%;">Volée</th>
+                                        <th style="border:1px solid #ccc;">Frecce</th>
+                                        <th style="border:1px solid #ccc; width:40%;">Note Volée</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${grid.map((row, i) => `
+                                        <tr>
+                                            <td style="border:1px solid #ccc; text-align:center; font-weight:bold;">${i+1}</td>
+                                            <td style="border:1px solid #ccc; text-align:center;">${row.filter(x => x !== '').join(' - ')}</td>
+                                            <td style="border:1px solid #ccc; font-style:italic; padding-left:4px;">${volleyNotes[i+1] || ''}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>`;
+                    } catch(e) { return ''; }
                 };
 
                 if (isTech) {
@@ -6334,7 +6415,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                             ${fieldHtml('Esercizi Svolti:', esSvolti)}
                             ${fieldHtml('Note e Condizione Fisica:', noteCondizioni)}
                         </div>
-                        ${(idx + 1) < filtered.length && (idx + 1) % 3 === 0 ? '<div style="page-break-after:always;"></div>' : ''}
+                        ${(idx + 1) < filtered.length && (idx + 1) % 2 === 0 ? '<div style="page-break-after:always;"></div>' : ''}
                     `;
                 }
 
@@ -6347,9 +6428,7 @@ window.showMigrationModal = migrateSessionsAddBowType;
                 }).join(' – ');
 
                 const isGaraSession = s.type === 'Gara';
-                const punteggio = s.totalScore ? ` &nbsp; <strong style="font-size:13px;">Punteggio: ${s.totalScore}</strong>` : '';
-                const notePreGara = s.notePreGara || '';
-                const notePostGara = s.notePostGara || '';
+                const punteggio = s.totalScore ? ` &nbsp; <strong style="font-size:13px;">Punteggio: ${s.totalScore} (${s.turn1Score || 0} + ${s.turn2Score || 0})</strong>` : '';
 
                 return `
                     <div class="session-block" style="page-break-inside:avoid; margin-bottom: 28px; border-bottom: 1px solid #ccc; padding-bottom: 18px;">
@@ -6361,16 +6440,19 @@ window.showMigrationModal = migrateSessionsAddBowType;
                         </table>
                         <div style="margin-bottom:4px; font-size:13px;"><strong>Luogo:</strong> ${s.luogo || ''} (${s.tipoLuogo || ''})${punteggio}</div>
                         <div style="margin-bottom:6px; font-size:13px;"><strong>Distanze:</strong> ${distRow} &nbsp;&nbsp; <strong>Altro:</strong> ______________________</div>
-                        ${isGaraSession ? `
-                            ${fieldHtml('Note Pre-Gara:', notePreGara)}
-                            ${fieldHtml('Note Post-Gara:', notePostGara)}
-                        ` : `
-                            ${fieldHtml('Esercizi Consigliati:', esConsigliati)}
-                            ${fieldHtml('Esercizi Svolti:', esSvolti)}
-                        `}
-                        ${fieldHtml('Note e Condizione Fisica:', noteCondizioni)}
+
+                        ${notePreGara ? fieldHtml('Note Pre-Gara:', notePreGara) : ''}
+                        ${notePostGara ? fieldHtml('Note Post-Gara:', notePostGara) : ''}
+                        ${esConsigliati ? fieldHtml('Esercizi Consigliati:', esConsigliati) : ''}
+                        ${esSvolti ? fieldHtml('Esercizi Svolti:', esSvolti) : ''}
+                        ${noteCondizioni ? fieldHtml('Note e Condizione Fisica:', noteCondizioni) : ''}
+
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;">${renderScoreboardTable(s.turn1, 'Segnapunti Turno 1')}</div>
+                            <div style="flex:1;">${renderScoreboardTable(s.turn2, 'Segnapunti Turno 2')}</div>
+                        </div>
                     </div>
-                    ${(idx + 1) < filtered.length && (idx + 1) % 3 === 0 ? '<div style="page-break-after:always;"></div>' : ''}
+                    ${(idx + 1) < filtered.length && (idx + 1) % 2 === 0 ? '<div style="page-break-after:always;"></div>' : ''}
                 `;
             }).join('');
 
