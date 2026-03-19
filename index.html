@@ -337,7 +337,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
-    import { getFirestore, doc, addDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, setLogLevel, updateDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, setLogLevel, updateDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
     const MASTER_PASSWORD = "mecca";
     const appId = 'appsegnapunti'; 
@@ -1437,7 +1437,12 @@ function renderMainMenu() {
                 };
 
                 const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
-                console.log("Quick Score salvato con ID:", docRef.id);
+                const sessionDocId = docRef.id;
+                console.log("Quick Score salvato con ID:", sessionDocId);
+
+                // Verifica obiettivi
+                await checkGoalsCompletion(finalSessionData, sessionDocId);
+
                 window.clearSessionDraft();
                 appState.currentSession = null;
             } catch (e) {
@@ -2660,6 +2665,43 @@ function renderMainMenu() {
             };
         }
 
+        async function checkGoalsCompletion(sessionData, sessionDocId) {
+            try {
+                const u = appState.loggedInArcher;
+                if (!u) return;
+
+                // Carica obiettivi se non presenti
+                await loadGoals();
+
+                const activeScoreGoals = appState.userGoals.filter(g =>
+                    g.type === 'score' && !g.completed &&
+                    g.distanza === sessionData.distanza &&
+                    g.tipoTarga === sessionData.tipoTarga
+                );
+
+                if (activeScoreGoals.length === 0) return;
+
+                for (const goal of activeScoreGoals) {
+                    // Controlla se il punteggio totale o uno dei due turni supera il target
+                    const reached = (sessionData.totalScore >= goal.targetValue) ||
+                                    (sessionData.turn1Score >= goal.targetValue) ||
+                                    (sessionData.turn2Score >= goal.targetValue);
+
+                    if (reached) {
+                        const goalRef = doc(db, `artifacts/${appId}/archers/${u.id}/goals`, goal.docId);
+                        await updateDoc(goalRef, {
+                            completed: true,
+                            completedAt: serverTimestamp(),
+                            sessionRef: sessionDocId // riferimento alla sessione che ha completato l'obiettivo
+                        });
+                        console.log(`Obiettivo "${goal.title}" completato!`);
+                    }
+                }
+            } catch (error) {
+                console.error("Errore verifica obiettivi:", error);
+            }
+        }
+
         async function saveSessionToFirestore() {
             try {
                 const session = appState.currentSession;
@@ -2686,7 +2728,11 @@ function renderMainMenu() {
                 };
 
                 const docRef = await addDoc(window.getSessionsCollectionRef(), finalSessionData);
-                console.log("Sessione salvata con ID:", docRef.id);
+                const sessionDocId = docRef.id;
+                console.log("Sessione salvata con ID:", sessionDocId);
+
+                // Verifica obiettivi
+                await checkGoalsCompletion(finalSessionData, sessionDocId);
 
                 window.clearSessionDraft();
                 appState.currentSession = null;
@@ -5727,6 +5773,25 @@ window.showMigrationModal = migrateSessionsAddBowType;
             catch(e) { return {}; }
         }
 
+        async function loadEquipmentFromFirestore() {
+            try {
+                const u = appState.loggedInArcher;
+                if (!u) return;
+                const currentEquipRef = doc(db, `artifacts/${appId}/archers/${u.id}/equipment`, "current");
+                const snap = await getDoc(currentEquipRef);
+
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const equipKey = `archery_equipment_${u.id}`;
+                    localStorage.setItem(equipKey, JSON.stringify(data));
+                    return data;
+                }
+            } catch (error) {
+                console.error("Errore caricamento materiale da Firebase:", error);
+            }
+            return getEquipment();
+        }
+
         // ── EQUIPMENT EDIT MODE STATE ──────────────────────────────────────
         let equipmentEditMode = false;
 
@@ -6017,6 +6082,11 @@ window.showMigrationModal = migrateSessionsAddBowType;
         async function renderEquipment() {
             if (!appState.loggedInArcher) { window.setView('login'); return; }
 
+            // Tenta di caricare da Firestore all'apertura se non siamo in modalità modifica
+            if (!equipmentEditMode) {
+                await loadEquipmentFromFirestore();
+            }
+
             const equipment = getEquipment();
             const editMode = equipmentEditMode;
             const archi = equipment.archi || [];
@@ -6155,7 +6225,9 @@ window.showMigrationModal = migrateSessionsAddBowType;
             };
             localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
             document.getElementById('arrows-list').innerHTML = equipment.arrows.map((a, i) => renderArrowCard(a, i, i === idx, equipmentEditMode)).join('');
-            showModal("✅ Salvato!", `Freccia "${equipment.arrows[idx].nome || 'Tipologia ' + (idx+1)}" salvata.`, [{ text: "Ok", handler: () => {} }]);
+
+            // Persist to Firebase
+            window.saveEquipment(true);
         };
 
         window.deleteArrowCard = (idx) => {
@@ -6223,7 +6295,9 @@ window.showMigrationModal = migrateSessionsAddBowType;
             };
             localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
             document.getElementById('archi-list').innerHTML = equipment.archi.map((a, i) => renderArcoCard(a, i, i === idx, equipmentEditMode)).join('');
-            showModal("✅ Salvato!", `Arco "${equipment.archi[idx].nome || 'Arco ' + (idx+1)}" salvato.`, [{ text: "Ok", handler: () => {} }]);
+
+            // Persist to Firebase
+            window.saveEquipment(true);
         };
 
         window.deleteArcoCard = (idx) => {
@@ -6280,7 +6354,9 @@ window.showMigrationModal = migrateSessionsAddBowType;
             };
             localStorage.setItem(`archery_equipment_${appState.loggedInArcher.id}`, JSON.stringify(equipment));
             document.getElementById('alette-list').innerHTML = equipment.alette.map((a, i) => renderAletteCard(a, i, i === idx, equipmentEditMode)).join('');
-            showModal("✅ Salvato!", `Aletta "${equipment.alette[idx].nome || 'Tipologia ' + (idx+1)}" salvata.`, [{ text: "Ok", handler: () => {} }]);
+
+            // Persist to Firebase
+            window.saveEquipment(true);
         };
 
         window.deleteAletteCard = (idx) => {
@@ -6299,15 +6375,28 @@ window.showMigrationModal = migrateSessionsAddBowType;
             ]);
         };
 
-        window.saveEquipment = (silent) => {
-            const equipKey = `archery_equipment_${appState.loggedInArcher.id}`;
+        window.saveEquipment = async (silent) => {
+            const u = appState.loggedInArcher;
+            if (!u) return;
+
+            const equipKey = `archery_equipment_${u.id}`;
             const existing = getEquipment();
-            // Preserve arrays (archi, arrows, alette) from existing, they're saved individually via their own save functions
+
             const equipment = {
                 ...existing,
                 updatedAt: new Date().toISOString().split('T')[0]
             };
+
             localStorage.setItem(equipKey, JSON.stringify(equipment));
+
+            try {
+                const equipDocRef = doc(db, `artifacts/${appId}/archers/${u.id}/equipment`, "current");
+                await setDoc(equipDocRef, equipment);
+                console.log("Materiale salvato su Firebase");
+            } catch (error) {
+                console.error("Errore salvataggio materiale su Firebase:", error);
+            }
+
             if (silent) {
                 equipmentEditMode = false;
                 renderEquipment();
