@@ -961,6 +961,18 @@ window.setView = (viewName, data = {}) => {
         }
 
 // MODIFICA NEL MENU PRINCIPALE (PARTE 3)
+window.toggleMenuSection = (id) => {
+    const el = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+    } else {
+        el.classList.add('hidden');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+};
+
 function renderMainMenu() {
     if (!appState.loggedInArcher) {
         window.setView('login');
@@ -971,53 +983,66 @@ function renderMainMenu() {
         <div class="text-center space-y-3">
             <h2 class="text-2xl font-bold mb-4 text-white">Benvenuto, ${appState.loggedInArcher.nome}!</h2>
             
-            <div class="mb-6">
-                <h3 class="text-lg font-bold text-primary-orange mb-3">📋 Registra Sessione</h3>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('registrationForm', { type: 'Allenamento' })">
-                    🎯 Allenamento 🏋️
+            <!-- SEZIONE SEGNAPUNTI -->
+            <div class="mb-2">
+                <button onclick="window.toggleMenuSection('menu-segnapunti')"
+                        class="btn-primary w-full p-4 rounded-xl shadow-lg flex justify-between items-center group">
+                    <span class="flex items-center gap-2">📝 Segnapunti</span>
+                    <svg id="menu-segnapunti-chevron" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                 </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('registrationForm', { type: 'Gara' })">
-                    🏆 Gara 🥇
-                </button>
+                <div id="menu-segnapunti" class="hidden mt-2 space-y-2 px-2">
+                    <button class="bg-gray-800 hover:bg-gray-700 text-primary-orange w-full p-3 rounded-lg border border-primary-orange font-bold transition-all"
+                            onclick="window.setView('registrationForm', { type: 'Allenamento' })">
+                        🎯 Allenamento 🏋️
+                    </button>
+                    <button class="bg-gray-800 hover:bg-gray-700 text-primary-orange w-full p-3 rounded-lg border border-primary-orange font-bold transition-all"
+                            onclick="window.setView('registrationForm', { type: 'Gara' })">
+                        🏆 Gara 🥇
+                    </button>
+                </div>
             </div>
 
-<div class="mb-6">
-                <h3 class="text-lg font-bold text-primary-orange mb-3">📊 Analisi e Statistiche</h3>
-
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('dataSummary')">
-                    🧾 Riepilogo Dati
+            <!-- SEZIONE ANALISI E STATISTICHE -->
+            <div class="mb-2">
+                <button onclick="window.toggleMenuSection('menu-analisi')"
+                        class="btn-primary w-full p-4 rounded-xl shadow-lg flex justify-between items-center group">
+                    <span class="flex items-center gap-2">📊 Analisi e Statistiche</span>
+                    <svg id="menu-analisi-chevron" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                 </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" style="background:linear-gradient(135deg,#1e3a5f,#1e40af);border-color:#3b82f6;" onclick="window.setView('targetStats')">
-                    🎯 Statistiche Bersaglio
-                </button>
+                <div id="menu-analisi" class="hidden mt-2 space-y-2 px-2">
+                    <button class="bg-gray-800 hover:bg-gray-700 text-white w-full p-3 rounded-lg border border-gray-600 font-bold transition-all"
+                            onclick="window.setView('dataSummary')">
+                        🧾 Riepilogo Dati
+                    </button>
+                    <button class="bg-gray-800 hover:bg-gray-700 text-white w-full p-3 rounded-lg border border-gray-600 font-bold transition-all"
+                            onclick="window.setView('calendar')">
+                        📅 Calendario Sessioni
+                    </button>
+                    <button class="bg-gray-800 hover:bg-gray-700 text-blue-300 w-full p-3 rounded-lg border border-blue-900 font-bold transition-all"
+                            onclick="window.setView('targetStats')">
+                        🎯 Statistiche Bersaglio
+                    </button>
+                    <button class="bg-gray-800 hover:bg-gray-700 text-white w-full p-3 rounded-lg border border-gray-600 font-bold transition-all"
+                            onclick="window.setView('arrowCounter')">
+                        🪃 Contatore Frecce
+                    </button>
+                </div>
             </div>
 
-            <div class="mb-6">
-                <h3 class="text-lg font-bold text-primary-orange mb-3">🎯 Obiettivi e Pianificazione</h3>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('goals')">
-                    🏅 I Miei Obiettivi
-                </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('calendar')">
-                    📅 Calendario Sessioni
-                </button>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg mt-2" onclick="window.setView('arrowCounter')">
-                    🪃 Contatore Frecce
-                </button>
-            </div>
-
-            <div class="mb-6">
-                <h3 class="text-lg font-bold text-primary-orange mb-3">🏹 Attrezzatura</h3>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('equipment')">
-                    🔧 Il Mio Materiale
-                </button>
-            </div>
-
-            <div class="mb-6">
-                <h3 class="text-lg font-bold text-primary-orange mb-3">⚙️ Impostazioni</h3>
-                <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('settings')">
-                    ⚙️ Impostazioni
-                </button>
-            </div>
+            <!-- BOTTONI DIRETTI -->
+            <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('goals')">
+                🏅 I Miei Obiettivi
+            </button>
+            <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('equipment')">
+                🔧 Il Mio Materiale
+            </button>
+            <button class="btn-primary w-full p-4 rounded-xl shadow-lg" onclick="window.setView('settings')">
+                ⚙️ Impostazioni
+            </button>
             
             <div class="mt-6 pt-4 border-t-2 border-gray-700">
                 <button class="bg-red-600 hover:bg-red-700 text-white w-full p-4 rounded-xl shadow-lg font-bold" onclick="window.showDeleteProfileSection()">
